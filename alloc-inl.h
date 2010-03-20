@@ -28,11 +28,13 @@
 
 #include <stdlib.h>
 
+#ifndef __FreeBSD__
 #ifdef __APPLE__
 #include <malloc/malloc.h>
 #else
 #include <malloc.h>
 #endif /* __APPLE__ */
+#endif /* !__FreeBSD__ */
 
 #include <string.h>
 
@@ -118,6 +120,7 @@ static inline void* __DFL_ck_strdup(u8* str) {
 
   return ret;
 }
+
 
 static inline void* __DFL_ck_memdup(u8* mem, u32 size) {
   void* ret;
@@ -247,6 +250,7 @@ static inline void* __AD_ck_alloc(u32 size, const char* file, const char* func,
   return ret;
 }
 
+
 static inline void* __AD_ck_realloc(void* orig, u32 size, const char* file,
                                     const char* func, u32 line) {
   void* ret = __DFL_ck_realloc(orig, size);
@@ -255,6 +259,7 @@ static inline void* __AD_ck_realloc(void* orig, u32 size, const char* file,
   return ret;
 }
 
+
 static inline void* __AD_ck_strdup(u8* str, const char* file, const char* func,
                                    u32 line) {
   void* ret = __DFL_ck_strdup(str);
@@ -262,12 +267,14 @@ static inline void* __AD_ck_strdup(u8* str, const char* file, const char* func,
   return ret;
 }
 
+
 static inline void* __AD_ck_memdup(u8* mem, u32 size, const char* file,
                                    const char* func, u32 line) {
   void* ret = __DFL_ck_memdup(mem, size);
   __AD_alloc_buf(ret, file, func, line);
   return ret;
 }
+
 
 static inline void __AD_ck_free(void* ptr, const char* file,
                                 const char* func, u32 line) {

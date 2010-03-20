@@ -1,0 +1,15 @@
+Version 1.02b:
+--------------
+
+  - Workaround for *BSD systems with malloc J or Z options set
+    by default.
+
+Version 1.01b:
+--------------
+
+  - Workaround for a glitch in glibc "fortify".
+
+Version 1.00b:
+--------------
+
+  - Initial public release.

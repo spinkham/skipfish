@@ -48,6 +48,10 @@ u32 __AD_trk_cnt[ALLOC_BUCKETS];
 #endif /* DEBUG_ALLOCATOR */
 
 
+/* *BSD where J or Z is set are incompatible with our allocator. */
+char* _malloc_options = "jz";
+
+
 void usage(char* argv0) {
   SAY("Usage: %s [ options ... ] -o output_dir start_url [ start_url2 ... ]\n\n"
 
