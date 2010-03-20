@@ -49,7 +49,7 @@ u32 __AD_trk_cnt[ALLOC_BUCKETS];
 
 
 /* *BSD where J or Z is set are incompatible with our allocator. */
-char* _malloc_options = "jz";
+char* malloc_options = "jz";
 
 
 void usage(char* argv0) {
