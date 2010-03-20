@@ -128,7 +128,7 @@ static void test_add_link(u8* str, struct http_request* ref,
   /* Don't add links that look like they came from JS code with fragmented HTML
      snippets, etc. */
 
-  if (!sure && (strchr("()\"' +,^", *str) ||
+  if (!sure && (strchr("()\"' +,^:", *str) ||
      (*str == '/' && strchr("()\"' +,^", str[1])))) return;
 
   if ((str[0] == '\'' || str[0] == '"') && (str[1] == '+' || str[1] == ' '))

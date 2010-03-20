@@ -1,8 +1,10 @@
-Version 1.03b:
+Version 1.04b:
 --------------
 
   - Workaround for *BSD systems with malloc J or Z options set
     by default.
+
+  - A minor tweak to reject certain not-quite-URLs extracted from JS.
 
 Version 1.01b:
 --------------
