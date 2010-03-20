@@ -1,0 +1,758 @@
+<html>
+<head>
+<!--
+
+   skipfish - report renderer
+   --------------------------
+
+   Author: Michal Zalewski <lcamtuf@google.com>
+
+   Copyright 2009, 2010 by Google Inc. All Rights Reserved.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+
+-->
+<title>Skipfish - scan results browser</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+
+<style>
+body {
+  font-family: 'Georgia', 'Arial', 'Helvetica';
+  background-color: white;
+}
+
+.hdr_table {
+  float: right;
+  border: 1px dotted #C0C000;
+  background-color: #FFFFF0;
+  font-size: 80%;
+}
+
+.summary1 {
+  padding: 0 1em 0 1em;
+}
+
+.summary2 {
+  color: teal;
+  padding: 0 1em 0 0;
+}  
+
+img {
+  vertical-align: middle;
+  padding: 0 .5em 0 0;
+}
+
+.i2 {
+  vertical-align: middle;
+  padding: 0 0 0 .5em;
+}
+
+.i3 {
+  vertical-align: middle;
+  padding: 0 .2em 0 .2em;
+}
+
+.idupe {
+  opacity: 0.4;
+  filter: alpha(opacity=40);
+}
+
+.child_ctr, .child_ctr_exp {
+  padding: 0.2ex 0.5em 0.2ex 0.5em;
+  border: 1px solid white;
+  white-space: nowrap;
+}
+
+td.child_ctr_exp:hover {
+  border: 1px solid #C0C0C0;
+  cursor: pointer;
+}
+
+td.child_ctr:hover {
+}
+
+.name {
+  font-weight: bold;
+}
+
+span.sum_name {
+  font-weight: bold;
+  border: 1px solid white;
+}
+
+span.sum_name:hover {
+  font-weight: bold;
+  cursor: pointer;
+  border: 1px solid #C0C0C0;
+}
+
+.dupe_name {
+  color: gray;
+}
+
+.fetch_info {
+  font-size: 70%;
+  color: gray;
+}
+
+.fetch_data {
+  color: teal;
+}
+
+.issue_desc {
+  font-weight: bold;
+}
+
+.comment {
+  color: crimson;
+  font-size:  70%;
+}
+
+a { text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+h2 {
+  border-width: 0 0 1px 0;
+  border-style: solid;
+  border-color: crimson;
+}
+
+ol {
+  margin: 0.5em 0 0 0;
+  padding: 0 0 0 1.5em;
+}
+
+.issue_line {
+  border-width: 0 0 1px 0;
+  margin: 0.2em 0 0.2em 0;
+  border-style: dashed;
+  border-color: red;
+}
+
+.s_cnt {
+  font-size: 80%;
+  color: teal;
+}
+
+.req_div {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin: 5% 0 0 10%;
+  width: 75%;
+  height: 80%;
+  border: 3px outset teal;
+  display: none;
+  background-color: white;
+  z-index: 10;
+  padding: 10px;
+}
+
+.req_hdr {
+  background-color: #FFFFE0;
+  border: 1px outset teal;
+  font-size: 70%;
+  text-align: center;
+  padding: 2px;
+  cursor: pointer;
+}
+
+.req_txtarea {
+  border: 1px inset teal;
+  padding: 2px;
+  margin: 1% 0px 0px 0px;
+  width: 100%;
+  height: 95%;
+}
+
+div.req_hdr:hover {
+  border: 1px inset teal;
+}
+
+.cover {
+  opacity: 0.7;
+  filter: alpha(opacity=70);
+  background-color: #F0F0F0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  display: none;
+}
+
+.supp_cat {
+  color: #606060;
+}
+
+</style>
+
+<script src="summary.js"></script>
+<script src="samples.js"></script>
+
+<script>
+
+var c_count = 0;
+var ignore_click = false;
+var max_samples = 100;
+
+/* Descriptions for issues reported by the scanner. */
+
+var issue_desc= {
+
+  "10101": "SSL certificate issuer information",
+  "10201": "New HTTP cookie added",
+  "10202": "New 'Server' header value seen",
+  "10203": "New 'Via' header value seen",
+  "10204": "New 'X-*' header value seen",
+  "10205": "New 404 signature seen",
+  "10401": "Resource not directly accessible",
+  "10402": "HTTP authentication required",
+  "10403": "Server error triggered",
+  "10501": "All external links",
+  "10502": "External URL redirector",
+  "10503": "All e-mail addresses",
+  "10504": "Links to unknown protocols",
+  "10505": "Unknown form field (can't autocomplete)",
+  "10601": "HTML form found",
+  "10602": "Password entry form - consider brute-force",
+  "10701": "User-supplied link rendered on a page",
+  "10801": "Incorrect or missing MIME type (low risk)",
+  "10802": "Generic MIME used (low risk)",
+  "10803": "Incorrect or missing charset (low risk)",
+  "10804": "Conflicting MIME / charset info (low risk)",
+  "10901": "Numerical filename - consider enumerating",
+  "10902": "OGNL-like parameter behavior",
+
+  "20101": "Resource fetch failed",
+  "20102": "Limits exceeded, fetch suppressed",
+  "20201": "Behavior checks failed",
+  "20202": "IPS filtering enabled",
+  "20203": "IPS filtering disabled again",
+  "20204": "Response varies randomly, skipping injection checks",
+  "20301": "Node should be a directory, detection error?",
+
+  "30101": "HTTP credentials seen in URLs",
+  "30201": "SSL certificate expired or not yet valid",
+  "30202": "Self-signed SSL certificate",
+  "30203": "SSL certificate host name mismatch",
+  "30204": "No SSL certificate data found",
+  "30301": "Directory listing restrictions bypassed",
+  "30401": "Redirection to attacker-supplied URLs",
+  "30402": "Attacker-supplied URLs in embedded content (lower risk)",
+  "30501": "External content embedded on a page (lower risk)",
+  "30502": "Mixed content embedded on a page (lower risk)",
+  "30601": "HTML form with no apparent XSRF protection",
+  "30602": "JSON response with no apparent XSSI protection",
+  "30701": "Incorrect caching directives (lower risk)",
+
+  "40101": "XSS vector in document body",
+  "40102": "XSS vector via arbitrary URLs",
+  "40103": "HTTP response header splitting",
+  "40104": "Attacker-supplied URLs in embedded content (higher risk)",
+  "40201": "External content embedded on a page (higher risk)",
+  "40202": "Mixed content embedded on a page (higher risk)",
+  "40301": "Incorrect or missing MIME type (higher rirsk)",
+  "40302": "Generic MIME type (higher risk)",
+  "40304": "Incorrect or missing charset (higher risk)",
+  "40305": "Conflicting MIME / charset info (higher risk)",
+  "40401": "Interesting file",
+  "40402": "Interesting server message",
+  "40501": "Directory traversal possible",
+  "40601": "Incorrect caching directives (higher risk)",
+
+  "50101": "Server-side XML injection vector",
+  "50102": "Shell injection vector",
+  "50103": "SQL injection vector",
+  "50104": "Format string vector",
+  "50105": "Integer overflow vector",
+  "50201": "SQL query or similar syntax in parameters"
+
+};
+
+
+/* Simple HTML escaping routine. */
+
+function H(str) { return str.replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+
+
+/* Simple truncation routine. */
+
+function TRUNC(str) { if (str.length > 70) return str.substr(0,69) + "..."; else return str; }
+
+
+/* Initializes scan information, loads top-level view. */
+
+function initialize() {
+  document.getElementById('sf_version').innerHTML = sf_version;
+  document.getElementById('scan_date').innerHTML = scan_date;
+  document.getElementById('scan_seed').innerHTML = scan_seed;
+  document.getElementById('scan_time').innerHTML =
+    Math.floor(scan_ms / 1000 / 60 / 60) + " hr " +
+    Math.floor((scan_ms / 1000 / 60)) % 60  + " min " +
+    Math.floor((scan_ms / 1000)) % 60  + " sec " +
+    (scan_ms % 1000) + " ms";
+
+  load_node('./', 'root');
+  load_mime_summaries();
+  load_issue_summaries();
+
+}
+
+
+/* Implements pretty, pointless fades. */
+
+function next_opacity(tid, new_val) {
+  var t = document.getElementById(tid);
+  t.style.opacity = new_val;
+  t.style.filter = "alpha(opacity=" + (new_val * 100) + ")";
+  if (new_val < 1.0) 
+    setTimeout('next_opacity("' + tid + '", ' + (new_val + 0.1) + ')', 50);
+}
+
+
+/* Loads or toggles visibility of a node. */
+
+function toggle_node(dir, tid) {
+  var t = document.getElementById('c_' + tid);
+
+  if (ignore_click) { ignore_click = false; return; }
+
+  if (!t.loaded) {
+    load_node(dir, tid);
+    document.getElementById('exp_' + tid).src = 'n_expanded.png';
+    document.getElementById('exp_' + tid).title = 'Click to collapse';
+    t.loaded = true;
+    return;
+  }
+
+  if (t.style.display == 'none') {
+    document.getElementById('exp_' + tid).src = 'n_expanded.png';
+    t.style.display = 'block';
+    document.getElementById('exp_' + tid).title = 'Click to collapse';
+    next_opacity('c_' + tid, 0);
+  } else {
+    document.getElementById('exp_' + tid).src = 'n_collapsed.png';
+    t.style.display = 'none';
+    document.getElementById('exp_' + tid).title = 'Click to expand';
+  }
+
+}
+
+
+/* Displays request or response dump in a faux window. */
+
+function show_dat(path, ignore) {
+  var out = document.getElementById('req_txtarea'),
+      cov = document.getElementById('cover');
+
+  document.body.style.overflow = 'hidden';
+
+  out.value = '';
+
+  var x = new XMLHttpRequest();
+  var content;
+
+  var pX = window.scrollX ? window.scrollX : document.body.scrollLeft;
+  var pY = window.scrollY ? window.scrollY : document.body.scrollTop;
+
+  out.parentNode.style.left = pX;
+  out.parentNode.style.top = pY;
+  cov.style.left = pX;
+  cov.style.top = pY;
+
+  out.parentNode.style.display = 'block';
+  cov.style.display = 'block';
+
+  x.open('GET', path + '/request.dat', false);
+  x.send(null);
+
+  content = '=== REQUEST ===\n\n' + x.responseText;
+
+  x.open('GET', path + '/response.dat', false);
+  x.send(null);
+
+  if (x.responseText.substr(0,5) == 'HTTP/') 
+    content += '\n=== RESPONSE ===\n\n' + x.responseText + '\n=== END OF DATA ===\n';
+  else content += '\n=== RESPONSE NOT AVAILABLE ===\n\n=== END OF DATA ===\n';
+
+  out.value = content;
+  delete x;
+
+  out.focus();
+
+  if (ignore) ignore_click = true;
+  return false;
+}
+
+/* Displays request or response dump in a proper window. */
+
+function show_win(path, ignore) {
+  var out = window.open('','_blank','scroll=yes,addressbar=no');
+  var x = new XMLHttpRequest();
+  var content;
+
+  x.open('GET', path + '/request.dat', false);
+  x.send(null);
+
+  content = '=== REQUEST ===\n\n' + x.responseText;
+
+  x.open('GET', path + '/response.dat', false);
+  x.send(null);
+
+  if (x.responseText.substr(0,5) == 'HTTP/') 
+    content += '\n=== RESPONSE ===\n\n' + x.responseText + '\n=== END OF DATA ===\n';
+  else content += '\n=== RESPONSE NOT AVAILABLE ===\n\n=== END OF DATA ===\n';
+
+  out.document.body.innerHTML = '<pre></pre>';
+
+  out.document.body.firstChild.appendChild(out.document.createTextNode(content));
+  delete x;
+
+  if (ignore) ignore_click = true;
+  return false;
+}
+
+
+/* Hides request view. */
+
+function hide_dat() {
+
+  /* Work around a glitch in WebKit. */
+
+  if (navigator.userAgent.indexOf('WebKit') == -1)
+    document.body.style.overflow = 'auto';
+  else
+    document.body.style.overflow = 'scroll';
+
+  document.getElementById('req_div').style.display = 'none';
+  document.getElementById('cover').style.display = 'none'
+}
+
+
+/* Loads issues, children for a node, renders HTML. */
+
+function load_node(dir, tid) {
+  var x = new XMLHttpRequest();
+  var t = document.getElementById('c_' + tid);
+
+  x.open('GET', dir + 'child_index.js', false);
+  x.send(null);
+  eval(x.responseText);
+
+  x.open('GET', dir + 'issue_index.js', false);
+  x.send(null);
+  eval(x.responseText);
+
+  delete x;
+
+  next_opacity('c_' + tid, 0);
+
+  if (issue.length > 0)
+    t.innerHTML += '<div class="issue_line"></div>';
+
+  for (var cno = 0; cno < issue.length; cno++) {
+    var i = issue[cno];
+    var add_html;
+
+    add_html = '<table><tr><td valign="top">\n';
+
+    switch (i.severity) {
+      case 0:  add_html += '<img src="i_note.png" title="Informational note">'; break;
+      case 1:  add_html += '<img src="i_warn.png" title="Internal warning">'; break;
+      case 2:  add_html += '<img src="i_low.png" title="Low risk or low specificity">'; break;
+      case 3:  add_html += '<img src="i_medium.png" title="Medium risk - data compromise">'; break;
+      case 4:  add_html += '<img src="i_high.png" title="High risk: system compromise">'; break;
+    }
+
+    add_html += '</td>\n<td><div style="issue_desc">' + issue_desc[i.type] + '</div>\n<ol>\n';
+
+    for (var cno2 = cno; cno2 < issue.length; cno2++) {
+      var i2 = issue[cno2];
+
+      if (i2.type != i.type) break;
+
+      if (i2.fetched) {
+        add_html += '<li><div class="fetch_info">' + 
+                    'Code: <span class="fetch_data">' + i2.code + '</span>, ' +
+                    'length: <span class="fetch_data">' + i2.len + '</span>, ' +
+                    'declared: <span class="fetch_data">' + H(i2.decl_mime) + '</span>, ';
+        if (i2.sniff_mime != '[none]') add_html +=
+                    'detected: <span class="fetch_data">' + H(i2.sniff_mime) + '</span>, ';
+        add_html += 'charset: <span class="fetch_data">' + H(i2.cset) + '</span> ' + 
+                    '[ <a href="#" onclick="return show_dat(\'' + dir + i2.dir + '\', false)">show trace</a> ' +
+                    '<a href="#" onclick="return show_win(\'' + dir + i2.dir + '\', false)">+</a> ]</div>\n';
+      } else {
+        add_html += '<li><div class="fetch_info">' + 
+                    'Fetch result: ' + i2.error + '</div>';
+      }
+  
+      if (i2.extra.length > 0) add_html += '<div class="comment">Memo: ' + H(i2.extra) + '</div>\n';
+
+    }
+
+    cno = cno2 - 1;
+    add_html += '</ol>\n';
+
+    add_html += '</td></tr></table>\n';
+    t.innerHTML += add_html;
+
+  }
+
+  if (issue.length > 0)
+    t.innerHTML += '<div class="issue_line"></div>';
+
+  for (var cno = 0; cno < child.length; cno++) {
+    var c = child[cno];
+    var has_child = false;
+    var add_html, cstr = '';
+
+    add_html = '<table><tr><td valign="top">\n';
+
+    if (c.dupe) cstr = 'class="idupe" ';
+
+    switch (c.type) {
+      case 10: add_html += '<img ' + cstr + 'src="p_serv.png" title="Server node">'; break;
+      case 11: add_html += '<img ' + cstr + 'src="p_dir.png" title="Directory node">'; break;
+      case 12: add_html += '<img ' + cstr + 'src="p_file.png" title="File node">'; break;
+      case 13: add_html += '<img ' + cstr + 'src="p_pinfo.png" title="Script-like file">'; break;
+      case 100: add_html += '<img ' + cstr + 'src="p_param.png" title="GET or POST parameter">'; break;
+      case 101: add_html += '<img ' + cstr + 'src="p_value.png" title="Alternative parameter value">'; break;
+      default: add_html += '<img ' + cstr + 'src="p_unknown.png" title="Unknown node">';
+    }
+
+    if (c.child_cnt > 0 || c.issue_cnt[0] + c.issue_cnt[1] + c.issue_cnt[2] +
+        c.issue_cnt[3] + c.issue_cnt[4] > 0) {
+      add_html += '</td>\n<td class="child_ctr_exp" onclick="toggle_node(\'' +  
+                   dir + c.dir + '/\', ' + c_count + ')"' + '>';
+      has_child = true;
+    } else {
+      add_html += '</td>\n<td class="child_ctr">'
+    }
+
+    if (has_child)
+      add_html += '<img src="n_collapsed.png" id="exp_' + c_count + '"' +
+                  ' title="Click to expand">\n';
+
+    if (c.missing) {
+      if (c.linked == 2) 
+        add_html += '<img src="n_missing.png" title="Resource missing">';
+      else
+        add_html += '<img src="n_maybe_missing.png" ' + 
+                    'title="Resource missing (guessed link)">';
+    }
+
+    if (!c.fetched) 
+      add_html += '<img src="n_failed.png" title="Fetch failed">';
+
+    if (c.dupe) add_html += '<img src="n_clone.png" title="Suspected duplicate">' + 
+      '<span class="dupe_name" title="' + H(c.url) + '">' + H(TRUNC(c.name)) + '</span>\n';
+    else add_html += '<span class="name" title="' + H(c.url) + '">' + H(TRUNC(c.name)) + '</span>\n';
+
+    if (c.linked == 0)
+      add_html += '<img src="n_unlinked.png" title="Not linked (brute-forced)" class="i2">';
+
+    add_html += '<span id="child_info">';
+
+    if (c.issue_cnt[4] > 0)
+      add_html += '<img class="i2" src="i_high.png" title="High risk">' + c.issue_cnt[4];
+
+    if (c.issue_cnt[3] > 0)
+      add_html += '<img class="i2" src="i_medium.png" title="Medium risk">' + c.issue_cnt[3];
+
+    if (c.issue_cnt[2] > 0)
+      add_html += '<img class="i2" src="i_low.png" title="Low risk">' + c.issue_cnt[2];
+
+    if (c.issue_cnt[1] > 0)
+      add_html += '<img class="i2" src="i_warn.png" title="Warnings">' + c.issue_cnt[1];
+
+    if (c.issue_cnt[0] > 0)
+      add_html += '<img class="i2" src="i_note.png"  title="Notes">' + c.issue_cnt[0];
+
+    if (c.child_cnt > 0)
+      add_html += '<img class="i2" src="n_children.png" title="Unique children nodes">' + c.child_cnt;
+
+    add_html += '</span>\n';
+
+    if (c.fetched) {
+      add_html += '<div class="fetch_info">' + 
+                  'Code: <span class="fetch_data">' + c.code + '</span>, ' +
+                  'length: <span class="fetch_data">' + c.len + '</span>, ' +
+                  'declared: <span class="fetch_data">' + H(c.decl_mime) + '</span>, ';
+      if (c.sniff_mime != '[none]') add_html +=
+                  'detected: <span class="fetch_data">' + H(c.sniff_mime) + '</span>, ';
+
+      if (has_child)
+        add_html += 'charset: <span class="fetch_data">' + H(c.cset) + '</span> ' + 
+                    '[ <a href="#" onclick="return show_dat(\'' + dir + c.dir + '\', true)">show trace</a> ' +
+                    '<a href="#" onclick="return show_win(\'' + dir + c.dir + '\', true)">+</a> ]</div>\n';
+      else
+        add_html += 'charset: <span class="fetch_data">' + H(c.cset) + '</span> ' + 
+                    '[ <a href="#" onclick="return show_dat(\'' + dir + c.dir + '\', false)">show trace</a> ' +
+                    '<a href="#" onclick="return show_win(\'' + dir + c.dir + '\', false)">+</a> ]</div>\n';
+    } else {
+      add_html += '<div class="fetch_info">' + 
+                  'Fetch result: ' + c.error + '</div>\n';
+    }
+
+    if (has_child) add_html += '</tr><tr>\n<td></td>\n<td id="c_' + c_count + '">';
+
+    add_html += '</td></tr></table>\n';
+    t.innerHTML += add_html;
+    c_count++;
+
+  }
+
+}
+
+
+/* Picks the lesser of two evils. */
+
+function MIN(a,b) { if (a > b) return b; else return a; }
+
+
+/* Toggles visibility of a summary view. */
+
+function show_sum(t) {
+  var target = t.nextSibling.nextSibling.nextSibling.nextSibling;
+  if (target.style.display == 'block') {
+    target.style.display = 'none';
+  } else {
+    next_opacity(target.id, 0);
+    target.style.display = 'block';
+  }
+}
+
+
+/* Loads MIME summaries. */
+
+function load_mime_summaries() {
+  var t = document.getElementById('doc_types');
+
+  for (var cno = 0; cno < mime_samples.length; cno++) {
+    var m = mime_samples[cno], limit = MIN(max_samples, m.samples.length);
+    var add_html;
+
+    add_html = '<table><tr><td valign="top"><img src="mime_entry.png"></td>\n<td valign="top">';
+    add_html += '<span class="sum_name" onclick="show_sum(this)">' + H(m.mime) + '</span>\n<span class="s_cnt">(' + 
+                m.samples.length + ')</span>\n<ol id="sum_' + (c_count++) + '" style="display: none">\n';
+
+    for (var sno = 0; sno < limit; sno++) {
+
+      add_html += '<li><a target="_blank" href="' + H(m.samples[sno].url) + '">' + H(m.samples[sno].url) + '</a> ';
+
+      if (m.samples[sno].linked == 0)
+        add_html += '<img src="n_unlinked.png" title="Not linked (brute-forced)" class="i3"> ';
+
+      add_html += '<span class="s_cnt">(' + m.samples[sno].len + ' bytes)</span> <span class="fetch_info">' +
+                  '[ <a href="#" onclick="return show_dat(\'' + m.samples[sno].dir + '\', false)">show trace</a> ' +
+                  '<a href="#" onclick="return show_win(\'' + m.samples[sno].dir + '\', false)">+</a> ]</span>\n';
+
+    }
+
+    add_html += '</ol></tr></td></table>\n';
+
+    t.innerHTML += add_html;
+
+  }
+
+}
+
+
+/* Loads issue summaries. */
+
+function load_issue_summaries() {
+  var t = document.getElementById('issue_types');
+
+  for (var cno = 0; cno < issue_samples.length; cno++) {
+    var i = issue_samples[cno], limit = MIN(max_samples, i.samples.length);
+    var add_html;
+
+    add_html = '<table><tr><td valign="top">';
+
+    switch (i.severity) {
+      case 0:  add_html += '<img src="i_note.png" title="Informational note">'; break;
+      case 1:  add_html += '<img src="i_warn.png" title="Internal warning">'; break;
+      case 2:  add_html += '<img src="i_low.png" title="Low risk or low specificity">'; break;
+      case 3:  add_html += '<img src="i_medium.png" title="Medium risk - data compromise">'; break;
+      case 4:  add_html += '<img src="i_high.png" title="High risk: system compromise">'; break;
+    }
+
+    add_html += '</td>\n<td valign="top"><span class="sum_name" onclick="show_sum(this)">' + 
+      issue_desc[i.type] + '</span>\n<span class="s_cnt">(' + i.samples.length + ')</span>\n' +
+      '<ol id="sum_' + (c_count++) + '" style="display: none">\n';
+
+    for (var sno = 0; sno < limit; sno++) {
+
+      add_html += '<li> <a target="_blank" href="' + H(i.samples[sno].url) + '">' + H(i.samples[sno].url) + '</a> <span class="fetch_info">' +
+                  '[ <a href="#" onclick="return show_dat(\'' + i.samples[sno].dir + '\', false)">show trace</a> ' +
+                  '<a href="#" onclick="return show_win(\'' + i.samples[sno].dir + '\', false)">+</a> ]</span>\n';
+
+      if (i.samples[sno].extra && i.samples[sno].extra.length > 0) 
+        add_html += '<div class="comment">Memo: ' + H(i.samples[sno].extra) + '</div>\n';
+
+    }
+
+    add_html += '</ol></tr></td></table>\n';
+
+    t.innerHTML += add_html;
+
+  }
+
+}
+
+
+/* Warns about CSS support issues. */
+
+if ('\v' == 'v')
+  alert('WARNING: This page works better with Firefox, Safari, Chrome, Opera, etc.\n\n' +
+        'Known problems in Internet Explorer include incorrectly rendered PNG icons, cursors,\n' +
+        'HTML request dumps, incorrect CSS padding for many elements, and so forth. To my best\n' +
+        'knowledge, these patterns trace back to problems with MSIE, not with this viewer.');
+
+</script>
+
+</head>
+<body onload="initialize()">
+
+<img src="sf_name.png" width="203" height="93" style="float: left">
+
+<div class="req_div" id="req_div">
+<div class="req_hdr" id="req_hdr" onclick="hide_dat()">HTTP trace - click this bar or hit ESC to close</div>
+<textarea class="req_txtarea" id="req_txtarea" readonly onkeyup="if (event.keyCode == 27) hide_dat();"></textarea>
+</div>
+<div id="cover" class="cover"></div>
+
+<table class="hdr_table">
+<tr><td class="summary1">Scanner version:</td><td class="summary2" id="sf_version"></td>
+<td class="summary1">Scan date:</td><td class="summary2" id="scan_date"></td></tr>
+<tr><td class="summary1">Random seed:</td><td class="summary2" id="scan_seed"></td>
+<td class="summary1">Total time:</td><td class="summary2" id="scan_time"></td></tr>
+</table>
+
+<br clear="all">
+
+<h2>Crawl results - click to expand:</h2>
+<div id="c_root" class="child_ctr">
+</div>
+
+<h2 class="supp_cat">Document type overview - click to expand:</h2>
+<div id="doc_types">
+</div>
+
+<h2 class="supp_cat">Issue type overview - click to expand:</h2>
+<div id="issue_types">
+</div>
+<p>
+<span class="fetch_info">NOTE: 100 samples maximum per issue or document type.</span>
+

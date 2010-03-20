@@ -1,0 +1,186 @@
+This directory contains four alternative, hand-picked Skipfish dictionaries.
+
+Before you pick one, you should understand several basic concepts related to
+dictionary management in this scanner, as this topic is of critical importance
+to the quality of your scans.
+
+-----------------------------
+Dictionary management basics:
+-----------------------------
+
+1) Each dictionary may consist of a number of extensions, and a number of
+   "regular" keywords. Extensions are considered just a special subset of
+   the keyword list.
+
+2) You can specify the dictionary to use with a -W option. The file must
+   conform to the following format:
+
+   type hits total_age last_age keyword
+
+   ...where 'type' is either 'e' or 'w' (extension or wordlist); 'hits'
+   is the total number of times this keyword resulted in a non-404 hit
+   in all previous scans; 'total_age' is the number of scan cycles this
+   word is in the dictionary; 'last_age' is the number of scan cycles
+   since the last 'hit'; and 'keyword' is the actual keyword.
+
+   Do not duplicate extensions as keywords - if you already have 'html' as
+   an 'e' entry, there is no need to also create a 'w' one.
+
+   There must be no empty or malformed lines, comments, etc, in the wordlist
+   file. Extension keywords must have no leading dot (e.g., 'exe', not '.exe'),
+   and all keywords should be NOT url-encoded (e.g., 'Program Files', not
+   'Program%20Files'). No keyword should exceed 64 characters.
+
+   If you omit -W in the command line, 'skipfish.wl' is assumed.
+
+3) When loading a dictionary, you can use -R option to drop any entries
+   that had no hits for a specified number of scans.
+
+4) Unless -L is specified in the command line, the scanner will also
+   automatically learn new keywords and extensions based on any links
+   discovered during the scan.
+
+5) Unless -L is specified, the scanner will also analyze pages and extract
+   words that would serve as keyword guesses. A capped number of guesses
+   is maintained by the scanner, with older entries being removed from the
+   list as new ones are found (the size of this jar is adjustable with the
+   -G option).
+
+   These guesses would be tested along with regular keywords during brute-force
+   steps. If they result in a non-404 hit at some point, they are promoted to
+   the "proper" keyword list.
+
+6) Unless -V is specified in the command line, all newly discovered keywords
+   are saved back to the input wordlist file, along with their hit statistics.
+
+----------------------------------------------
+Dictionaries are used for the following tasks:
+----------------------------------------------
+
+1) When a new directory, or a file-like query or POST parameter is discovered,
+   the scanner attempts passing all possible <keyword> values to discover new
+   files, directories, etc.
+
+2) If you did NOT specify -Y in the command line, the scanner also tests all
+   possible <keyword>.<extension> pairs in these cases. Note that this may 
+   result in several orders of magnitude more requests, but is the only way
+   to discover files such as 'backup.tar.gz', 'database.csv', etc.
+
+3) For any non-404 file or directory discovered by any other means, the scanner
+   also attempts all <node_filename>.<extension> combinations, to discover,
+   for example, entries such as 'index.php.old'.
+
+----------------------
+Supplied dictionaries:
+----------------------
+
+1) Empty dictionary (-).
+
+   Simply create an empty file, then load it via -W. If you use this option
+   in conjunction with -L, this essentially inhibits all brute-force testing,
+   and results in an orderly, link-based crawl.
+
+   If -L is not used, the crawler will still attempt brute-force, but only
+   based on the keywords and extensions discovered when crawling the site.
+   This means it will likely learn keywords such as 'index' or extensions
+   such as 'html' - but may never attempt probing for 'log', 'old', 'bak', etc.
+
+   Both these variants are very useful for lightweight scans, but are not
+   particularly exhaustive.
+
+2) Extension-only dictionary (extensions-only.wl).
+
+   This dictionary contains about 90 common file extensions, and no other
+   keywords. It must be used in conjunction with -Y (otherwise, it will not
+   behave as expected).
+
+   This is often a better alternative to a null dictionary: the scanner will
+   still limit brute-force primarily to file names learned on the site, but
+   will know about extensions such as 'log' or 'old', and will test for them
+   accordingly.
+
+3) Basic extensions dictionary (minimal.wl).
+
+   This dictionary contains about 25 extensions, focusing on common entries
+   most likely to spell trouble (.bak, .old, .conf, .zip, etc); and about 1,700
+   hand-picked keywords.
+
+   This is useful for quick assessments where no obscure technologies are used.
+   The principal scan cost is about 42,000 requests per each fuzzed directory.
+   Using it without -L is recommended, as the list of extensions does not
+   include standard framework-specific cases (.asp, .jsp, .php, etc), and
+   these are best learned on the fly.
+
+   You can also use this dictionary with -Y option enabled, approximating the
+   behavior of most other security scanners; in this case, it will send only
+   about 1,700 requests per directory, and will look for 25 secondary extensions
+   only on otherwise discovered resources.
+
+3) Standard extensions dictionary (default.wl).
+
+   This dictionary contains about 60 common extensions, plus the same set of
+   1,700 keywords. The extensions cover most of the common, interesting web
+   resources.
+
+   This is a good starting point for assessments where scan times are not
+   a critical factor; the cost is about 100,000 requests per each fuzzed
+   directory.
+
+   In -Y mode, it behaves nearly identical to minimal.wl, but will test a
+   greater set of extensions on otherwise discovered resources, at a relatively
+   minor expense.
+
+4) Complete extensions dictionary (complete.wl).
+
+   Contains about 90 common extensions and 1,700 keywords. These extensions
+   cover a broader range of media types, including some less common programming
+   languages, image and video formats, etc.
+
+   Useful for comprehensive assessments, over 150,000 requests per each fuzzed
+   directory.
+
+   In -Y mode - see default.wl, offers the best coverage of all three wordlists
+   at a relatively low cost.
+
+Of course, you can customize these dictionaries as seen fit. It might be, for
+example, a good idea to downgrade file extensions not likely to occur given
+the technologies used by your target host to regular 'w' records.
+
+Whichever option you choose, be sure to make a *copy* of this dictionary, and
+load that copy, not the original, via -W. The specified file will be overwritten
+with site-specific information (unless -V used).
+
+----------------------------------
+Bah, these dictionaries are small!
+----------------------------------
+
+Keep in mind that web crawling is not password guessing; it is exceedingly
+unlikely for web servers to have directories or files named 'henceforth',
+'abating', or 'witlessly'. Because of this, using 200,000+ entry English
+wordlists, or similar data sets, is largely pointless.
+
+More importantly, doing so often leads to reduced coverage or unacceptable
+scan times; with a 200k wordlist and 80 extensions, trying all combinations
+for a single directory would take 30-40 hours against a slow server; and even
+with a fast one, at least 5 hours is to be expected.
+
+DirBuster uses a unique approach that seems promising at first sight - to
+base their wordlists depending on how often a particular keyword appeared in
+URLs seen on the Internet. This is interesting, but comes with two gotchas:
+
+  - Keywords related to popular websites and brands are heavily
+    overrepresented; DirBuster wordlists have 'bbc_news_24', 'beebie_bunny',
+    and 'koalabrothers' near the top of their list, but it is pretty unlikely
+    these keywords would be of any use in real-world assessments of a typical
+    site, unless it happens to be BBC.
+
+  - Some of the most interesting security-related keywords are not commonly
+    indexed, and may appear, say, on no more than few dozen or few thousand
+    crawled websites in Google index. But, that does not make 'AggreSpy' or
+    '.ssh/authorized_keys' any less interesting.
+
+Bottom line is, poor wordlists are one of the reasons why some other web
+security scanners perform worse than expected, so please - be careful. You will
+almost always be better off narrowing down or selectively extending the
+supplied set (and possibly contributing back your changes upstream!), than
+importing a giant wordlist from elsewhere.
