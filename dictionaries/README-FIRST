@@ -12,8 +12,8 @@ Dictionary management basics:
    "regular" keywords. Extensions are considered just a special subset of
    the keyword list.
 
-2) You can specify the dictionary to use with a -W option. The file must
-   conform to the following format:
+2) Use -W to specify the dictionary file to use. The dictionary may be
+   custom, but must conform to the following format:
 
    type hits total_age last_age keyword
 
@@ -26,32 +26,32 @@ Dictionary management basics:
    Do not duplicate extensions as keywords - if you already have 'html' as
    an 'e' entry, there is no need to also create a 'w' one.
 
-   There must be no empty or malformed lines, comments, etc, in the wordlist
+   There must be no empty or malformed lines, comments in the wordlist
    file. Extension keywords must have no leading dot (e.g., 'exe', not '.exe'),
    and all keywords should be NOT url-encoded (e.g., 'Program Files', not
    'Program%20Files'). No keyword should exceed 64 characters.
 
-   If you omit -W in the command line, 'skipfish.wl' is assumed.
+   If you omit -W in the command line, 'skipfish.wl' is assumed. This
+   file does not exist by default; this is by design.
 
-3) When loading a dictionary, you can use -R option to drop any entries
-   that had no hits for a specified number of scans.
+3) The scanner will automatically learn new keywords and extensions based on
+   any links discovered during the scan; and will also analyze pages and
+   extract words to use as keyword candidates.
 
-4) Unless -L is specified in the command line, the scanner will also
-   automatically learn new keywords and extensions based on any links
-   discovered during the scan.
+   A capped number of candidates is kept in memory (you can set the jar size
+   with the -G option) in FIFO mode, and are used for brute-force attacks.
+   When a particular candidate results in a non-404 hit, it is promoted to
+   the "real" dictionary; other candidates are discarded at the end of the
+   scan.
 
-5) Unless -L is specified, the scanner will also analyze pages and extract
-   words that would serve as keyword guesses. A capped number of guesses
-   is maintained by the scanner, with older entries being removed from the
-   list as new ones are found (the size of this jar is adjustable with the
-   -G option).
+   You can inhibit this auto-learning behavior by specifying -L in the
+   command line.
 
-   These guesses would be tested along with regular keywords during brute-force
-   steps. If they result in a non-404 hit at some point, they are promoted to
-   the "proper" keyword list.
+4) Keyword hit counts and age information will be updated at the end of the
+   scan. This can be prevented with -V.
 
-6) Unless -V is specified in the command line, all newly discovered keywords
-   are saved back to the input wordlist file, along with their hit statistics.
+5) Old dictionary entries with no hits for a specified number of scans can
+   be purged by specifying the -R <cnt> option.
 
 ----------------------------------------------
 Dictionaries are used for the following tasks:
@@ -61,14 +61,17 @@ Dictionaries are used for the following tasks:
    the scanner attempts passing all possible <keyword> values to discover new
    files, directories, etc.
 
-2) If you did NOT specify -Y in the command line, the scanner also tests all
-   possible <keyword>.<extension> pairs in these cases. Note that this may 
-   result in several orders of magnitude more requests, but is the only way
-   to discover files such as 'backup.tar.gz', 'database.csv', etc.
+2) The scanner also tests all possible <keyword>.<extension> pairs. Note that
+   this results in several orders of magnitude more requests, but is the only
+   way to discover files such as 'backup.tar.gz', 'database.csv', etc. 
+
+   In some cases, you might want to inhibit this step. This can be achieved
+   with the -Y switch.
 
 3) For any non-404 file or directory discovered by any other means, the scanner
    also attempts all <node_filename>.<extension> combinations, to discover,
-   for example, entries such as 'index.php.old'.
+   for example, entries such as 'index.php.old'. This behavior is independent
+   of the -Y option.
 
 ----------------------
 Supplied dictionaries:
@@ -107,9 +110,13 @@ Supplied dictionaries:
 
    This is useful for quick assessments where no obscure technologies are used.
    The principal scan cost is about 42,000 requests per each fuzzed directory.
+
    Using it without -L is recommended, as the list of extensions does not
    include standard framework-specific cases (.asp, .jsp, .php, etc), and
    these are best learned on the fly.
+
+   ** This dictionary is strongly recommended for your first experiments with
+   ** Jellyfish, as it's reasonably lightweight.
 
    You can also use this dictionary with -Y option enabled, approximating the
    behavior of most other security scanners; in this case, it will send only
@@ -127,7 +134,7 @@ Supplied dictionaries:
    directory.
 
    In -Y mode, it behaves nearly identical to minimal.wl, but will test a
-   greater set of extensions on otherwise discovered resources, at a relatively
+   greater set of extensions on otherwise discovered resources at a relatively
    minor expense.
 
 4) Complete extensions dictionary (complete.wl).
@@ -139,7 +146,7 @@ Supplied dictionaries:
    Useful for comprehensive assessments, over 150,000 requests per each fuzzed
    directory.
 
-   In -Y mode - see default.wl, offers the best coverage of all three wordlists
+   In -Y mode, this dictionary offers the best coverage of all three wordlists
    at a relatively low cost.
 
 Of course, you can customize these dictionaries as seen fit. It might be, for
@@ -148,7 +155,7 @@ the technologies used by your target host to regular 'w' records.
 
 Whichever option you choose, be sure to make a *copy* of this dictionary, and
 load that copy, not the original, via -W. The specified file will be overwritten
-with site-specific information (unless -V used).
+with site-specific information unless -V used.
 
 ----------------------------------
 Bah, these dictionaries are small!

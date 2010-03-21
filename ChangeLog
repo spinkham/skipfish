@@ -1,7 +1,12 @@
+Version 1.06b:
+--------------
+
+  - Minor documentation updates.
+
 Version 1.05b:
 --------------
 
-  - Final workaround for FORTIFY_SOURCE on MacOS X.
+  - Another workaround for FORTIFY_SOURCE on MacOS X.
 
 Version 1.04b:
 --------------
@@ -14,7 +19,7 @@ Version 1.04b:
 Version 1.01b:
 --------------
 
-  - Workaround for a glitch in glibc "fortify".
+  - Workaround for a glitch in FORTIFY_SOURCE on Linux.
 
 Version 1.00b:
 --------------

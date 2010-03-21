@@ -178,16 +178,27 @@ First and foremost, please do not be evil. Use skipfish only against services
 you own, or have a permission to test.
 
 Keep in mind that all types of security testing can be disruptive. Although the 
-scanner is designed not to carry out disruptive malicious attacks, it may 
-accidentally interfere with the operations of the site. You must accept the 
-risk, and plan accordingly. Run the scanner against test instances where 
-feasible, and be prepared to deal with the consequences if things go wrong.
+scanner is designed not to carry out malicious attacks, it may accidentally 
+interfere with the operations of the site. You must accept the risk, and plan
+accordingly. Run the scanner against test instances where feasible, and be
+prepared to deal with the consequences if things go wrong.
 
 Also note that the tool is meant to be used by security professionals, and is 
 experimental in nature. It may return false positives or miss obvious security 
 problems - and even when it operates perfectly, it is simply not meant to be a 
 point-and-click application. Do not rely on its output at face value.
-How to run the scanner?
+
+Running the tool against vendor-supplied demo sites is not a good way to
+evaluate it, as they usually approximate vulnerabilities very imperfectly; we
+made no effort to accommodate these cases.
+
+Lastly, the scanner is simply not designed for dealing with rogue and
+misbehaving HTTP servers - and offers no guarantees of safe (or sane) behavior
+there.
+
+--------------------------
+4. How to run the scanner?
+--------------------------
 
 To compile it, simply unpack the archive and try make. Chances are, you will 
 need to install libidn first.
@@ -357,7 +368,7 @@ willing to see before aborting the scan; and -s sets the maximum length of a
 response to fetch and parse (longer responses will be truncated).
 
 --------------------------------
-4. But seriously, how to run it?
+5. But seriously, how to run it?
 --------------------------------
 
 A standard, authenticated scan of a well-designed and self-contained site 
@@ -380,7 +391,7 @@ $ ./skipfish -B .example.com -O -o output_dir -t 5 http://www.example.com/
 For a short list of all command-line options, try ./skipfish -h.
 
 ----------------------------------------------------
-5. How to interpret and address the issues reported?
+6. How to interpret and address the issues reported?
 ----------------------------------------------------
 
 Most of the problems reported by skipfish should self-explanatory, assuming you 
@@ -405,7 +416,7 @@ cannot offer any assistance with the inner wokings of third-party web
 applications.
 
 ---------------------------------------
-6. Known limitations / feature wishlist
+7. Known limitations / feature wishlist
 ---------------------------------------
 
 Below is a list of features currently missing in skipfish. If you wish to 
@@ -447,13 +458,17 @@ improve the tool by contributing code in one of these areas, please let me know:
   * Config file support. 
 
 -------------------------------------
-7. Oy! Something went horribly wrong!
+8. Oy! Something went horribly wrong!
 -------------------------------------
 
 There is no web crawler so good that there wouldn't be a web framework to one 
 day set it on fire. If you encounter what appears to be bad behavior (e.g., a 
 scan that takes forever and generates too many requests, completely bogus nodes 
-in scan output, or outright crashes), please recompile the scanner with:
+in scan output, or outright crashes), please first check this page:
+
+  http://code.google.com/p/skipfish/wiki/KnownIssues
+
+If you can't find a satisfactory answer there, recompile the scanner with:
 
 $ make clean debug
 
@@ -474,7 +489,7 @@ $ gdb --batch -ex back ./skipfish core
 ...and be sure to send the author the output of that last command as well.
 
 -----------------------
-8. Credits and feedback
+9. Credits and feedback
 -----------------------
 
 Skipfish is made possible thanks to the contributions of, and valuable feedback 
