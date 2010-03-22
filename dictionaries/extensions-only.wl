@@ -87,14 +87,4 @@ e 1 1 1 xls
 e 1 1 1 xml
 e 1 1 1 xsl
 e 1 1 1 zip
-w 1 1 1 AggreSpy
-w 1 1 1 DMSDump
-w 1 1 1 dms0
-w 1 1 1 dmse 1 1 1 7z
-w 1 1 1 getjobid
-w 1 1 1 oprocmgr-status
-w 1 1 1 rwservlet
-w 1 1 1 showenv
-w 1 1 1 showjobs
-w 1 1 1 showmap
-w 1 1 1 soaprouter
+e 1 1 1 7z
