@@ -1913,14 +1913,17 @@ static void detect_mime(struct http_request* req, struct http_response* res) {
       return;
     }
 
-    if (strstr((char*)sniffbuf, "<?xml")) {
+    if (strstr((char*)sniffbuf, "<?xml") ||
+        strstr((char*)sniffbuf, "<!DOCTYPE")) {
 
-      if (inl_strcasestr(sniffbuf, (u8*)"<!DOCTYPE html"))
+      if (strstr((char*)sniffbuf, "<!DOCTYPE html") ||
+          strstr((char*)sniffbuf, "http://www.w3.org/1999/xhtml"))
         res->sniff_mime_id = MIME_XML_XHTML;
       else
         res->sniff_mime_id = MIME_XML_GENERIC;
 
       return;
+
     }
 
     /* Do an unconvincing check for HTML once we ruled out
