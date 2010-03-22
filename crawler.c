@@ -1941,15 +1941,20 @@ void crawl_par_trylist_init(struct pivot_desc* pv) {
         !((is_c_sens(pv) ? strcmp : strcasecmp)((char*)pv->try_list[i],
         (char*)pv->req->par.v[pv->fuzz_par]))) continue;
 
-    if (c == pv->child_cnt && R(100) < crawl_prob) {
-      struct http_request* n;
-      n = req_copy(pv->req, pv, 1);
-      ck_free(TPAR(n));
-      TPAR(n) = ck_strdup(pv->try_list[i]);
-      n->callback = par_trylist_callback;
-      async_request(n);
-    } else 
+    if (c == pv->child_cnt) {
+
+      if (R(100) < crawl_prob) {
+        struct http_request* n;
+        n = req_copy(pv->req, pv, 1);
+        ck_free(TPAR(n));
+        TPAR(n) = ck_strdup(pv->try_list[i]);
+        n->callback = par_trylist_callback;
+        async_request(n);
+      }
+
+    } else {
       if (!pv->child[c]->linked) pv->child[c]->linked = 1;
+    }
 
   }
 

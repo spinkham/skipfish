@@ -150,7 +150,7 @@ int main(int argc, char** argv) {
   SAY("skipfish version " VERSION " by <lcamtuf@google.com>\n");
 
   while ((opt = getopt(argc, argv,
-          "+A:F:C:H:b:Nd:c:r:p:I:X:S:D:PJOYQMUEW:LVT:G:R:B:q:g:m:f:t:w:i:s:o:")) > 0)
+          "+A:F:C:H:b:Nd:c:r:p:I:X:S:D:PJOYQMUEW:LVT:G:R:B:q:g:m:f:t:w:i:s:o:h")) > 0)
 
     switch (opt) {
 
