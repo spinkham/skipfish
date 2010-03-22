@@ -34,7 +34,9 @@
 #else
 #include <malloc.h>
 #endif /* __APPLE__ */
-#endif /* !__FreeBSD__ */
+#else
+#include <malloc_np.h>
+#endif /* ^__FreeBSD__ */
 
 #include <string.h>
 

@@ -116,7 +116,7 @@ Supplied dictionaries:
    these are best learned on the fly.
 
    ** This dictionary is strongly recommended for your first experiments with
-   ** Jellyfish, as it's reasonably lightweight.
+   ** skipfish, as it's reasonably lightweight.
 
    You can also use this dictionary with -Y option enabled, approximating the
    behavior of most other security scanners; in this case, it will send only
