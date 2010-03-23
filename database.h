@@ -202,6 +202,7 @@ u8 is_c_sens(struct pivot_desc* pv);
 
 #define PROB_FORM               10601           /* XSRF-safe form            */
 #define PROB_PASS_FORM          10602           /* Password form             */
+#define PROB_FILE_FORM          10603           /* File upload form          */
 
 #define PROB_USER_LINK          10701           /* User-supplied A link      */
 

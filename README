@@ -156,8 +156,9 @@ A rough list of the security checks offered by the tool is outlined below.
     - All external URL redirectors (optional).
     - Links to unknown protocols.
     - Form fields that could not be autocompleted.
-    - All HTML forms detected.
     - Password entry forms (for external brute-force).
+    - File upload forms.
+    - All other HTML forms detected.
     - Numerical file names (for external brute-force).
     - User-supplied links otherwise rendered on a page.
     - Incorrect or missing MIME type on less significant content.
@@ -443,7 +444,9 @@ improve the tool by contributing code in one of these areas, please let me know:
 
   * Search engine integration (vhosts, starting paths). 
 
-  * VIEWSTATE decoding. 
+  * More specific PHP tests (eval injection, RFI). 
+
+  * VIEWSTATE decoding.
 
   * NTLM and digest authentication. 
 
@@ -451,11 +454,15 @@ improve the tool by contributing code in one of these areas, please let me know:
     currently employed by skipfish; but in the long run, should be provided as
     a last-resort option. 
 
-  * Scan resume option. 
+  * Scan resume option.
+
+  * Option to limit document sampling or save samples directly to disk. 
 
   * Standalone installation (make install) support. 
 
   * Config file support. 
+
+  * A database for banner / version checks?
 
 -------------------------------------
 8. Oy! Something went horribly wrong!

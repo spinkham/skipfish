@@ -448,7 +448,7 @@ static void collect_form_data(struct http_request* req,
                               struct http_response* orig_res,
                               u8* cur_str, u8 is_post) {
 
-  u8  has_xsrf = 0, pass_form = 0;
+  u8  has_xsrf = 0, pass_form = 0, file_form = 0;
   u32 tag_cnt = 0;
 
   DEBUG("* collect_form_data() entered\n");
@@ -550,7 +550,9 @@ static void collect_form_data(struct http_request* req,
 
         }
 
-        if (inl_strcasestr(tag_name, (u8*) "passw")) pass_form = 1;
+        if (!strcasecmp((char*)tag_type, "password") ||
+            inl_strcasestr(tag_name, (u8*) "passw")) pass_form = 1;
+        else if (!strcasecmp((char*)tag_type, "file")) file_form = 1;
 
         ck_free(tag_name);
         ck_free(tag_type);
@@ -577,10 +579,17 @@ final_checks:
   if (pass_form) {
     problem(PROB_PASS_FORM, req, orig_res, NULL, req->pivot, 0);
   } else {
-    if (tag_cnt && !has_xsrf)
+
+    if (tag_cnt && !has_xsrf) {
+      if (file_form)
+        problem(PROB_FILE_FORM, req, orig_res, NULL, req->pivot, 0);
       problem(PROB_VULN_FORM, req, orig_res, NULL, req->pivot, 0);
-    else
-      problem(PROB_FORM, req, orig_res, NULL, req->pivot, 0);
+    } else {
+      if (file_form)
+        problem(PROB_FILE_FORM, req, orig_res, NULL, req->pivot, 0);
+      else
+        problem(PROB_FORM, req, orig_res, NULL, req->pivot, 0);
+    }
   }
 
 }
