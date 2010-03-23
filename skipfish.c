@@ -120,10 +120,17 @@ void usage(char* argv0) {
 
 /* Ctrl-C handler... */
 
-static u8 stop_soon;
+static u8 stop_soon, clear_screen;
 
 static void ctrlc_handler(int sig) {
   stop_soon = 1;
+}
+
+
+/* Screen resizing handler. */
+
+static void resize_handler(int sig) {
+  clear_screen = 1;
 }
 
 
@@ -139,6 +146,7 @@ int main(int argc, char** argv) {
   u64 st_time, en_time;
 
   signal(SIGINT, ctrlc_handler);
+  signal(SIGWINCH, resize_handler);
   signal(SIGPIPE, SIG_IGN);
   SSL_library_init();
 
@@ -420,6 +428,11 @@ int main(int argc, char** argv) {
 
     if ((loop_cnt++ % 20) && !show_once) continue;
 
+    if (clear_screen) {
+      SAY("\x1b[H\x1b[2J");
+      clear_screen = 0;
+    }
+
     SAY(cYEL "\x1b[H"
            "skipfish version " VERSION " by <lcamtuf@google.com>\n\n" cNOR);
 
@@ -446,7 +459,7 @@ int main(int argc, char** argv) {
   SAY("\n== END OF DUMP ==\n\n");
 #endif /* LOG_STDERR */
 
-  SAY(cLGN "[+] " cBRI "This was a great day for science!" cNOR "\n\n");
+  SAY(cLGN "[+] " cBRI "This was a great day for science!" cRST "\n\n");
 
 #ifdef DEBUG_ALLOCATOR
   if (!stop_soon) {

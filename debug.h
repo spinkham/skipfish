@@ -44,6 +44,7 @@
 #  define cPIN "\x1b[1;35m"
 #  define cLCY "\x1b[1;36m"
 #  define cBRI "\x1b[1;37m"
+#  define cRST "\x1b[0m"
 #else
 #  define cBLK
 #  define cRED
@@ -61,6 +62,7 @@
 #  define cPIN
 #  define cLCY
 #  define cBRI
+#  define cRST
 #endif /* ^USE_COLOR */
 
 #ifdef LOG_STDERR
@@ -74,12 +76,12 @@
 
 #define WARN(x...) do { \
     F_DEBUG(cYEL "[!] WARNING: " cBRI x); \
-    F_DEBUG(cNOR "\n"); \
+    F_DEBUG(cRST "\n"); \
   } while (0)
 
 #define FATAL(x...) do { \
     F_DEBUG(cLRD "[-] PROGRAM ABORT : " cBRI x); \
-    F_DEBUG(cLRD "\n    Stop location : " cNOR "%s(), %s:%u\n", \
+    F_DEBUG(cLRD "\n    Stop location : " cNOR "%s(), %s:%u\n" cRST, \
             __FUNCTION__, __FILE__, __LINE__); \
     exit(1); \
   } while (0)
@@ -89,6 +91,7 @@
     F_DEBUG(cLRD "\n    Stop location : " cNOR "%s(), %s:%u\n", \
             __FUNCTION__, __FILE__, __LINE__); \
     perror(cLRD "       OS message " cNOR); \
+    F_DEBUG(cRST); \
     exit(1); \
   } while (0)
 

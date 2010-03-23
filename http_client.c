@@ -136,7 +136,8 @@ void set_value(u8 type, u8* name, u8* val,
   if (offset >= 0)
     for (i=0;i<par->c;i++) {
       if (type != par->t[i]) continue;
-      if (name && strcasecmp((char*)par->n[i], (char*)name)) continue;
+      if (name && (!par->n[i] || strcasecmp((char*)par->n[i], (char*)name)))
+        continue;
       if (offset != coff) { coff++; continue; }
       matched = i;
       break;
@@ -860,7 +861,7 @@ u8* build_request_data(struct http_request* req) {
 
     ASD("Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7\r\n");
     ASD("Keep-Alive: 300\r\n");
-    ASD("Connction: keep-alive\r\n");
+    ASD("Connection: keep-alive\r\n");
 
   } else /* MSIE */ {
 
@@ -2108,7 +2109,7 @@ network_error:
 
       /* Nothing happened. Check timeouts, kill stale connections.
          Active (c->q) connections get checked for total and last I/O
-         timeouts. Non-active connctions must just not exceed
+         timeouts. Non-active connections must just not exceed
          idle_tmout. */
 
       if (!p[i].revents) {

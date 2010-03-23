@@ -1,3 +1,18 @@
+Version 1.11b:
+--------------
+
+  - SIGWINCH support: you can now resize your window while scanning.
+
+  - Typo in report category name fixed.
+
+  - Terminal color fix for non-standard themes.
+
+  - Fixed icons license (GPL -> LGPL).
+
+  - Fixed a typo in -b ffox headers.
+
+  - Fixed a potential NULL pointer crash in form parsing.
+
 Version 1.10b:
 --------------
 
@@ -6,7 +21,7 @@ Version 1.10b:
 Version 1.09b:
 --------------
 
-  - Fix for a potential crash in probabilistic scan mode (<100%).
+  - Fix for a potential NULL pointer crash in probabilistic scan mode (<100%).
 
 Version 1.08b:
 --------------
