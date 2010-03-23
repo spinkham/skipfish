@@ -1,3 +1,10 @@
+Version 1.16b:
+--------------
+
+  - Fixed a typo introduced in 1.16 to index.html (d'oh).
+
+  - Further refinements to Makefile CFLAGS / LIBS / LDFLAGS.
+
 Version 1.15b:
 --------------
 
