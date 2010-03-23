@@ -2731,8 +2731,20 @@ u8 fetch_unknown_callback(struct http_request* req, struct http_response* res) {
      response, assume file. This is a workaround for some really
      quirky architectures. */
 
-  if (par && res->pay_len && res->code >= 200 && res->code < 400 &&
+  if (par && res->pay_len && res->code == 200 &&
       same_page(&par->unk_sig, &res->sig)) {
+
+    req->pivot->type = PIVOT_FILE;
+    return fetch_file_callback(req, res);
+
+  }
+
+  /* Another workaround for quirky frameworks: identical signature
+     as parent's both probes, and 3xx code. */
+
+  if (par && res->code >= 300 && res->code < 400 &&
+      same_page(&par->unk_sig, &res->sig) && 
+      same_page(&par->res->sig, &res->sig)) {
 
     req->pivot->type = PIVOT_FILE;
     return fetch_file_callback(req, res);

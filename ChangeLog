@@ -1,3 +1,10 @@
+Version 1.15b:
+--------------
+
+  - Better documentation of why certain issues are not reported by skipfish.
+
+  - Another minor tweak to path mapping detection logic.
+
 Version 1.14b:
 --------------
 
