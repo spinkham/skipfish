@@ -26,10 +26,10 @@ INCFILES   = alloc-inl.h string-inl.h debug.h types.h http_client.h \
              database.h crawler.h analysis.h config.h report.h
 
 CFLAGS_GEN = -Wall -funsigned-char -g -ggdb -D_FORTIFY_SOURCE=0 \
-             -I/usr/local/include/ -I/opt/local/include/
+             -I/usr/local/include/ -I/opt/local/include/ $(CFLAGS)
 CFLAGS_DBG = $(CFLAGS_GEN) -DLOG_STDERR=1 -DDEBUG_ALLOCATOR=1
 CFLAGS_OPT = $(CFLAGS_GEN) -O3 -Wno-format
-LDFLAGS    = -lcrypto -lssl -lidn -lz -L/usr/local/lib/ -L/opt/local/lib
+LDFLAGS   += -lcrypto -lssl -lidn -lz -L/usr/local/lib/ -L/opt/local/lib
 
 all: $(PROGNAME)
 

@@ -202,8 +202,10 @@ static void destroy_misc_data(struct pivot_desc* pv,
 static u8 dir_404_callback(struct http_request*, struct http_response*);
 static u8 dir_ips_callback(struct http_request*, struct http_response*);
 static void inject_init(struct pivot_desc*);
+static void inject_init2(struct pivot_desc*);
 static void crawl_dir_dict_init(struct pivot_desc*);
 static u8 dir_dict_callback(struct http_request*, struct http_response*);
+static u8 inject_put_callback(struct http_request*, struct http_response*);
 static u8 inject_check0_callback(struct http_request*, struct http_response*);
 static u8 inject_check1_callback(struct http_request*, struct http_response*);
 static u8 inject_check2_callback(struct http_request*, struct http_response*);
@@ -430,11 +432,55 @@ static void secondary_ext_init(struct pivot_desc* pv, struct http_request* req,
 /* Common initialization of security injection attacks. */
 
 static void inject_init(struct pivot_desc* pv) {
+
+  DEBUG_HELPER(pv);
+
+  /* Do a PUT probe, but only on directories proper. */
+
+  if (pv->state == PSTATE_CHILD_INJECT) {
+    struct http_request* n;
+    n = req_copy(pv->req, pv, 1);
+    if (n->method) ck_free(n->method);
+    n->method   = ck_strdup((u8*)"PUT");
+    n->callback = inject_put_callback;
+    replace_slash(n, (u8*)("PUT-" BOGUS_FILE));
+    async_request(n);
+  } else {
+    inject_init2(pv);
+  }
+
+}
+
+
+/* CALLBACK FOR PUT CHECK: Examines if PUT succeeded. In general,
+   a 2xx code and response body different from the pivot is 
+   the best we can do. */
+
+static u8 inject_put_callback(struct http_request* req,
+                              struct http_response* res) {
+
+  DEBUG_CALLBACK(req, res);
+
+  if (FETCH_FAIL(res)) {
+    handle_error(req, res, (u8*)"during PUT checks", 0);
+  } else {
+    if (res->code >= 200 && res->code < 300 &&
+        !same_page(&RPRES(req)->sig, &res->sig)) {
+      problem(PROB_PUT_DIR, req, res, 0, req->pivot, 0);
+    }
+  }
+
+  inject_init2(req->pivot);
+  return 0;
+
+}
+
+
+/* Starts injection attacks proper. */
+
+static void inject_init2(struct pivot_desc* pv) {
   struct http_request* n;
   u32 i;
-
-  /* pv->state may change after async_request() calls in
-     insta-fail mode, so we should cache accordingly. */
 
   DEBUG_HELPER(pv);
 
@@ -449,7 +495,6 @@ static void inject_init(struct pivot_desc* pv) {
     n->user_val = i;
     async_request(n);
   }
-
 }
 
 
@@ -461,6 +506,9 @@ static u8 inject_check0_callback(struct http_request* req,
   struct http_request* n;
   u32 orig_state = req->pivot->state;
   u8* tmp = NULL;
+
+  /* pv->state may change after async_request() calls in
+     insta-fail mode, so we should cache accordingly. */
 
   DEBUG_CALLBACK(req, res);
 
@@ -2649,7 +2697,7 @@ static u8 dir_dict_callback(struct http_request* req,
 
 u8 fetch_unknown_callback(struct http_request* req, struct http_response* res) {
   u32 i = 0 /* bad gcc */;
-  struct pivot_desc* par;
+  struct pivot_desc *par;
   struct http_request* n;
 
   RPRES(req) = res;
@@ -2683,7 +2731,7 @@ u8 fetch_unknown_callback(struct http_request* req, struct http_response* res) {
      response, assume file. This is a workaround for some really
      quirky architectures. */
 
-  if (par && res->pay_len && res->code == 200 && 
+  if (par && res->pay_len && res->code >= 200 && res->code < 400 &&
       same_page(&par->unk_sig, &res->sig)) {
 
     req->pivot->type = PIVOT_FILE;

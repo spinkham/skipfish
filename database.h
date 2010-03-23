@@ -280,6 +280,8 @@ u8 is_c_sens(struct pivot_desc* pv);
 
 #define PROB_SQL_PARAM          50201           /* SQL-like parameter        */
 
+#define PROB_PUT_DIR            50301           /* HTTP PUT accepted         */
+
 /* - Severity macros: */
 
 #define PSEV(_x) ((_x) / 10000)

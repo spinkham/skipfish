@@ -99,6 +99,7 @@ A rough list of the security checks offered by the tool is outlined below.
     - Server-side XML / XPath injection (including blind vectors).
     - Format string vulnerabilities.
     - Integer overflow vulnerabilities. 
+    - Locations accepting HTTP PUT.
 
   * Medium risk flaws (potentially leading to data compromise):
 

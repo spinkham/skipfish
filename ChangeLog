@@ -1,3 +1,17 @@
+Version 1.14b:
+--------------
+
+  - Several new wordlist entries, courtesy of Glastopf Honeypot:
+    http://glastopf.org/index.php
+
+  - A tweak to path mapping detection logic to detect certain path mappings.
+
+  - Makefile now honors external LDFLAGS, CFLAGS.
+
+  - Some more documentation tweaks.
+
+  - PUT detection logic.
+
 Version 1.13b:
 --------------
 

@@ -71,7 +71,7 @@ Dictionaries are used for the following tasks:
 3) For any non-404 file or directory discovered by any other means, the scanner
    also attempts all <node_filename>.<extension> combinations, to discover,
    for example, entries such as 'index.php.old'. This behavior is independent
-   of the -Y option.
+   of the -Y option, since it is much less request-intensive.
 
 ----------------------
 Supplied dictionaries:
@@ -155,7 +155,8 @@ the technologies used by your target host to regular 'w' records.
 
 Whichever option you choose, be sure to make a *copy* of this dictionary, and
 load that copy, not the original, via -W. The specified file will be overwritten
-with site-specific information unless -V used.
+with site-specific information unless -V used - and you probably want to keep
+the original around.
 
 ----------------------------------
 Bah, these dictionaries are small!
@@ -172,22 +173,23 @@ for a single directory would take 30-40 hours against a slow server; and even
 with a fast one, at least 5 hours is to be expected.
 
 DirBuster uses a unique approach that seems promising at first sight - to
-base their wordlists depending on how often a particular keyword appeared in
-URLs seen on the Internet. This is interesting, but comes with two gotchas:
+base their wordlists on how often a particular keyword appeared in URLs seen on
+the Internet. This is interesting, but comes with two gotchas:
 
   - Keywords related to popular websites and brands are heavily
     overrepresented; DirBuster wordlists have 'bbc_news_24', 'beebie_bunny',
     and 'koalabrothers' near the top of their list, but it is pretty unlikely
     these keywords would be of any use in real-world assessments of a typical
-    site, unless it happens to be BBC.
+    site, unless it happens to be BBC or Disney.
 
   - Some of the most interesting security-related keywords are not commonly
     indexed, and may appear, say, on no more than few dozen or few thousand
     crawled websites in Google index. But, that does not make 'AggreSpy' or
-    '.ssh/authorized_keys' any less interesting.
+    '.ssh/authorized_keys' any less interesting - in fact, you might care
+    about them a whole lot more.
 
-Bottom line is, poor wordlists are one of the reasons why some other web
-security scanners perform worse than expected, so please - be careful. You will
-almost always be better off narrowing down or selectively extending the
-supplied set (and possibly contributing back your changes upstream!), than
-importing a giant wordlist from elsewhere.
+Bottom line is, tread carefully; poor wordlists are one of the reasons why some
+web security scanners perform worse than expected. You will almost always be
+better off narrowing down or selectively extending the supplied set (and
+possibly contributing back your changes upstream!), than importing a giant
+wordlist scored elsewhere.
