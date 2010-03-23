@@ -38,6 +38,14 @@ body {
   font-size: 80%;
 }
 
+.hdr_tips {
+  clear: right;
+  float: right;
+  font-size: 70%;
+  color: coral;
+  padding: 0.5em 0 0 0;
+}
+
 .summary1 {
   padding: 0 1em 0 1em;
 }
@@ -725,7 +733,7 @@ if ('\v' == 'v')
 </head>
 <body onload="initialize()">
 
-<img src="sf_name.png" width="203" height="93" style="float: left">
+<a href="http://code.google.com/p/skipfish/" target="_blank"><img src="sf_name.png" width="203" height="93" style="float: left; border: 0"></a>
 
 <div class="req_div" id="req_div">
 <div class="req_hdr" id="req_hdr" onclick="hide_dat()">HTTP trace - click this bar or hit ESC to close</div>
@@ -739,6 +747,11 @@ if ('\v' == 'v')
 <tr><td class="summary1">Random seed:</td><td class="summary2" id="scan_seed"></td>
 <td class="summary1">Total time:</td><td class="summary2" id="scan_time"></td></tr>
 </table>
+
+<div class="hdr_tips">
+Problems with this scan? 
+<a href="http://code.google.com/p/skipfish/wiki/KnownIssues" target="_blank">Click here</a> for advice.
+</div>
 
 <br clear="all">
 

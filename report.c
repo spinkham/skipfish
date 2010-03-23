@@ -704,7 +704,7 @@ static void output_summary_views() {
 }
 
 
-/* Copies over assets/... to target directory. */
+/* Copies over assets to target directory. */
 
 static u8* ca_out_dir;
 
@@ -714,8 +714,8 @@ static int copy_asset(const struct dirent* d) {
 
   if (d->d_name[0] == '.' || !strcmp(d->d_name, "COPYING")) return 0;
 
-  itmp = ck_alloc(6 + strlen(d->d_name) + 2);
-  sprintf((char*)itmp, "assets/%s", d->d_name);
+  itmp = ck_alloc(strlen(ASSETS_DIR) + strlen(d->d_name) + 2);
+  sprintf((char*)itmp, "%s/%s", ASSETS_DIR, d->d_name);
   i = open((char*)itmp, O_RDONLY);
 
   otmp = ck_alloc(strlen((char*)ca_out_dir) + strlen(d->d_name) + 2);
@@ -741,7 +741,7 @@ static int copy_asset(const struct dirent* d) {
 static void copy_static_code(u8* out_dir) {
   struct dirent** d;
   ca_out_dir = out_dir;
-  scandir("assets", &d, copy_asset, NULL);
+  scandir(ASSETS_DIR, &d, copy_asset, NULL);
 }
 
 

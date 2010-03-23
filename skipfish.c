@@ -378,8 +378,8 @@ int main(int argc, char** argv) {
 
   }
 
-  if (access("assets/index.html", R_OK))
-    PFATAL("Unable to access 'assets/index.html' - wrong directory?");
+  if (access(ASSETS_DIR "/index.html", R_OK))
+    PFATAL("Unable to access '%s/index.html' - wrong directory?", ASSETS_DIR);
 
   srandom(seed);
 

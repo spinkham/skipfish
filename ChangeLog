@@ -1,3 +1,10 @@
+Version 1.12b:
+--------------
+
+  - Improved visibility of the KnownIssues page (reports, Makefile).
+
+  - The location of assets/ directory is now configurable.
+
 Version 1.11b:
 --------------
 

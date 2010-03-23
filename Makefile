@@ -36,7 +36,10 @@ all: $(PROGNAME)
 $(PROGNAME): $(PROGNAME).c $(OBJFILES) $(INCFILES)
 	$(CC) $(PROGNAME).c -o $(PROGNAME) $(CFLAGS_OPT) $(OBJFILES) $(LDFLAGS)
 	@echo
-	@echo "NOTE: See dictionaries/README-FIRST to pick a dictionary for the tool."
+	@echo "See dictionaries/README-FIRST to pick a dictionary for the tool."
+	@echo
+	@echo "Having problems with your scans? Be sure to visit:"
+	@echo "http://code.google.com/p/skipfish/wiki/KnownIssues"
 	@echo
 
 debug: $(PROGNAME).c $(OBJFILES) $(INCFILES)

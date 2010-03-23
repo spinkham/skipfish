@@ -23,9 +23,14 @@
 #ifndef _HAVE_CONFIG_H
 #define _HAVE_CONFIG_H
 
-#define VERSION "1.11b"
+#define VERSION "1.12b"
 
 #define USE_COLOR               1       /* Use terminal colors             */
+
+/* Default paths to runtime files: */
+
+#define ASSETS_DIR              "assets"
+#define DEF_WORDLIST            "skipfish.wl"
 
 /* Various default settings for HTTP client (cmdline override): */
 
@@ -66,8 +71,6 @@
 
 #define MAX_DEPTH       16              /* Maximum crawl tree depth        */
 #define MAX_CHILDREN    1024            /* Maximum children per tree node  */
-
-#define DEF_WORDLIST    "skipfish.wl"   /* Default wordlist file           */
 
 /* Crawl / analysis constants: */
 
