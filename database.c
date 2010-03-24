@@ -964,12 +964,8 @@ void load_keywords(u8* fname, u32 purge_age) {
   in = fopen((char*)fname, "r");
 
   if (!in) {
-
     PFATAL("Unable to open wordlist '%s'", fname);
-
-    WARN("Wordlist '%s' not found, not loaded.", fname);
     return;
-
   }
 
   sprintf(fmt, "%%c %%u %%u %%u %%%u[^\x01-\x1f]", MAX_WORD);

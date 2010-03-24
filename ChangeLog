@@ -1,3 +1,8 @@
+Version 1.17b:
+--------------
+
+  - JS detector refined not to trigger on certain text/plain inputs.
+
 Version 1.16b:
 --------------
 

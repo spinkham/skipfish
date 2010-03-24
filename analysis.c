@@ -1112,6 +1112,7 @@ static u8 is_css(struct http_response* res) {
 static u8 is_javascript(struct http_response* res) {
   u8* text = res->payload;
   u8  first = 0, i = 0;
+  u32 white_cnt = 0;
 
   if (res->js_type) return (res->js_type == 2);
   if (!text || !is_mostly_ascii(res) || is_css(res)) return 0;
@@ -1169,9 +1170,10 @@ static u8 is_javascript(struct http_response* res) {
       return 1;
     }
 
-    /* Ignore legal identifiers. */
+    /* Illegal identifier, or too many whitespaces? Bail out. */
 
-    if (!isalnum(*text) && !strchr(" \t\r\n_.", *text)) {
+    if (!isalnum(*text) && (!strchr(" \t\r\n_.", *text) ||
+        (white_cnt++) > MAX_JS_WHITE)) {
       res->js_type = 1;
       return 0;
     }

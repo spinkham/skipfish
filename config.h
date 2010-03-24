@@ -23,7 +23,7 @@
 #ifndef _HAVE_CONFIG_H
 #define _HAVE_CONFIG_H
 
-#define VERSION "1.16b"
+#define VERSION "1.17b"
 
 #define USE_COLOR               1       /* Use terminal colors             */
 
@@ -79,6 +79,7 @@
 #define WORD_HASH       256             /* Hash table for wordlists        */
 #define SNIFF_LEN       1024            /* MIME sniffing buffer size       */
 #define MAX_SAMPLES     1024            /* Max issue / MIME samples        */
+#define MAX_JS_WHITE    16              /* Maximum JS wspaces before id    */
 
 /* Page fingerprinting constants: */
 
