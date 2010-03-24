@@ -1,3 +1,8 @@
+Version 1.18b:
+--------------
+
+  - Fix a potential NULL ptr deref with malformed Set-Cookie.
+
 Version 1.17b:
 --------------
 

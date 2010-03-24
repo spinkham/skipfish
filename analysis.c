@@ -80,7 +80,8 @@ void pivot_header_checks(struct http_request* req,
 
   for (i=0;i<res->hdr.c;i++) {
 
-    if (strncasecmp((char*)res->hdr.n[i], "X-", 2)) continue;
+    if (res->hdr.t[i] != PARAM_HEADER ||
+        strncasecmp((char*)res->hdr.n[i], "X-", 2)) continue;
 
     if (!RPAR(req)->res) par_hdr = NULL;
     else par_hdr = GET_HDR(res->hdr.n[i], &RPAR(req)->res->hdr);
@@ -95,7 +96,8 @@ void pivot_header_checks(struct http_request* req,
   if (RPAR(req)->res)
     for (i=0;i<RPAR(req)->res->hdr.c;i++) {
 
-      if (strncasecmp((char*)RPAR(req)->res->hdr.n[i], "X-", 2)) continue;
+      if (RPAR(req)->res->hdr.t[i] != PARAM_HEADER ||
+          strncasecmp((char*)RPAR(req)->res->hdr.n[i], "X-", 2)) continue;
 
       cur_hdr = GET_HDR(RPAR(req)->res->hdr.n[i], &res->hdr);
 
@@ -1945,6 +1947,7 @@ static void detect_mime(struct http_request* req, struct http_response* res) {
         inl_strcasestr(sniffbuf, (u8*)"<head") ||
         inl_strcasestr(sniffbuf, (u8*)"<title") ||
         inl_strcasestr(sniffbuf, (u8*)"<body") ||
+        inl_strcasestr(sniffbuf, (u8*)"</body") ||
         inl_strcasestr(sniffbuf, (u8*)"<!doctype") ||
         inl_strcasestr(sniffbuf, (u8*)"<--") ||
         inl_strcasestr(sniffbuf, (u8*)"<style") ||

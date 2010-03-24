@@ -1358,6 +1358,7 @@ u8 parse_response(struct http_request* req, struct http_response* res,
 
     val = (u8*) strchr((char*)cur_line, ':');
     if (!val) { ck_free(cur_line); return 2; }
+
     *val = 0;
     while (isspace(*(++val)));
 
