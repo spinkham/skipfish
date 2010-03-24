@@ -2243,6 +2243,12 @@ static void check_for_stuff(struct http_request* req,
     return;
   }
 
+  if (inl_strcasestr(res->payload, (u8*)";database=") && 
+      inl_strcasestr(res->payload, (u8*)";pwd=")) {
+    problem(PROB_FILE_POI, req, res, (u8*)"ODBC connect string", req->pivot, 0);
+    return;
+  }
+
   if (strstr((char*)sniffbuf, "<cross-domain-policy>")) {
     problem(PROB_FILE_POI, req, res, (u8*)
             "Flash cross-domain policy", req->pivot, 0);
@@ -2256,9 +2262,21 @@ static void check_for_stuff(struct http_request* req,
   }
 
   if (inl_strcasestr(sniffbuf, (u8*)"\nAuthType ") ||
-      inl_strcasestr(sniffbuf, (u8*)"\nOptions ") ||
+      (inl_strcasestr(sniffbuf, (u8*)"\nOptions ") && (
+        inl_strcasestr(sniffbuf, (u8*)"\nOptions +") ||
+        inl_strcasestr(sniffbuf, (u8*)"\nOptions -") ||
+        inl_strcasestr(sniffbuf, (u8*)"\nOptions All") ||
+        inl_strcasestr(sniffbuf, (u8*)"\nOptions Exec") ||
+        inl_strcasestr(sniffbuf, (u8*)"\nOptions Follow") ||
+        inl_strcasestr(sniffbuf, (u8*)"\nOptions In") ||
+        inl_strcasestr(sniffbuf, (u8*)"\nOptions Mult") ||
+        inl_strcasestr(sniffbuf, (u8*)"\nOptions Sym"))) ||
       inl_strcasestr(sniffbuf, (u8*)"\n<Directory ") ||
-      inl_strcasestr(sniffbuf, (u8*)"\nRequire ")) {
+      (inl_strcasestr(sniffbuf, (u8*)"\nRequire ") && (
+      inl_strcasestr(sniffbuf, (u8*)"\nRequire valid") ||
+      inl_strcasestr(sniffbuf, (u8*)"\nRequire user") ||
+      inl_strcasestr(sniffbuf, (u8*)"\nRequire group") ||
+      inl_strcasestr(sniffbuf, (u8*)"\nRequire file")))) {
     problem(PROB_FILE_POI, req, res, (u8*)"Apache config file", req->pivot, 0);
     return;
   }

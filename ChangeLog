@@ -1,7 +1,16 @@
+Version 1.19b:
+--------------
+
+  - New ODBC POI added.
+
+  - Apache config file detection tightened up.
+
 Version 1.18b:
 --------------
 
   - Fix a potential NULL ptr deref with malformed Set-Cookie.
+
+  - Another last-resort HTML detection pattern added.
 
 Version 1.17b:
 --------------
@@ -13,14 +22,15 @@ Version 1.16b:
 
   - Fixed a typo introduced in 1.16 to index.html (d'oh).
 
-  - Further refinements to Makefile CFLAGS / LIBS / LDFLAGS.
+  - Further refinements to Makefile CFLAGS / LIBS / LDFLAGS to keep
+    package maintainers happy.
 
 Version 1.15b:
 --------------
 
-  - Better documentation of why certain issues are not reported by skipfish.
+  - Better documentation on why certain issues are not reported by skipfish.
 
-  - Another minor tweak to path mapping detection logic.
+  - Another minor tweak to improve path mapping detection logic.
 
 Version 1.14b:
 --------------
@@ -28,18 +38,19 @@ Version 1.14b:
   - Several new wordlist entries, courtesy of Glastopf Honeypot:
     http://glastopf.org/index.php
 
-  - A tweak to path mapping detection logic to detect certain path mappings.
+  - A tweak to path mapping detection logic to detect certain path mappings
+    that may result in crawl loops.
 
   - Makefile now honors external LDFLAGS, CFLAGS.
 
-  - Some more documentation tweaks.
+  - Some more documentation tweaks and rewrites.
 
-  - PUT detection logic.
+  - PUT detection logic added.
 
 Version 1.13b:
 --------------
 
-  - Improved password, file form detection.
+  - Improved password, file form detection slightly.
 
 Version 1.12b:
 --------------
@@ -51,27 +62,27 @@ Version 1.12b:
 Version 1.11b:
 --------------
 
-  - SIGWINCH support: you can now resize your window while scanning.
+  - SIGWINCH support: you can now cleanly resize your window while scanning.
 
   - Typo in report category name fixed.
 
-  - Terminal color fix for non-standard themes.
+  - Terminal color fix (for users with non-standard color themes).
 
-  - Fixed icons license (GPL -> LGPL).
+  - Corrected icons license (GPL -> LGPL).
 
   - Fixed a typo in -b ffox headers.
 
-  - Fixed a potential NULL pointer crash in form parsing.
+  - Fixed a potential NULL ptr deref when doing form parsing.
 
 Version 1.10b:
 --------------
 
-  - Fix to extensions-only.wl.
+  - Fix to extensions-only.wl (some bad keywords removed).
 
 Version 1.09b:
 --------------
 
-  - Fix for a potential NULL pointer crash in probabilistic scan mode (<100%).
+  - Fix for a potential NULL ptr deref in probabilistic scan mode (<100%).
 
 Version 1.08b:
 --------------
@@ -81,30 +92,31 @@ Version 1.08b:
 Version 1.07b:
 --------------
 
-  - Several build fixes for FreeBSD, MacOS X.
+  - Several build fixes for FreeBSD, MacOS X (-I, -L paths).
 
 Version 1.06b:
 --------------
 
-  - Minor documentation updates.
+  - Minor documentation updates, typos fixed, etc.
 
 Version 1.05b:
 --------------
 
-  - Another workaround for FORTIFY_SOURCE on MacOS X.
+  - A more robust workaround for FORTIFY_SOURCE (MacOS X).
 
 Version 1.04b:
 --------------
 
-  - Workaround for *BSD systems with malloc J or Z options set
-    by default.
+  - Workaround for *BSD systems with malloc J or Z options set by default
+    (0x5a5a5a5a deref after realloc()).
 
   - A minor tweak to reject certain not-quite-URLs extracted from JS.
 
 Version 1.01b:
 --------------
 
-  - Workaround for a glitch in FORTIFY_SOURCE on Linux.
+  - Workaround for a glitch in FORTIFY_SOURCE on Linux (causing crash
+    on startup).
 
 Version 1.00b:
 --------------

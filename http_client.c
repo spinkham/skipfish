@@ -1383,7 +1383,7 @@ u8 parse_response(struct http_request* req, struct http_response* res,
 
        if (!cval) { cval = val; val = 0; }
 
-       SET_CK(val, cval, &res->hdr);
+       if (cval) SET_CK(val, cval, &res->hdr);
 
        if (val) {
 
@@ -1400,7 +1400,7 @@ u8 parse_response(struct http_request* req, struct http_response* res,
          /* Set cookie globally, but ignore obvious attempts to delete
             existing ones. */
 
-         if (!ignore_cookies && cval[0])
+         if (!ignore_cookies && val && cval[0])
            SET_CK(val, cval, &global_http_par);
 
       }
