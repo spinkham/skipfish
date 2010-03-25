@@ -2270,13 +2270,15 @@ static void check_for_stuff(struct http_request* req,
         inl_strcasestr(sniffbuf, (u8*)"\nOptions Follow") ||
         inl_strcasestr(sniffbuf, (u8*)"\nOptions In") ||
         inl_strcasestr(sniffbuf, (u8*)"\nOptions Mult") ||
-        inl_strcasestr(sniffbuf, (u8*)"\nOptions Sym"))) ||
+        inl_strcasestr(sniffbuf, (u8*)"\nOptions Sym"))
+      ) ||
       inl_strcasestr(sniffbuf, (u8*)"\n<Directory ") ||
       (inl_strcasestr(sniffbuf, (u8*)"\nRequire ") && (
-      inl_strcasestr(sniffbuf, (u8*)"\nRequire valid") ||
-      inl_strcasestr(sniffbuf, (u8*)"\nRequire user") ||
-      inl_strcasestr(sniffbuf, (u8*)"\nRequire group") ||
-      inl_strcasestr(sniffbuf, (u8*)"\nRequire file")))) {
+        inl_strcasestr(sniffbuf, (u8*)"\nRequire valid") ||
+        inl_strcasestr(sniffbuf, (u8*)"\nRequire user") ||
+        inl_strcasestr(sniffbuf, (u8*)"\nRequire group") ||
+        inl_strcasestr(sniffbuf, (u8*)"\nRequire file"))
+      )) {
     problem(PROB_FILE_POI, req, res, (u8*)"Apache config file", req->pivot, 0);
     return;
   }

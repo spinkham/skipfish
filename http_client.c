@@ -474,6 +474,7 @@ void tokenize_path(u8* str, struct http_request* req, u8 add_slash) {
     u8 *name = NULL, *value = NULL;
     u8 first_el = (str == cur);
 
+
     if (first_el || *cur == '/') {
 
       /* Optimize out //, /\0, /./, and /.\0. They do indicate
@@ -489,6 +490,20 @@ void tokenize_path(u8* str, struct http_request* req, u8 add_slash) {
           !cur[1 + !first_el])) {
         cur += 1 + !first_el;
         know_dir = 1;
+        continue;
+      }
+
+      /* Also optimize out our own \.\ prefix injected in directory
+         probes. This is to avoid recursion if it actually worked in some
+         way. */
+
+      if (!strncmp((char*)cur, "\\.\\", 3)) {
+        cur += 3;
+        continue;
+      }
+
+      if (!strncasecmp((char*)cur, "%5c.%5c", 7)) {
+        cur += 7;
         continue;
       }
 

@@ -1,3 +1,8 @@
+Version 1.20b:
+--------------
+
+  - URL parser now accounts for its own \.\ injection pattern.
+
 Version 1.19b:
 --------------
 
