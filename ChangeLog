@@ -1,3 +1,10 @@
+Version 1.25b:
+--------------
+  
+  - A limit on the number of identically named path elements
+    added. This is a last-resort check against endless recursion
+    (e.g., for 'subdir' -> '.' symlinks).
+
 Version 1.24b:
 --------------
 

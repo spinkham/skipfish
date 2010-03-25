@@ -23,7 +23,7 @@
 #ifndef _HAVE_CONFIG_H
 #define _HAVE_CONFIG_H
 
-#define VERSION "1.24b"
+#define VERSION "1.25b"
 
 #define USE_COLOR               1       /* Use terminal colors             */
 
@@ -71,6 +71,7 @@
 
 #define MAX_DEPTH       16              /* Maximum crawl tree depth        */
 #define MAX_CHILDREN    1024            /* Maximum children per tree node  */
+#define MAX_SAMENAME    3               /* Identically named path nodes    */
 
 /* Crawl / analysis constants: */
 

@@ -92,8 +92,9 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
 
   struct pivot_desc *cur = NULL;
 
-  u32 i, par_cnt = 0, path_cnt = 0, pno;
+  u32 i, par_cnt = 0, path_cnt = 0, last_val_cnt = 0, pno;
   u8 ends_with_slash = 0;
+  u8* last_val = 0;
 
 #ifdef LOG_STDERR
 
@@ -126,7 +127,11 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
     if (PATH_SUBTYPE(req->par.t[i])) {
 
       if (req->par.t[i] == PARAM_PATH && !req->par.n[i] && !req->par.v[i][0])
-        ends_with_slash = 0; else ends_with_slash = 1;
+        ends_with_slash = 1; 
+      else
+        ends_with_slash = 0;
+
+      if (req->par.v[i][0]) last_val = req->par.v[i];
 
       path_cnt++;
 
@@ -228,8 +233,23 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
 
       /* Enforce user limits. */
 
-      if ((i + 1) >= max_depth || cur->child_cnt > max_children)
+      if ((i + 1) >= max_depth || cur->child_cnt > max_children) {
+        problem(PROB_LIMITS, req, res, (u8*)"Child node limit exceeded", cur, 
+                0);
         return;
+      }
+
+      /* Enforce duplicate name limits as a last-ditch effort to prevent
+         endless recursion. */
+
+      if (last_val && !strcmp((char*)last_val, (char*)req->par.v[pno]))
+        last_val_cnt++;
+
+      if (last_val_cnt > MAX_SAMENAME) {
+        problem(PROB_LIMITS, req, res,
+                (u8*)"Duplicate name recursion limit exceeded", cur, 0);
+        return;
+      }
 
       /* Create and link back to parent. */
 
