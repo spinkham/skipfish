@@ -1,4 +1,4 @@
-Version 1.21b:
+Version 1.22b:
 --------------
 
   - URL parser now accounts for its own \.\ injection pattern.
