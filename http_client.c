@@ -497,12 +497,13 @@ void tokenize_path(u8* str, struct http_request* req, u8 add_slash) {
          probes. This is to avoid recursion if it actually worked in some
          way. */
 
-      if (!strncmp((char*)cur, "\\.\\", 3)) {
+      if (!strncmp((char*)cur, "\\.\\", 3) && (cur[3] == '/' || !cur[3])) {
         cur += 3;
         continue;
       }
 
-      if (!strncasecmp((char*)cur, "%5c.%5c", 7)) {
+      if (!strncasecmp((char*)cur, "%5c.%5c", 7) &&
+          (cur[7] == '/' || !cur[7])) {
         cur += 7;
         continue;
       }
