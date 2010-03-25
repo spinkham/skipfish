@@ -1,3 +1,10 @@
+Version 1.23b:
+--------------
+
+  - A minor improvement to XHTML detection.
+
+  - HTML vs XHTML mismatches no longer trigger a warning.
+
 Version 1.22b:
 --------------
 

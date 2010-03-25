@@ -1757,12 +1757,19 @@ binary_checks:
 
   /* CHECK 6: MIME mismatch? Ignore cases where the response had a valid
      MIME type declared in headers, but we failed to map it to a known
-     value... and also failed to sniff. */
+     value... and also failed to sniff.
+
+     Mismatch between MIME_ASC_HTML and MIME_XML_XHTML is not worth
+     complaining about, too. */
 
   if (res->sniff_mime_id != res->decl_mime_id &&
+      !(res->decl_mime_id == MIME_ASC_HTML && 
+        res->sniff_mime_id == MIME_XML_XHTML) &&
+      !(res->decl_mime_id == MIME_XML_XHTML && 
+        res->sniff_mime_id == MIME_ASC_HTML) &&
       !(res->header_mime && !res->decl_mime_id &&
-      (res->sniff_mime_id == MIME_ASC_GENERIC ||
-      res->sniff_mime_id == MIME_BIN_GENERIC)))
+        (res->sniff_mime_id == MIME_ASC_GENERIC ||
+         res->sniff_mime_id == MIME_BIN_GENERIC)))
     problem(high_risk ? PROB_BAD_MIME_DYN : PROB_BAD_MIME_STAT,
             req, res, res->sniffed_mime, req->pivot, 0);
 
@@ -1929,7 +1936,7 @@ static void detect_mime(struct http_request* req, struct http_response* res) {
     if (strstr((char*)sniffbuf, "<?xml") ||
         strstr((char*)sniffbuf, "<!DOCTYPE")) {
 
-      if (strstr((char*)sniffbuf, "<!DOCTYPE html") ||
+      if (inl_strcasestr(sniffbuf, (u8*)"<!DOCTYPE html") ||
           strstr((char*)sniffbuf, "http://www.w3.org/1999/xhtml"))
         res->sniff_mime_id = MIME_XML_XHTML;
       else
