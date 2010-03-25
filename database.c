@@ -1295,7 +1295,7 @@ u8* new_xss_tag(u8* prefix) {
 
   if (!scan_id) scan_id = R(999999) + 1;
 
-  sprintf((char*)ret, "%s>\">'>'\"<sfi%06uv%06u>",
+  sprintf((char*)ret, "%s-->\">'>'\"<sfi%06uv%06u>",
           prefix ? prefix : (u8*)"", cur_xss_id, scan_id);
 
   return ret;

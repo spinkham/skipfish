@@ -1529,6 +1529,16 @@ void content_checks(struct http_request* req, struct http_response* res) {
       u32 len = strcspn((char*)++tmp, "> \t\r\n"), space_len;
       u8  remote_script = 0;
 
+      /* Skip comments where possible. */
+
+      if (!strncmp((char*)tmp, "!--", 3)) {
+        u8* next = (u8*)strstr((char*)tmp + 3, "-->");
+        if (next) {
+          tmp = next + 3;
+          continue;
+        }
+      }
+
       /* Grab tag name. */
 
       tag_name = ck_memdup(tmp, len + 1);
