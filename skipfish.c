@@ -145,6 +145,8 @@ int main(int argc, char** argv) {
   struct timeval tv;
   u64 st_time, en_time;
 
+  unsetenv("MALLOC_CHECK_");
+
   signal(SIGINT, ctrlc_handler);
   signal(SIGWINCH, resize_handler);
   signal(SIGPIPE, SIG_IGN);

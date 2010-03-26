@@ -40,6 +40,7 @@ e 1 1 1 out
 e 1 1 1 part
 e 1 1 1 php
 e 1 1 1 php3
+e 1 1 1 phtml
 e 1 1 1 pl
 e 1 1 1 pm
 e 1 1 1 py

@@ -1,9 +1,16 @@
+Version 1.26b:
+--------------
+
+  - phtml added to the dictionary.
+
+  - Yet another workaround for MALLOC_CHECK_. Grr.
+
 Version 1.25b:
 --------------
   
-  - A limit on the number of identically named path elements
-    added. This is a last-resort check against endless recursion
-    (e.g., for 'subdir' -> '.' symlinks).
+  - A limit on the number of identically named path elements added. This 
+    is a last-resort check against endless recursion (e.g., for 'subdir'
+    -> '.' symlinks).
 
 Version 1.24b:
 --------------
@@ -46,8 +53,8 @@ Version 1.16b:
 
   - Fixed a typo introduced in 1.16 to index.html (d'oh).
 
-  - Further refinements to Makefile CFLAGS / LIBS / LDFLAGS to keep
-    package maintainers happy.
+  - Further refinements to Makefile CFLAGS / LIBS / LDFLAGS to keep package
+    maintainers happy.
 
 Version 1.15b:
 --------------
