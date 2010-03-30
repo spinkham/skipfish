@@ -1,3 +1,10 @@
+Version 1.27b:
+--------------
+
+  - Tweak to CFLAGS ordering to always enforce FORTIFY_SOURCE.
+
+  - Man page added.
+
 Version 1.26b:
 --------------
 

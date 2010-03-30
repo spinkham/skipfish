@@ -25,8 +25,8 @@ OBJFILES   = http_client.c database.c crawler.c analysis.c report.c
 INCFILES   = alloc-inl.h string-inl.h debug.h types.h http_client.h \
              database.h crawler.h analysis.h config.h report.h
 
-CFLAGS_GEN = -Wall -funsigned-char -g -ggdb -D_FORTIFY_SOURCE=0 \
-             -I/usr/local/include/ -I/opt/local/include/ $(CFLAGS)
+CFLAGS_GEN = -Wall -funsigned-char -g -ggdb -I/usr/local/include/ \
+             -I/opt/local/include/ $(CFLAGS) -D_FORTIFY_SOURCE=0
 CFLAGS_DBG = -DLOG_STDERR=1 -DDEBUG_ALLOCATOR=1 $(CFLAGS_GEN) 
 CFLAGS_OPT = -O3 -Wno-format $(CFLAGS_GEN)
 
