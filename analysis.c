@@ -314,8 +314,8 @@ static u8* html_decode_param(u8* url, u8 also_js) {
 /* Macro to test for tag names */
 
 #define ISTAG(_val, _tag) \
-  (!strncasecmp((char*)(_val), _tag, strlen((char*)_tag)) && \
-  isspace(_val[strlen((char*)_tag)]))
+  (!strncasecmp((char*)(_val), _tag, strlen((char*)(_tag))) && \
+  (isspace((_val)[strlen((char*)_tag)]) || !(_val)[strlen((char*)_tag)]))
 
 /* Macro to find and move past parameter name (saves result in
    _store, NULL if not found). Buffer needs to be NUL-terminated
@@ -671,7 +671,8 @@ void scrape_response(struct http_request* req, struct http_response* res) {
 
       u32 link_type = 0;
       u8  set_base = 0, parse_form = 0;
-      u8  *dirty_url = NULL, *clean_url = NULL, *meta_url = NULL;
+      u8  *dirty_url = NULL, *clean_url = NULL, *meta_url = NULL,
+          *delete_dirty = NULL;
 
       cur_str++;
       *tag_end = 0;
@@ -743,7 +744,10 @@ void scrape_response(struct http_request* req, struct http_response* res) {
 
         /* Forms with no URL submit to current location. */
 
-        if (!dirty_url) dirty_url = req->orig_url;
+        if (!dirty_url || !*dirty_url) {
+          dirty_url = serialize_path(req, 1, 0);
+          delete_dirty = dirty_url;
+        }
 
       } else {
 
@@ -767,6 +771,7 @@ void scrape_response(struct http_request* req, struct http_response* res) {
       EXTRACT_ALLOC_VAL(dirty_url, dirty_url);
       clean_url = html_decode_param(dirty_url, 0);
       ck_free(dirty_url);
+      ck_free(delete_dirty);
       ck_free(meta_url);
 
       if (!*clean_url) goto next_tag;

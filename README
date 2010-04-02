@@ -385,7 +385,10 @@ Lastly, -f controls the maximum number of consecutive HTTP errors you are
 willing to see before aborting the scan; and -s sets the maximum length of a 
 response to fetch and parse (longer responses will be truncated).
 
-Runtime stats can be suppressed with -u to run skipfish in quiet mode.
+Further rate-limiting is available through third-party user mode tools such as
+trickle, or kernel-level traffic shaping.
+
+Oh, and runtime stats can be suppressed with -u to run skipfish in quiet mode.
 
 --------------------------------
 5. But seriously, how to run it?
