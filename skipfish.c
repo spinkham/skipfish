@@ -87,7 +87,8 @@ void usage(char* argv0) {
       "  -M             - log warnings about mixed content\n"
       "  -E             - log all HTTP/1.0 / HTTP/1.1 caching intent mismatches\n"
       "  -U             - log all external URLs and e-mails seen\n"
-      "  -Q             - completely suppress duplicate nodes in reports\n\n"
+      "  -Q             - completely suppress duplicate nodes in reports\n"
+      "  -u             - be quiet, disable realtime progress stats\n\n"
 
       "Dictionary management options:\n\n"
 
@@ -139,7 +140,7 @@ static void resize_handler(int sig) {
 int main(int argc, char** argv) {
   s32 opt;
   u32 loop_cnt = 0, purge_age = 0, seed;
-  u8 dont_save_words = 0, show_once = 0;
+  u8 dont_save_words = 0, show_once = 0, be_quiet = 0;
   u8 *wordlist = (u8*)DEF_WORDLIST, *output_dir = NULL;
 
   struct timeval tv;
@@ -160,7 +161,7 @@ int main(int argc, char** argv) {
   SAY("skipfish version " VERSION " by <lcamtuf@google.com>\n");
 
   while ((opt = getopt(argc, argv,
-          "+A:F:C:H:b:Nd:c:r:p:I:X:S:D:PJOYQMUEW:LVT:G:R:B:q:g:m:f:t:w:i:s:o:h")) > 0)
+          "+A:F:C:H:b:Nd:c:r:p:I:X:S:D:PJOYQMUEW:LVT:G:R:B:q:g:m:f:t:w:i:s:o:hu")) > 0)
 
     switch (opt) {
 
@@ -375,6 +376,10 @@ int main(int argc, char** argv) {
 
         break;
 
+      case 'u':
+        be_quiet = 1;
+        break;
+
       default:
         usage(argv[0]);
 
@@ -424,11 +429,12 @@ int main(int argc, char** argv) {
   gettimeofday(&tv, NULL);
   st_time = tv.tv_sec * 1000 + tv.tv_usec / 1000;
 
-  SAY("\x1b[H\x1b[J");
+  if (!be_quiet) SAY("\x1b[H\x1b[J");
+    else SAY(cLGN "[*] " cBRI "Scan in progress, please stay tuned...\n");
 
   while ((next_from_queue() && !stop_soon) || (!show_once++)) {
 
-    if ((loop_cnt++ % 20) && !show_once) continue;
+    if (be_quiet || ((loop_cnt++ % 20) && !show_once)) continue;
 
     if (clear_screen) {
       SAY("\x1b[H\x1b[2J");
@@ -436,7 +442,9 @@ int main(int argc, char** argv) {
     }
 
     SAY(cYEL "\x1b[H"
-           "skipfish version " VERSION " by <lcamtuf@google.com>\n\n" cNOR);
+           "skipfish version " VERSION " by <lcamtuf@google.com>\n\n"
+           cBRI "  -" cPIN " %s " cBRI "-\n\n" cNOR, 
+           allow_domains[0]);
 
     http_stats(st_time);
     SAY("\n");

@@ -741,6 +741,10 @@ void scrape_response(struct http_request* req, struct http_response* res) {
           if (tolower(method[0]) == 'p') parse_form = 2;
         }
 
+        /* Forms with no URL submit to current location. */
+
+        if (!dirty_url) dirty_url = req->orig_url;
+
       } else {
 
         /* All other tags - other <link> types, <a>, <bgsound> -
@@ -788,6 +792,13 @@ void scrape_response(struct http_request* req, struct http_response* res) {
         if (parse_form == 2) {
           ck_free(n->method);
           n->method = ck_strdup((u8*)"POST");
+        } else {
+
+          /* On GET forms, strip existing query params to get a submission
+             target. */
+
+          u8* qmark = (u8*)strchr((char*)clean_url, '?');
+          if (qmark) *qmark = 0;
         }
 
         /* Don't collect form fields, etc, if target is not within the

@@ -1,3 +1,12 @@
+Version 1.28b:
+
+  - Forms with no action= URL are now handled correctly.
+
+  - New option (-u) to suppress realtime info,
+
+  - Destination host displayed on stats screen.
+
+--------------
 Version 1.27b:
 --------------
 
