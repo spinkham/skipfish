@@ -394,7 +394,7 @@ static u8 maybe_xsrf(u8* token) {
   static u8 tm_prefix[8];
 
   if (!tm_prefix[0])
-    sprintf((char*)tm_prefix, "%lu", time(0) / 100000);
+    sprintf((char*)tm_prefix, "%lu", (long int)(time(0) / 100000));
 
   /* Unix time is not a valid token. */
 
@@ -470,7 +470,7 @@ static void collect_form_data(struct http_request* req,
       }
 
       if (ISTAG(cur_str, "input") || ISTAG(cur_str, "textarea") ||
-          ISTAG(cur_str, "select")) {
+          ISTAG(cur_str, "select") || ISTAG(cur_str, "button")) {
 
         u8 *tag_name, *tag_value, *tag_type, *clean_name = NULL,
            *clean_value = NULL;

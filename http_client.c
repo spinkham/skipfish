@@ -1256,8 +1256,6 @@ u8 parse_response(struct http_request* req, struct http_response* res,
 
       if (!strcasecmp((char*)x, "close")) must_close = 1;
 
-
-
     }
   }
 

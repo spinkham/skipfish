@@ -1,3 +1,10 @@
+Version 1.30b:
+--------------
+
+  - Support for the (rare) <button> tag in forms.
+
+  - Fixed compiler warning on some platforms.
+
 Version 1.29b:
 --------------
 
