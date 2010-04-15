@@ -46,23 +46,23 @@
 #  define cBRI "\x1b[1;37m"
 #  define cRST "\x1b[0m"
 #else
-#  define cBLK
-#  define cRED
-#  define cGRN
-#  define cBRN
-#  define cBLU
-#  define cMGN
-#  define cCYA
-#  define cNOR
-#  define cGRA
-#  define cLRD
-#  define cLGN
-#  define cYEL
-#  define cLBL
-#  define cPIN
-#  define cLCY
-#  define cBRI
-#  define cRST
+#  define cBLK ""
+#  define cRED ""
+#  define cGRN ""
+#  define cBRN ""
+#  define cBLU ""
+#  define cMGN ""
+#  define cCYA ""
+#  define cNOR ""
+#  define cGRA ""
+#  define cLRD ""
+#  define cLGN ""
+#  define cYEL ""
+#  define cLBL ""
+#  define cPIN ""
+#  define cLCY ""
+#  define cBRI ""
+#  define cRST ""
 #endif /* ^USE_COLOR */
 
 #ifdef LOG_STDERR

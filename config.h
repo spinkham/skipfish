@@ -23,7 +23,7 @@
 #ifndef _HAVE_CONFIG_H
 #define _HAVE_CONFIG_H
 
-#define VERSION "1.30b"
+#define VERSION "1.31b"
 
 #define USE_COLOR               1       /* Use terminal colors             */
 

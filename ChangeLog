@@ -1,3 +1,10 @@
+Version 1.31b:
+--------------
+
+  - Compilation with USE_COLOR commented out now works as expected.
+
+  - Fix to detect <frame> tags.
+
 Version 1.30b:
 --------------
 

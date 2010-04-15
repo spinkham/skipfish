@@ -699,7 +699,8 @@ void scrape_response(struct http_request* req, struct http_response* res) {
         FIND_AND_MOVE(dirty_url, cur_str, "src=");
 
       } else if (ISTAG(cur_str, "object") || ISTAG(cur_str, "embed") ||
-               ISTAG(cur_str, "applet") || ISTAG(cur_str, "iframe")) {
+               ISTAG(cur_str, "applet") || ISTAG(cur_str, "iframe") ||
+               ISTAG(cur_str, "frame")) {
 
         link_type = 3;
         FIND_AND_MOVE(dirty_url, cur_str, "src=");
