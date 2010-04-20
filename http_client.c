@@ -205,7 +205,10 @@ u8 parse_url(u8* url, struct http_request* req, struct http_request* ref) {
   /* Interpret, skip //[login[:pass@](\[ipv4\]|\[ipv6\]|host)[:port] part of the
      URL, if present. Note that "http:blarg" is a valid relative URL to most
      browsers, and "//example.com/blarg" is a valid non-FQDN absolute one.
-     We need to mimick this, which complicates the code a bit. */
+     We need to mimick this, which complicates the code a bit.
+
+     We only accept /, ?, #, and : to mark the end of a host name. Some browsers
+     also allow \ or ;, but it's unlikely that we need to obey this. */
 
   if (cur[0] == '/' && cur[1] == '/') {
 
@@ -216,16 +219,21 @@ u8 parse_url(u8* url, struct http_request* req, struct http_request* ref) {
     cur += 2;
 
     /* Detect, skip login[:pass]@; we only use cmdline-supplied credentials or
-       wordlists into account. Be sure to report any embedded auth, though. */
+       wordlists into account. Be sure to report any embedded auth, though.
+
+       Trivia: Firefox takes the rightmost, not the leftmost @ char into
+       account. Not very important, but amusing. */
 
     at_sign = (u8*)strchr((char*)cur, '@');
-    path_st = strcspn((char*)cur, ":/?#");
+    path_st = strcspn((char*)cur, "/?#");
 
     if (at_sign && path_st > (at_sign - cur)) {
       cur = at_sign + 1;
       if (!req->pivot) return 1;
       problem(PROB_URL_AUTH, ref, 0, url, req->pivot, 0);
     }
+
+    path_st = strcspn((char*)cur, ":/?#");
 
     /* No support for IPv6 or [ip] notation for now, so let's just refuse to
        parse the URL. Also, refuse excessively long domain names for sanity. */
