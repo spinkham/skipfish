@@ -611,7 +611,7 @@ static u8 is_mostly_ascii(struct http_response* res) {
 
   for (i=0;i<total;i++)
     if ((res->payload[i] >= 0x20 && res->payload[i] <= 0x7f)
-        || (res->payload[i] && strchr("\r\n", res->payload[i])))
+        || (res->payload[i] && strchr("\t\r\n", res->payload[i])))
       printable++;
 
   if (printable * 100 / total < 90) {
@@ -2249,7 +2249,8 @@ static void check_for_stuff(struct http_request* req,
   }
 
   if (strstr((char*)res->payload, "<b>Warning</b>:  MySQL: ") ||
-      strstr((char*)res->payload, "java.sql.SQLException")) {
+      strstr((char*)res->payload, "java.sql.SQLException") ||
+      strstr((char*)res->payload, "[You have an error in your SQL syntax; ")) {
     problem(PROB_ERROR_POI, req, res, (u8*)"SQL server error", req->pivot, 0);
     return;
   }

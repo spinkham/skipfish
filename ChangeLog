@@ -1,3 +1,10 @@
+Version 1.33b:
+--------------
+
+  - New SQL error signature added.
+
+  - Improved tolerance for tabs in text page detector.
+
 Version 1.32b:
 --------------
 
