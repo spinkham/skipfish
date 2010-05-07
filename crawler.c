@@ -2788,7 +2788,7 @@ static u8 unknown_check_callback(struct http_request* req,
      and if it is 404, assume file.
 
      We also have a special case if the original request returned a
-     non-empty 2xx response, but the new one returned 4xx or 5xx - this is
+     non-empty 2xx response, but the new one returned 3xx-5xx - this is
      likely a file, too. */
 
   if (same_page(&RPRES(req)->sig, &res->sig)) goto assume_dir; else {
@@ -2800,7 +2800,7 @@ static u8 unknown_check_callback(struct http_request* req,
         if (same_page(&res->sig, &par->r404[i])) break;
 
     if ((!par && res->code == 404) || (par && i != par->r404_cnt) ||
-        (RPRES(req)->code < 300 && res->code >= 400 && RPRES(req)->pay_len)) {
+        (RPRES(req)->code < 300 && res->code >= 300 && RPRES(req)->pay_len)) {
 
       req->pivot->type = PIVOT_FILE;
 

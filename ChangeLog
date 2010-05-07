@@ -1,3 +1,9 @@
+Version 1.34b:
+--------------
+
+  - A small tweak to file / dir discriminator logic to accommodate
+    quirky frameworks.
+ 
 Version 1.33b:
 --------------
 
