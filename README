@@ -232,6 +232,9 @@ $ ./skipfish -o output_dir http://www.example.com/some/starting/path.txt
 Note that you can provide more than one starting URL if so desired; all of them 
 will be crawled.
 
+The tool will display some helpful stats while the scan is in progress. You
+can also switch to a list of in-flight HTTP requests by pressing return.
+
 In the example above, skipfish will scan the entire www.example.com (including 
 services on other ports, if linked to from the main page), and write a report 
 to output_dir/index.html. You can then view this report with your favorite 
@@ -266,6 +269,9 @@ scope of a scan any way you like - including restricting it only to a specific
 protocol and port:
 
 $ ./skipfish -I http://example.com:1234/ ...other parameters...
+
+A related function, -K, allows you to specify parameter names not to fuzz
+(useful for applications that put session IDs in the URL, to minimize noise).
 
 Another useful scoping option is -D - allowing you to specify additional hosts 
 or domains to consider in-scope for the test. By default, all hosts appearing 

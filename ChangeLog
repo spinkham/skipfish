@@ -1,3 +1,15 @@
+Version 1.36b:
+--------------
+
+  - Command-line support for parameters that should not be fuzzed.
+
+  - In-flight URLs can be previewed by hitting 'return'.
+
+Version 1.35b:
+--------------
+
+  - Several new form autocomplete rules.
+
 Version 1.34b:
 --------------
 

@@ -31,6 +31,8 @@
 #include <sys/time.h>
 #include <time.h>
 #include <sys/stat.h>
+#include <termios.h>
+#include <fcntl.h>
 
 #include "types.h"
 #include "alloc-inl.h"
@@ -75,6 +77,7 @@ void usage(char* argv0) {
       "  -I string      - only follow URLs matching 'string'\n"
       "  -X string      - exclude URLs matching 'string'\n"
       "  -S string      - exclude pages containing 'string'\n"
+      "  -K string      - do not fuzz parameters named 'string'\n"
       "  -D domain      - crawl cross-site links to another domain\n"
       "  -B domain      - trust, but do not crawl, another domain\n"
       "  -O             - do not submit any forms\n"
@@ -140,9 +143,10 @@ static void resize_handler(int sig) {
 int main(int argc, char** argv) {
   s32 opt;
   u32 loop_cnt = 0, purge_age = 0, seed;
-  u8 dont_save_words = 0, show_once = 0, be_quiet = 0;
+  u8 dont_save_words = 0, show_once = 0, be_quiet = 0, display_mode = 0;
   u8 *wordlist = (u8*)DEF_WORDLIST, *output_dir = NULL;
 
+  struct termios term;
   struct timeval tv;
   u64 st_time, en_time;
 
@@ -161,7 +165,7 @@ int main(int argc, char** argv) {
   SAY("skipfish version " VERSION " by <lcamtuf@google.com>\n");
 
   while ((opt = getopt(argc, argv,
-          "+A:F:C:H:b:Nd:c:r:p:I:X:S:D:PJOYQMUEW:LVT:G:R:B:q:g:m:f:t:w:i:s:o:hu")) > 0)
+          "+A:F:C:H:b:Nd:c:r:p:I:X:S:D:PJOYQMUEK:W:LVT:G:R:B:q:g:m:f:t:w:i:s:o:hu")) > 0)
 
     switch (opt) {
 
@@ -210,6 +214,10 @@ int main(int argc, char** argv) {
       case 'D':
         if (*optarg == '*') optarg++;
         APPEND_FILTER(allow_domains, num_allow_domains, optarg);
+        break;
+
+      case 'K':
+        APPEND_FILTER(skip_params, num_skip_params, optarg);
         break;
 
       case 'B':
@@ -426,6 +434,13 @@ int main(int argc, char** argv) {
     optind++;
   }
 
+  /* Char-by char stdio. */
+
+  tcgetattr(0, &term);
+  term.c_lflag &= ~ICANON;
+  tcsetattr(0, TCSAFLUSH, &term);
+  fcntl(0, F_SETFL, O_NONBLOCK);
+
   gettimeofday(&tv, NULL);
   st_time = tv.tv_sec * 1000 + tv.tv_usec / 1000;
 
@@ -433,6 +448,8 @@ int main(int argc, char** argv) {
     else SAY(cLGN "[*] " cBRI "Scan in progress, please stay tuned...\n");
 
   while ((next_from_queue() && !stop_soon) || (!show_once++)) {
+
+    u8 keybuf[8];
 
     if (be_quiet || ((loop_cnt++ % 20) && !show_once)) continue;
 
@@ -446,10 +463,21 @@ int main(int argc, char** argv) {
            cBRI "  -" cPIN " %s " cBRI "-\n\n" cNOR, 
            allow_domains[0]);
 
-    http_stats(st_time);
-    SAY("\n");
-    database_stats();
-    SAY("\n        \r");
+
+    if (!display_mode) {
+      http_stats(st_time);
+      SAY("\n");
+      database_stats();
+    } else {
+      http_req_list();
+    }
+
+    SAY("        \r");
+
+    if (read(0, keybuf, sizeof(keybuf)) > 0) {
+      display_mode ^= 1;
+      clear_screen = 1;
+    }
 
   }
 
@@ -458,6 +486,9 @@ int main(int argc, char** argv) {
 
   if (stop_soon)
     SAY(cYEL "[!] " cBRI "Scan aborted by user, bailing out!" cNOR "\n");
+
+  term.c_lflag |= ICANON;
+  tcsetattr(0, TCSAFLUSH, &term);
 
   if (!dont_save_words) save_keywords((u8*)wordlist);
 

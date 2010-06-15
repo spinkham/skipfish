@@ -23,7 +23,7 @@
 #ifndef _HAVE_CONFIG_H
 #define _HAVE_CONFIG_H
 
-#define VERSION "1.34b"
+#define VERSION "1.36b"
 
 #define USE_COLOR               1       /* Use terminal colors             */
 
@@ -227,6 +227,7 @@ static const char* form_suggestion[][2] = {
   { "search"   , "skipfish" },
   { "login"    , "skipfish" },
   { "user"     , "skipfish" },
+  { "nick"     , "skipfish" },
   { "pass"     , "skipfish" },
   { "year"     , "2010" },
   { "card"     , "4111111111111111" }, /* Reserved */
@@ -238,6 +239,10 @@ static const char* form_suggestion[][2] = {
   { "site"     , "http://example.com/?sfish_form_test" },
   { "domain"   , "example.com" },
   { "search"   , "a" },
+  { "comment"  , "jellyfish" },
+  { "desc"     , "jellyfish" },
+  { "title"    , "jellyfish" },
+  { "subject"  , "jellyfish" },
   { NULL       , "1" }
 
 };

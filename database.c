@@ -33,6 +33,7 @@
 #include "http_client.h"
 #include "database.h"
 #include "crawler.h"
+#include "analysis.h"
 #include "string-inl.h"
 
 struct pivot_desc root_pivot;
@@ -41,13 +42,15 @@ u8 **deny_urls,                         /* List of banned URL substrings   */
    **deny_strings,                      /* List of banned page substrings  */
    **allow_urls,                        /* List of required URL substrings */
    **allow_domains,                     /* List of allowed vhosts          */
-   **trust_domains;                     /* List of trusted vhosts          */
+   **trust_domains,                     /* List of trusted vhosts          */
+   **skip_params;                       /* List of parameters to ignore    */
 
 u32 num_deny_urls,
     num_deny_strings,
     num_allow_urls,
     num_allow_domains,
-    num_trust_domains;
+    num_trust_domains,
+    num_skip_params;
 
 u32 max_depth    = MAX_DEPTH,
     max_children = MAX_CHILDREN,
@@ -79,8 +82,6 @@ static u32 guess_cnt,                   /* Number of keyword candidates    */
 
 static u32 cur_xss_id, scan_id;         /* Stored XSS manager IDs          */
 static struct http_request** xss_req;   /* Stored XSS manager req cache    */
-
-
 
 
 /* Maps a parsed URL (in req) to the pivot tree, creating or modifying nodes
@@ -393,7 +394,8 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
 
   /* Phew! At this point, 'cur' points to the final path element, and now,
      we just need to take care of parameters. Each parameter has its own
-     pivot point, and a full copy of the request. */
+     pivot point, and a full copy of the request - unless on the 
+     param_skip list. */
 
   pno = 0;
 
@@ -618,6 +620,7 @@ u8 url_trusted_host(struct http_request* req) {
   return 0;
 }
 
+
 u8 url_allowed(struct http_request* req) {
   u8* url = serialize_path(req, 1, 0);
   u32 i;
@@ -647,6 +650,17 @@ u8 url_allowed(struct http_request* req) {
   ck_free(url);
 
   return url_allowed_host(req);
+
+}
+
+
+u8 param_allowed(u8* pname) {
+  u32 i;
+
+  for (i=0;i<num_skip_params;i++)
+    if (!strcmp((char*)pname, (char*)skip_params[i])) return 0;
+
+  return 1;
 
 }
 
@@ -1143,17 +1157,16 @@ void database_stats() {
 
   pv_stat_crawl(&root_pivot);
 
-  SAY("Database statistics\n"
-      "-------------------\n\n"
-      cGRA "          Pivots : " cNOR "%u total, %u done (%.02f%%)    \n"
-      cGRA "     In progress : " cNOR "%u pending, %u init, %u attacks, "
+  SAY(cLBL "Database statistics:\n\n"
+      cGRA "         Pivots : " cNOR "%u total, %u done (%.02f%%)    \n"
+      cGRA "    In progress : " cNOR "%u pending, %u init, %u attacks, "
                                "%u dict    \n"
-      cGRA "   Missing nodes : " cNOR "%u spotted\n"
-      cGRA "      Node types : " cNOR "%u serv, %u dir, %u file, %u pinfo, "
+      cGRA "  Missing nodes : " cNOR "%u spotted\n"
+      cGRA "     Node types : " cNOR "%u serv, %u dir, %u file, %u pinfo, "
                                "%u unkn, %u par, %u val\n"
-      cGRA "    Issues found : " cNOR "%u info, %u warn, %u low, %u medium, "
+      cGRA "   Issues found : " cNOR "%u info, %u warn, %u low, %u medium, "
                                "%u high impact\n"
-      cGRA "       Dict size : " cNOR "%u words (%u new), %u extensions, "
+      cGRA "      Dict size : " cNOR "%u words (%u new), %u extensions, "
                                "%u candidates\n",
       pivot_cnt, pivot_done, pivot_cnt ? ((100.0 * pivot_done) / (pivot_cnt))
       : 0, pivot_pending, pivot_init, pivot_attack, pivot_bf, pivot_missing,
@@ -1353,6 +1366,10 @@ void destroy_database() {
   ck_free(allow_urls);
   ck_free(allow_domains);
   ck_free(trust_domains);
+
+  ck_free(addl_form_name);
+  ck_free(addl_form_value);
+  ck_free(skip_params);
 
   for (kh=0;kh<WORD_HASH;kh++) {
     for (i=0;i<keyword_cnt[kh];i++) ck_free(keyword[kh][i].word);

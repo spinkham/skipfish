@@ -2444,19 +2444,18 @@ void http_stats(u64 st_time) {
   gettimeofday(&tv, NULL);
   en_time = tv.tv_sec * 1000 + tv.tv_usec / 1000;
 
-  SAY("Scan statistics\n"
-      "---------------\n\n"
-      cGRA "       Scan time : " cNOR "%u:%02u:%02u.%04u\n"
-      cGRA "   HTTP requests : " cNOR "%u sent (%.02f/s), %.02f kB in, "
-                                      "%.02f kB out (%.02f kB/s)  \n"
-      cGRA "     Compression : " cNOR "%.02f kB in, %.02f kB out "
-                               "(%.02f%% gain)    \n"
-      cGRA " HTTP exceptions : " cNOR "%u net errors, %u proto errors, "
+  SAY(cLBL "Scan statistics:\n\n"
+      cGRA "      Scan time : " cNOR "%u:%02u:%02u.%04u\n"
+      cGRA "  HTTP requests : " cNOR "%u (%.01f/s), %llu kB in, "
+                                      "%llu kB out (%.01f kB/s)  \n"
+      cGRA "    Compression : " cNOR "%llu kB in, %llu kB out "
+                               "(%.01f%% gain)    \n"
+      cGRA "    HTTP faults : " cNOR "%u net errors, %u proto errors, "
                                "%u retried, %u drops\n"
-      cGRA " TCP connections : " cNOR "%u total (%.02f req/conn)  \n"
-      cGRA "  TCP exceptions : " cNOR "%u failures, %u timeouts, %u purged\n"
-      cGRA "  External links : " cNOR "%u skipped\n"
-      cGRA "    Reqs pending : " cNOR "%u        \n",
+      cGRA " TCP handshakes : " cNOR "%u total (%.01f req/conn)  \n"
+      cGRA "     TCP faults : " cNOR "%u failures, %u timeouts, %u purged\n"
+      cGRA " External links : " cNOR "%u skipped\n"
+      cGRA "   Reqs pending : " cNOR "%u        \n",
 
       /* hrs */ (u32)((en_time - st_time) / 1000 / 60 / 60),
       /* min */ (u32)((en_time - st_time) / 1000 / 60) % 60,
@@ -2465,10 +2464,10 @@ void http_stats(u64 st_time) {
 
       req_count - queue_cur,
       (float) (req_count - queue_cur / 1.15) * 1000 / (en_time - st_time + 1),
-      (float) bytes_recv / 1024, (float) bytes_sent / 1024,
+      bytes_recv / 1024, bytes_sent / 1024,
       (float) (bytes_recv + bytes_sent) / 1.024 / (en_time - st_time + 1),
 
-      (float) bytes_deflated / 1024, (float) bytes_inflated / 1024,
+      bytes_deflated / 1024, bytes_inflated / 1024,
       ((float) bytes_inflated - bytes_deflated) / (bytes_inflated +
       bytes_deflated + 1) * 100,
 
@@ -2478,3 +2477,40 @@ void http_stats(u64 st_time) {
       conn_failed, conn_busy_tmout, conn_idle_tmout,
       url_scope, queue_cur);
 }
+
+
+/* Show currently handled requests. */
+
+#define SP70 \
+  "                                                                      "
+
+void http_req_list(void) {
+  u32 i;
+  struct conn_entry* c = conn;
+
+  SAY(cLBL "In-flight requests (max 15 shown):\n\n");
+
+  for (i=0;i<15;i++) {
+
+    SAY("  " cGRA "[" cBLU "%02d" cGRA "] " cBRI, i + 1);
+
+    if (c && c->q) {
+      u8* p = serialize_path(c->q->req, 1, 0);
+      u32 l = strlen((char*)p);
+
+      if (l > 70) {
+        SAY("%.30s" cGRA "..." cBRI "%.37s\n", p, p + l - 37);
+      } else {
+        SAY("%s%s\n", p, SP70 + l);
+      }
+
+      ck_free(p);
+
+    } else SAY(cLGN "<slot idle>%s\n", SP70 + 11);
+
+    if (c) c = c->next;
+
+  }
+
+}
+

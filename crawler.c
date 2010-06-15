@@ -1460,7 +1460,7 @@ static void crawl_parametric_init(struct pivot_desc* pv) {
   struct http_request* n;
   u32 i;
 
-  if (pv->fuzz_par < 0 || !url_allowed(pv->req)) {
+  if (pv->fuzz_par < 0 || !url_allowed(pv->req) || !param_allowed(pv->name)) {
     pv->state = PSTATE_DONE;
     return;
   }

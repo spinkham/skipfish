@@ -39,9 +39,9 @@ u8  no_parse,            /* Disable HTML link detection */
 
 /* Form autofill hints: */
 
-static u8** addl_form_name;
-static u8** addl_form_value;
-static u32  addl_form_cnt;
+u8** addl_form_name;
+u8** addl_form_value;
+u32  addl_form_cnt;
 
 
 /* Runs some rudimentary checks on top-level pivot HTTP responses. */

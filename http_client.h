@@ -414,5 +414,6 @@ void destroy_http();
 /* Shows some pretty statistics. */
 
 void http_stats(u64 st_time);
+void http_req_list(void);
 
 #endif /* !_HAVE_HTTP_CLIENT_H */

@@ -318,13 +318,14 @@ u8 same_page(struct http_sig* sig1, struct http_sig* sig2);
  } while (0)
 
 extern u8 **deny_urls, **deny_strings, **allow_urls, **allow_domains,
-          **trust_domains;
+          **trust_domains, **skip_params;
 
 extern u32 num_deny_urls,
            num_deny_strings,
            num_allow_urls,
            num_allow_domains,
-           num_trust_domains;
+           num_trust_domains,
+           num_skip_params;
 
 extern u32 max_depth,
            max_children,
@@ -336,6 +337,7 @@ extern u32 max_depth,
 u8 url_allowed_host(struct http_request* req);
 u8 url_trusted_host(struct http_request* req);
 u8 url_allowed(struct http_request* req);
+u8 param_allowed(u8* pname);
 
 /* Keyword management: */
 

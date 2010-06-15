@@ -48,6 +48,12 @@ extern u8  no_parse,            /* Disable HTML link detection */
     scrape_response(_req, _res); \
   } while (0)
 
+/* Form autofill hints: */
+
+extern u8** addl_form_name;
+extern u8** addl_form_value;
+extern u32  addl_form_cnt;
+
 
 /* Runs some rudimentary checks on top-level pivot HTTP responses. */
 
