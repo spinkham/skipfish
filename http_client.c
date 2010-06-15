@@ -812,7 +812,7 @@ dns_got_name:
 /* Creates an ad hoc DNS cache entry, to override NS lookups. */
 
 void fake_host(u8* name, u32 addr) {
-  struct dns_entry *d = dns, *prev = 0;
+  struct dns_entry *d = dns, *prev = dns;
 
   while (d && d->next) { prev = d ; d = d->next;}
 

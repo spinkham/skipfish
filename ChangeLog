@@ -1,3 +1,8 @@
+Version 1.37b:
+--------------
+
+  - NULL ptr with -F fixed.
+
 Version 1.36b:
 --------------
 
