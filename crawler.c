@@ -34,7 +34,7 @@
 
 u32 crawl_prob = 100;    /* Crawl probability (1-100%)     */
 u8  no_fuzz_ext;         /* Don't fuzz extensions for dirs */
-u8  no_500_dir;		 /* Don't assume dirs on 500       */
+u8  no_500_dir;          /* Don't crawl 500 directories    */
 
 /*
 
@@ -1411,7 +1411,7 @@ static void end_injection_checks(struct pivot_desc* pv) {
        in scope (but got added as a parent of an in-scope
        node), or 404 checks went wrong. */
 
-    if (url_allowed(pv->req)) {
+    if (url_allowed(pv->req) && !pv->res_varies) {
 
       if (pv->r404_cnt) {
         pv->state   = PSTATE_CHILD_DICT;
@@ -1430,7 +1430,7 @@ static void end_injection_checks(struct pivot_desc* pv) {
 
   } else {
 
-    if (pv->bogus_par) {
+    if (pv->bogus_par || pv->res_varies) {
       pv->state = PSTATE_DONE;
     } else {
       crawl_par_numerical_init(pv);
