@@ -287,7 +287,7 @@ static void compute_counts(struct pivot_desc* pv) {
   }
 
   if ((!(proc_cnt++ % 50)) || pv->type == PIVOT_ROOT) {
-    SAY(cLGN "\r[+] " cNOR "Counting unique issues: %u", proc_cnt);
+    SAY(cLGN "\r[+] " cNOR "Counting unique nodes: %u", proc_cnt);
     fflush(0);
   }
 
@@ -598,7 +598,7 @@ static void output_crawl_tree(struct pivot_desc* pv) {
   }
 
   if ((!(proc_cnt++ % 50)) || pv->type == PIVOT_ROOT) {
-    SAY(cLGN "\r[+] " cNOR "Counting unique issues: %u", proc_cnt);
+    SAY(cLGN "\r[+] " cNOR "Writing crawl tree: %u", proc_cnt);
     fflush(0);
   }
 

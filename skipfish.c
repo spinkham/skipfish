@@ -434,11 +434,11 @@ int main(int argc, char** argv) {
     optind++;
   }
 
-  /* Char-by char stdio. */
+  /* Char-by char stdin. */
 
   tcgetattr(0, &term);
   term.c_lflag &= ~ICANON;
-  tcsetattr(0, TCSAFLUSH, &term);
+  tcsetattr(0, TCSANOW, &term);
   fcntl(0, F_SETFL, O_NONBLOCK);
 
   gettimeofday(&tv, NULL);
@@ -474,7 +474,7 @@ int main(int argc, char** argv) {
 
     SAY("        \r");
 
-    if (read(0, keybuf, sizeof(keybuf)) > 0) {
+    if (fread(keybuf, 1, sizeof(keybuf), stdin) > 0) {
       display_mode ^= 1;
       clear_screen = 1;
     }
@@ -484,11 +484,14 @@ int main(int argc, char** argv) {
   gettimeofday(&tv, NULL);
   en_time = tv.tv_sec * 1000 + tv.tv_usec / 1000;
 
+  SAY("\n");
+
   if (stop_soon)
     SAY(cYEL "[!] " cBRI "Scan aborted by user, bailing out!" cNOR "\n");
 
   term.c_lflag |= ICANON;
-  tcsetattr(0, TCSAFLUSH, &term);
+  tcsetattr(0, TCSANOW, &term);
+  fcntl(0, F_SETFL, O_SYNC);
 
   if (!dont_save_words) save_keywords((u8*)wordlist);
 
@@ -510,6 +513,8 @@ int main(int argc, char** argv) {
     __AD_report();
   }
 #endif /* DEBUG_ALLOCATOR */
+
+  fflush(0);
 
   return 0;
 

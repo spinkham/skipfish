@@ -1,3 +1,12 @@
+Version 1.38b:
+--------------
+
+  - Decompression now honors user-specified size limits more reliably.
+
+  - Retry logic corrected to account for certain Oracle servers.
+
+  - Terminal I/O fix for debug mode.
+
 Version 1.37b:
 --------------
 

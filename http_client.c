@@ -204,7 +204,7 @@ u8 parse_url(u8* url, struct http_request* req, struct http_request* ref) {
 
   /* Interpret, skip //[login[:pass@](\[ipv4\]|\[ipv6\]|host)[:port] part of the
      URL, if present. Note that "http:blarg" is a valid relative URL to most
-     browsers, and "//example.com/blarg" is a valid non-FQDN absolute one.
+     browsers, and "//example.com/blarg" is a valid non-FQ absolute one.
      We need to mimick this, which complicates the code a bit.
 
      We only accept /, ?, #, and : to mark the end of a host name. Some browsers
@@ -432,7 +432,7 @@ u8* url_decode_token(u8* str, u32 len, u8 plus) {
 
 
 /* URL-encodes a string according to custom rules. The assumption here is that
-   the data is already tokenized as "special" boundaries such as ?, =, &, /,
+   the data is already tokenized at "special" boundaries such as ?, =, &, /,
    ;, !, $, and , so these characters must always be escaped if present in
    tokens. We otherwise let pretty much everything else go through, as it
    may help with the exploitation of certain vulnerabilities. */
@@ -906,9 +906,11 @@ u8* build_request_data(struct http_request* req) {
   }
 
 
-  /* Request a limited range up front to minimize unwanted traffic. */
+  /* Request a limited range up front to minimize unwanted traffic.
+     Note that some Oracle servers apparently fail on certain ranged
+     requests; maybe do something smarter to detect this? */
 
-  if (size_limit) {
+  {
     u8 limit[32];
     sprintf((char*)limit, "Range: bytes=0-%u\r\n", size_limit - 1);
     ASD(limit);
@@ -1511,12 +1513,12 @@ u8 parse_response(struct http_request* req, struct http_response* res,
     u8* tmp_buf;
 
     /* Deflate or gzip - zlib can handle both the same way. We lazily allocate
-       a SIZE_LIMIT output buffer, then truncate it if necessary. */
+       a size_limit output buffer, then truncate it if necessary. */
 
     z_stream d;
     s32 err;
 
-    tmp_buf = ck_alloc(SIZE_LIMIT + 1);
+    tmp_buf = ck_alloc(size_limit + 1);
 
     d.zalloc    = 0;
     d.zfree     = 0;
@@ -1524,7 +1526,7 @@ u8 parse_response(struct http_request* req, struct http_response* res,
     d.next_in   = res->payload;
     d.avail_in  = res->pay_len;
     d.next_out  = tmp_buf;
-    d.avail_out = SIZE_LIMIT;
+    d.avail_out = size_limit;
 
     /* Say hello to third-party vulnerabilities! */
 
@@ -1546,7 +1548,7 @@ u8 parse_response(struct http_request* req, struct http_response* res,
 
     bytes_deflated += res->pay_len;
 
-    res->pay_len = SIZE_LIMIT - d.avail_out;
+    res->pay_len = size_limit - d.avail_out;
     res->payload = ck_realloc(tmp_buf, res->pay_len + 1);
     res->payload[res->pay_len] = 0;
 
@@ -1967,11 +1969,12 @@ network_error:
            and failed instantly with no data read; might be just that
            the server got bored. */
 
-        if (c->q && c->reused && !c->read_len) {
+        if (c->q && !c->q->retrying && c->reused && !c->read_len) {
 
           c->q->res->state = STATE_NOTINIT;
-          c->q->c = 0;
-          c->q = 0;
+          c->q->retrying   = 1;
+          c->q->c          = 0;
+          c->q             = 0;
 
           req_retried++;
 

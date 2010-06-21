@@ -213,6 +213,7 @@ struct queue_entry {
   struct conn_entry*    c;      /* Connection currently used    */
   struct queue_entry*   prev;   /* Previous queue entry         */
   struct queue_entry*   next;   /* Next queue entry             */
+  u8 retrying;                  /* Request being retried?       */
 };
 
 /* DNS cache item: */
