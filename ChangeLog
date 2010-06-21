@@ -1,3 +1,13 @@
+Version 1.40b:
+--------------
+
+  - Command-line option not to descend into 5xx directories.
+
+Version 1.39b:
+--------------
+
+  - Option to override 'Range' header from the command line.
+
 Version 1.38b:
 --------------
 

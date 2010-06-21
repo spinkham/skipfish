@@ -34,6 +34,7 @@
 
 u32 crawl_prob = 100;    /* Crawl probability (1-100%)     */
 u8  no_fuzz_ext;         /* Don't fuzz extensions for dirs */
+u8  no_500_dir;		 /* Don't assume dirs on 500       */
 
 /*
 
@@ -2799,7 +2800,7 @@ static u8 unknown_check_callback(struct http_request* req,
       for (i=0;i<par->r404_cnt;i++)
         if (same_page(&res->sig, &par->r404[i])) break;
 
-    if ((!par && res->code == 404) || (par && i != par->r404_cnt) ||
+    if ((!par && res->code == 404) || (par && i != par->r404_cnt) || 
         (RPRES(req)->code < 300 && res->code >= 300 && RPRES(req)->pay_len)) {
 
       req->pivot->type = PIVOT_FILE;
@@ -2807,6 +2808,16 @@ static u8 unknown_check_callback(struct http_request* req,
     } else {
 
 assume_dir:
+
+      /* If any of the responses is 500, and the user asked for 500 to
+         be treated specially to work around quirky frameworks,
+         assume file right away. */
+
+      if (no_500_dir && (res->code >= 500 || RPRES(req)->code >= 500)) {
+        DEBUG("Feels like a directory, but assuming file pivot as per -Z flag.\n");
+        req->pivot->type = PIVOT_FILE;
+        goto schedule_next;
+      }
 
       req->pivot->type = PIVOT_DIR;
 

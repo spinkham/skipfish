@@ -34,7 +34,7 @@ u8  no_parse,            /* Disable HTML link detection */
     warn_mixed,          /* Warn on mixed content       */
     log_ext_urls,        /* Log all external URLs       */
     no_forms,            /* Do not submit forms         */
-    relaxed_mime,        /* Relax about cset / mime     */
+    relaxed_mime,        /* Relax cset / mime checks    */
     pedantic_cache;      /* Match HTTP/1.0 and HTTP/1.1 */
 
 /* Form autofill hints: */
@@ -1760,7 +1760,7 @@ binary_checks:
   if ((tmp = GET_HDR((u8*)"Content-Disposition", &res->hdr)) &&
       inl_strcasestr(tmp, (u8*)"attachment")) return;
 
-  if (!relaxed_mime) {
+  if (relaxed_mime) {
 
     /* CHECK 5A: Renderable documents that are not CSS or static JS are of
        particular interest when it comes to MIME / charset mistakes. */

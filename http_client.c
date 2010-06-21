@@ -908,9 +908,9 @@ u8* build_request_data(struct http_request* req) {
 
   /* Request a limited range up front to minimize unwanted traffic.
      Note that some Oracle servers apparently fail on certain ranged
-     requests; maybe do something smarter to detect this? */
+     requests, so allowing -H override seems like a good idea. */
 
-  {
+  if (!GET_HDR((u8*)"Range", &global_http_par)) {
     u8 limit[32];
     sprintf((char*)limit, "Range: bytes=0-%u\r\n", size_limit - 1);
     ASD(limit);

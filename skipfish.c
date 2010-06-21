@@ -80,13 +80,14 @@ void usage(char* argv0) {
       "  -K string      - do not fuzz parameters named 'string'\n"
       "  -D domain      - crawl cross-site links to another domain\n"
       "  -B domain      - trust, but do not crawl, another domain\n"
+      "  -Z             - do not descend into 5xx locations\n"
       "  -O             - do not submit any forms\n"
       "  -P             - do not parse HTML, etc, to find new links\n\n"
 
       "Reporting options:\n\n"
 
       "  -o dir         - write output to specified directory (required)\n"
-      "  -J             - be less noisy about MIME / charset mismatches\n"
+      "  -J             - be less picky about MIME / charset mismatches\n"
       "  -M             - log warnings about mixed content\n"
       "  -E             - log all HTTP/1.0 / HTTP/1.1 caching intent mismatches\n"
       "  -U             - log all external URLs and e-mails seen\n"
@@ -165,7 +166,7 @@ int main(int argc, char** argv) {
   SAY("skipfish version " VERSION " by <lcamtuf@google.com>\n");
 
   while ((opt = getopt(argc, argv,
-          "+A:F:C:H:b:Nd:c:r:p:I:X:S:D:PJOYQMUEK:W:LVT:G:R:B:q:g:m:f:t:w:i:s:o:hu")) > 0)
+          "+A:F:C:H:b:Nd:c:r:p:I:X:S:D:PJOYQMZUEK:W:LVT:G:R:B:q:g:m:f:t:w:i:s:o:hu")) > 0)
 
     switch (opt) {
 
@@ -386,6 +387,10 @@ int main(int argc, char** argv) {
 
       case 'u':
         be_quiet = 1;
+        break;
+
+      case 'Z':
+        no_500_dir = 1;
         break;
 
       default:
