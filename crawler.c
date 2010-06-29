@@ -1066,7 +1066,7 @@ schedule_next:
 
   if (req->user_val != 1) return 0;
 
-  /* CHECK 7: SQL injection - 6 requests */
+  /* CHECK 7: SQL injection - 8 requests */
 
   if (orig_state != PSTATE_CHILD_INJECT) {
     u8* pstr = TPAR(RPREQ(req));
@@ -1125,6 +1125,25 @@ schedule_next:
   n->user_val = 5;
   async_request(n);
 
+  /* This is a special case to trigger fault on blind numerical injection. */
+
+  n = req_copy(RPREQ(req), req->pivot, 1);
+  if (!is_num) SET_VECTOR(orig_state, n, "9 - 1");
+  else APPEND_VECTOR(orig_state, n, "- 0 - 0");
+  n->callback = inject_check7_callback;
+  n->user_val = 6;
+  async_request(n);
+
+  n = req_copy(RPREQ(req), req->pivot, 1);
+  if (!is_num) SET_VECTOR(orig_state, n, "9 1 -");
+  else APPEND_VECTOR(orig_state, n, "0 0 - -");
+  n->callback = inject_check7_callback;
+  n->user_val = 7;
+  async_request(n);
+
+
+
+
   /* TODO: We should probably also attempt cookie injection here. */
 
   return 0;
@@ -1150,7 +1169,7 @@ static u8 inject_check7_callback(struct http_request* req,
 
   req->pivot->misc_req[req->user_val] = req;
   req->pivot->misc_res[req->user_val] = res;
-  if ((++req->pivot->misc_cnt) != 6) return 1;
+  if ((++req->pivot->misc_cnt) != 8) return 1;
 
   /* Got all data:
 
@@ -1160,20 +1179,33 @@ static u8 inject_check7_callback(struct http_request* req,
        misc[3] = [orig]\'\"
        misc[4] = [orig]'"
        misc[5] = [orig]\\'\\"
+       misc[6] = 9 - 1 (or orig - 0 - 0)
+       misc[7] = 9 1 - (or orig 0 0 - -)
 
      If misc[0] == misc[1], but misc[0] != misc[2], probable (numeric) SQL
-     injection. If misc[3] != misc[4] and misc[4] != misc[5],
-     probable text SQL injection.
+     injection. Ditto for misc[2] == misc[6], but misc[6] != misc[7]. 
+
+     If misc[3] != misc[4] and misc[4] != misc[5], probable text SQL 
+     injection.
 
    */
 
   if (same_page(&MRES(0)->sig, &MRES(1)->sig) &&
       !same_page(&MRES(0)->sig, &MRES(2)->sig)) {
     problem(PROB_SQL_INJECT, MREQ(0), MRES(0),
-      (u8*)"response suggests arithmetic evaluation on server side",
+      (u8*)"response suggests arithmetic evaluation on server side (type 1)",
       req->pivot, 0);
     RESP_CHECKS(MREQ(0), MRES(0));
     RESP_CHECKS(MREQ(2), MRES(2));
+  }
+
+  if (same_page(&MRES(2)->sig, &MRES(6)->sig) &&
+      !same_page(&MRES(6)->sig, &MRES(7)->sig)) {
+    problem(PROB_SQL_INJECT, MREQ(7), MRES(7),
+      (u8*)"response suggests arithmetic evaluation on server side (type 2)",
+      req->pivot, 0);
+    RESP_CHECKS(MREQ(6), MRES(6));
+    RESP_CHECKS(MREQ(7), MRES(7));
   }
 
   if (!same_page(&MRES(3)->sig, &MRES(4)->sig) && 

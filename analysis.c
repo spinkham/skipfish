@@ -2257,7 +2257,7 @@ static void check_for_stuff(struct http_request* req,
 
   if (strstr((char*)res->payload, "<b>Warning</b>:  MySQL: ") ||
       strstr((char*)res->payload, "java.sql.SQLException") ||
-      strstr((char*)res->payload, "[You have an error in your SQL syntax; ")) {
+      strstr((char*)res->payload, "You have an error in your SQL syntax; ")) {
     problem(PROB_ERROR_POI, req, res, (u8*)"SQL server error", req->pivot, 0);
     return;
   }

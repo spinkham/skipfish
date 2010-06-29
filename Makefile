@@ -55,7 +55,8 @@ clean:
 	rm -rf tmpdir
 
 same_test: same_test.c $(OBJFILES) $(INCFILES)
-	$(CC) same_test.c -o same_test $(CFLAGS_DBG) $(OBJFILES) $(LDFLAGS)
+	$(CC) same_test.c -o same_test $(CFLAGS_DBG) $(OBJFILES) $(LDFLAGS) \
+	      $(LIBS)
 
 publish: clean
 	cd ..; tar cfvz ~/www/skipfish.tgz skipfish

@@ -1,3 +1,10 @@
+Version 1.44b:
+--------------
+
+  - Significant improvement to numerical SQL injection detector.
+
+  - Minor tweak to SQL message detection rules.
+
 Version 1.43b:
 --------------
 
