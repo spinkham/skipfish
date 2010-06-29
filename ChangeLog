@@ -1,3 +1,8 @@
+Version 1.42b:
+--------------
+
+  - Fix to SQL injection detection with empty parameters.
+
 Version 1.41b:
 --------------
 

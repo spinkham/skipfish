@@ -1071,7 +1071,7 @@ schedule_next:
   if (orig_state != PSTATE_CHILD_INJECT) {
     u8* pstr = TPAR(RPREQ(req));
     u32 c = strspn((char*)pstr, "01234567890.+-");
-    if (!pstr[c]) is_num = 1;
+    if (pstr[0] && !pstr[c]) is_num = 1;
   }
 
   n = req_copy(RPREQ(req), req->pivot, 1);
