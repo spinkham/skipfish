@@ -646,6 +646,13 @@ void scrape_response(struct http_request* req, struct http_response* res) {
 
   res->scraped = 1;
 
+  /* Do not scrape pages that are identical to their parent. */
+
+  if (RPAR(req)->res && same_page(&res->sig, &RPAR(req)->res->sig)) {
+    DEBUG("* Not extracting links because page looks the same as parent.\n");
+    return;
+  }
+
   /* Handle Location, Refresh headers first. */
 
   if ((cur_str = GET_HDR((u8*)"Location", &res->hdr)))

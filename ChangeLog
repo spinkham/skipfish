@@ -1,3 +1,9 @@
+Version 1.43b:
+--------------
+
+  - Improvement to reduce the likelihood of crawl loops: do not
+    extract links if current page identical to parent.
+
 Version 1.42b:
 --------------
 

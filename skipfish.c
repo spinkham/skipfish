@@ -447,7 +447,7 @@ int main(int argc, char** argv) {
   fcntl(0, F_SETFL, O_NONBLOCK);
 
   gettimeofday(&tv, NULL);
-  st_time = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+  st_time = tv.tv_sec * 1000L + tv.tv_usec / 1000L;
 
   if (!be_quiet) SAY("\x1b[H\x1b[J");
     else SAY(cLGN "[*] " cBRI "Scan in progress, please stay tuned...\n");
@@ -456,7 +456,7 @@ int main(int argc, char** argv) {
 
     u8 keybuf[8];
 
-    if (be_quiet || ((loop_cnt++ % 20) && !show_once)) continue;
+    if (be_quiet || ((loop_cnt++ % 100) && !show_once)) continue;
 
     if (clear_screen) {
       SAY("\x1b[H\x1b[2J");
@@ -487,7 +487,7 @@ int main(int argc, char** argv) {
   }
 
   gettimeofday(&tv, NULL);
-  en_time = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+  en_time = tv.tv_sec * 1000L + tv.tv_usec / 1000L;
 
   SAY("\n");
 

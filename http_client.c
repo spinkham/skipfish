@@ -2445,7 +2445,7 @@ void http_stats(u64 st_time) {
   struct timeval tv;
 
   gettimeofday(&tv, NULL);
-  en_time = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+  en_time = tv.tv_sec * 1000L + tv.tv_usec / 1000L;
 
   SAY(cLBL "Scan statistics:\n\n"
       cGRA "      Scan time : " cNOR "%u:%02u:%02u.%04u\n"
