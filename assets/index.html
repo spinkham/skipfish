@@ -140,11 +140,28 @@ ol {
   padding: 0 0 0 1.5em;
 }
 
+.issue_ctr {
+  border-style: solid;
+  border-color: #FFF0E0;
+  border-width: 0px 0px 0px 10px;
+  padding: 0 0 0 0.5em;
+  margin: 0 0 0 0;
+}
+
+.node_ctr {
+  border-style: solid;
+  border-color: #E0FFFF;
+  border-width: 1px 0px 1px 10px;
+  padding: 0 0 0 0.5em;
+  margin: 0 0 0 0;
+}
+
 .issue_line {
   border-width: 0 0 1px 0;
   margin: 0.2em 0 0.2em 0;
   border-style: dashed;
   border-color: red;
+  width: 10em;
 }
 
 .s_cnt {
@@ -456,6 +473,7 @@ function hide_dat() {
 function load_node(dir, tid) {
   var x = new XMLHttpRequest();
   var t = document.getElementById('c_' + tid);
+  var add_html = '';
 
   x.open('GET', dir + 'child_index.js', false);
   x.send(null);
@@ -470,13 +488,12 @@ function load_node(dir, tid) {
   next_opacity('c_' + tid, 0);
 
   if (issue.length > 0)
-    t.innerHTML += '<div class="issue_line"></div>';
+    add_html += '<div class=issue_ctr>\n';
 
   for (var cno = 0; cno < issue.length; cno++) {
     var i = issue[cno];
-    var add_html;
 
-    add_html = '<table><tr><td valign="top">\n';
+    add_html += '<table><tr><td valign="top">\n';
 
     switch (i.severity) {
       case 0:  add_html += '<img src="i_note.png" title="Informational note">'; break;
@@ -516,19 +533,21 @@ function load_node(dir, tid) {
     add_html += '</ol>\n';
 
     add_html += '</td></tr></table>\n';
-    t.innerHTML += add_html;
 
   }
 
   if (issue.length > 0)
-    t.innerHTML += '<div class="issue_line"></div>';
+    add_html += '</div>';
+
+  if (child.length > 0) 
+    add_html += '<div class=node_ctr>';
 
   for (var cno = 0; cno < child.length; cno++) {
     var c = child[cno];
     var has_child = false;
-    var add_html, cstr = '';
+    var cstr = '';
 
-    add_html = '<table><tr><td valign="top">\n';
+    add_html += '<table><tr><td valign="top">\n';
 
     if (c.dupe) cstr = 'class="idupe" ';
 
@@ -619,10 +638,14 @@ function load_node(dir, tid) {
     if (has_child) add_html += '</tr><tr>\n<td></td>\n<td id="c_' + c_count + '">';
 
     add_html += '</td></tr></table>\n';
-    t.innerHTML += add_html;
     c_count++;
 
   }
+
+  if (child.length > 0) 
+    add_html += '</div>';
+
+  t.innerHTML += add_html;
 
 }
 
