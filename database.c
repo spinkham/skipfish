@@ -1069,13 +1069,11 @@ void save_keywords(u8* fname) {
 
   fd = open((char*)fname, O_WRONLY | O_CREAT | O_EXCL, 0644);
 
-  if (fd < 0 || !(out = fdopen(fd,"a"))) {
+  if (fd < 0 || !(out = fdopen(fd,"w"))) {
     WARN("Unable to save new wordlist to '%s'", fname);
     close(fd);
     return;
   }
-
-  out = fdopen(fd, "w");
 
   for (kh=0;kh<WORD_HASH;kh++)
     for (i=0;i<keyword_cnt[kh];i++)

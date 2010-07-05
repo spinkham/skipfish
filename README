@@ -407,15 +407,18 @@ issues):
 $ ./skipfish -MEU -C "AuthCookie=value" -X /logout.aspx -o output_dir \
   http://www.example.com/
 
-Five-connection crawl, but no brute-force; pretending to be MSIE and caring 
-less about ambiguous MIME or character set mismatches:
+Five-connection crawl, but no brute-force; pretending to be MSIE, caring 
+less about ambiguous MIME or character set mismatches, and trusting
+example.com links:
 
-$ ./skipfish -m 5 -LVJ -W /dev/null -o output_dir -b ie http://www.example.com/
+$ ./skipfish -m 5 -LVJ -W /dev/null -o output_dir -b ie -B example.com \
+  http://www.example.com/
 
-Brute force only (no HTML link extraction), trusting links within example.com 
-and timing out after 5 seconds:
+Brute force only (no HTML link extraction), limited to a specific
+directory, timing out after 5 seconds:
 
-$ ./skipfish -B .example.com -O -o output_dir -t 5 http://www.example.com/
+$ ./skipfish -P -I http://www.example.com/dir1/ -O -o output_dir -t 5 \
+  http://www.example.com/dir1/
 
 For a short list of all command-line options, try ./skipfish -h.
 

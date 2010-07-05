@@ -1,3 +1,11 @@
+Version 1.46b:
+--------------
+
+  - Security: fixed a potential read past EOB in scrape_response() on
+    zero-sized payloads. Credit to Jeff Johnson.
+
+  - Removed redundant fdopen() in dictionary management,
+
 Version 1.45b:
 --------------
 

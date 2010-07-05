@@ -193,6 +193,7 @@ w 1 1 1 addressbook
 w 1 1 1 adm
 w 1 1 1 admin
 w 1 1 1 admin_
+w 1 1 1 admins
 w 1 1 1 adodb
 w 1 1 1 ads
 w 1 1 1 adv

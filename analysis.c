@@ -839,7 +839,8 @@ next_tag:
 
     /* Skip to next tag. */
 
-    cur_str = (u8*)strchr((char*)tag_end + 1, '<');
+    if (*tag_end) cur_str = (u8*)strchr((char*)tag_end + 1, '<');
+      else cur_str = 0;
 
   } while (cur_str);
 
@@ -1894,7 +1895,7 @@ static void detect_mime(struct http_request* req, struct http_response* res) {
   memcpy(sniffbuf, res->payload,
          (res->pay_len > SNIFF_LEN - 1) ? (SNIFF_LEN - 1) : res->pay_len);
 
-  sniffbuf[SNIFF_LEN - 1] = 0;
+  sniffbuf[(res->pay_len > SNIFF_LEN - 1) ? (SNIFF_LEN - 1) : res->pay_len] = 0;
 
   if (is_mostly_ascii(res)) {
 
@@ -2219,7 +2220,7 @@ static void check_for_stuff(struct http_request* req,
   memcpy(sniffbuf, res->payload,
          (res->pay_len > SNIFF_LEN - 1) ? (SNIFF_LEN - 1) : res->pay_len);
 
-  sniffbuf[SNIFF_LEN - 1] = 0;
+  sniffbuf[(res->pay_len > SNIFF_LEN - 1) ? (SNIFF_LEN - 1) : res->pay_len] = 0;
 
   res->stuff_checked = 1;
 

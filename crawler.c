@@ -1141,9 +1141,6 @@ schedule_next:
   n->user_val = 7;
   async_request(n);
 
-
-
-
   /* TODO: We should probably also attempt cookie injection here. */
 
   return 0;
