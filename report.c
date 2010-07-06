@@ -312,7 +312,7 @@ static inline u8* js_escape(u8* str) {
 
   len = strlen((char*)str);
 
-  if (ret) free(ret);
+  if (ret) __DFL_ck_free(ret);
   opos = ret = __DFL_ck_alloc(len * 4 + 1);
 
   while (len--) {

@@ -1144,7 +1144,9 @@ void fprint_response(struct http_response* res) {
 
   for (i=0;i<res->pay_len;i++)
 
-    if (res->payload[i] <= 0x20 || strchr("<>'\"", res->payload[i])) {
+    if (res->payload[i] <= 0x20 || 
+        res->payload[i] == '<'  || res->payload[i] == '>' ||
+        res->payload[i] == '\'' || res->payload[i] == '"') {
       if (!in_space) {
         in_space = 1;
         if (c_len <= FP_MAX_LEN)
@@ -1927,20 +1929,22 @@ u32 next_from_queue(void) {
 
   if (conn_cur) {
     static struct pollfd* p;
+
     struct conn_entry* c = conn;
     u32 i = 0;
 
     /* First, go through all connections, handle connects, SSL handshakes, data
        reads and writes, and exceptions. */
 
-    if (p) free(p);
-    p = __DFL_ck_alloc(sizeof(struct pollfd) * conn_cur);
+    if (!p)
+      p = __DFL_ck_alloc(sizeof(struct pollfd) * max_connections);
 
     while (c) {
       p[i].fd = c->fd;
       p[i].events = POLLIN | POLLERR | POLLHUP;
       if (c->write_len - c->write_off || c->SSL_rd_w_wr)
         p[i].events |= POLLOUT;
+      p[i].revents = 0;
       c = c->next;
       i++;
     }
@@ -2445,7 +2449,7 @@ void http_stats(u64 st_time) {
   struct timeval tv;
 
   gettimeofday(&tv, NULL);
-  en_time = tv.tv_sec * 1000L + tv.tv_usec / 1000L;
+  en_time = tv.tv_sec * 1000LL + tv.tv_usec / 1000;
 
   SAY(cLBL "Scan statistics:\n\n"
       cGRA "      Scan time : " cNOR "%u:%02u:%02u.%04u\n"
@@ -2467,10 +2471,12 @@ void http_stats(u64 st_time) {
 
       req_count - queue_cur,
       (float) (req_count - queue_cur / 1.15) * 1000 / (en_time - st_time + 1),
-      bytes_recv / 1024, bytes_sent / 1024,
+      (unsigned long long int) bytes_recv / 1024,
+      (unsigned long long int) bytes_sent / 1024,
       (float) (bytes_recv + bytes_sent) / 1.024 / (en_time - st_time + 1),
 
-      bytes_deflated / 1024, bytes_inflated / 1024,
+      (unsigned long long int) bytes_deflated / 1024,
+      (unsigned long long int) bytes_inflated / 1024,
       ((float) bytes_inflated - bytes_deflated) / (bytes_inflated +
       bytes_deflated + 1) * 100,
 

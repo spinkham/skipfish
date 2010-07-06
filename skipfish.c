@@ -447,7 +447,7 @@ int main(int argc, char** argv) {
   fcntl(0, F_SETFL, O_NONBLOCK);
 
   gettimeofday(&tv, NULL);
-  st_time = tv.tv_sec * 1000L + tv.tv_usec / 1000L;
+  st_time = tv.tv_sec * 1000LL + tv.tv_usec / 1000;
 
   if (!be_quiet) SAY("\x1b[H\x1b[J");
     else SAY(cLGN "[*] " cBRI "Scan in progress, please stay tuned...\n");
@@ -520,6 +520,9 @@ int main(int argc, char** argv) {
 #endif /* DEBUG_ALLOCATOR */
 
   fflush(0);
+
+  EVP_cleanup();
+  CRYPTO_cleanup_all_ex_data();
 
   return 0;
 

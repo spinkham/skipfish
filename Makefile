@@ -20,13 +20,15 @@
 #
 
 PROGNAME   = skipfish
+VERSION    = 1.47b
 
 OBJFILES   = http_client.c database.c crawler.c analysis.c report.c
 INCFILES   = alloc-inl.h string-inl.h debug.h types.h http_client.h \
              database.h crawler.h analysis.h config.h report.h
 
 CFLAGS_GEN = -Wall -funsigned-char -g -ggdb -I/usr/local/include/ \
-             -I/opt/local/include/ $(CFLAGS) -D_FORTIFY_SOURCE=0
+             -I/opt/local/include/ $(CFLAGS) -D_FORTIFY_SOURCE=0 \
+             -DVERSION=\"$(VERSION)\"
 CFLAGS_DBG = -DLOG_STDERR=1 -DDEBUG_ALLOCATOR=1 $(CFLAGS_GEN) 
 CFLAGS_OPT = -O3 -Wno-format $(CFLAGS_GEN)
 
@@ -59,5 +61,6 @@ same_test: same_test.c $(OBJFILES) $(INCFILES)
 	      $(LIBS)
 
 publish: clean
-	cd ..; tar cfvz ~/www/skipfish.tgz skipfish
+	cd ..; rm -rf skipfish-$(VERSION); cp -pr skipfish skipfish-$(VERSION); \
+	  tar cfvz ~/www/skipfish.tgz skipfish-$(VERSION)
 	chmod 644 ~/www/skipfish.tgz

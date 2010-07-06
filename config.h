@@ -23,8 +23,6 @@
 #ifndef _HAVE_CONFIG_H
 #define _HAVE_CONFIG_H
 
-#define VERSION "1.46b"
-
 #define USE_COLOR               1       /* Use terminal colors             */
 
 /* Default paths to runtime files: */

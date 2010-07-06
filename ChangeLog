@@ -1,3 +1,14 @@
+Version 1.47b:
+--------------
+
+  - Minor tweaks around compiler warnings, etc.
+
+  - Versioned directories now in use.
+
+  - malloc_usable_size ditched in favor of djm's trick.
+
+  - Minor performance tweaks as suggested by Jeff Johnson.
+
 Version 1.46b:
 --------------
 

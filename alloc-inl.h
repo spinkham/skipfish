@@ -27,17 +27,6 @@
 #define _HAVE_ALLOC_INL_H
 
 #include <stdlib.h>
-
-#ifndef __FreeBSD__
-#ifdef __APPLE__
-#include <malloc/malloc.h>
-#else
-#include <malloc.h>
-#endif /* __APPLE__ */
-#else
-#include <malloc_np.h>
-#endif /* ^__FreeBSD__ */
-
 #include <string.h>
 
 #include "config.h"
@@ -54,47 +43,55 @@
       FATAL("out of memory: can't allocate %u bytes", (_s)); \
   } while (0)
 
-#ifdef __APPLE__
-#define malloc_usable_size malloc_size
-#endif /* __APPLE__ */
+
+#define ALLOC_MAGIC   0xFF00
+#define ALLOC_C(_ptr) (((u16*)(_ptr))[-3])
+#define ALLOC_S(_ptr) (((u32*)(_ptr))[-1])
 
 static inline void* __DFL_ck_alloc(u32 size) {
   void* ret;
-  u32   usable;
 
   if (!size) return NULL;
 
   ALLOC_CHECK_SIZE(size);
-  ret = malloc(size);
+  ret = malloc(size + 6);
   ALLOC_CHECK_RESULT(ret, size);
 
-  usable = malloc_usable_size(ret);
-  memset(ret, 0, usable);
+  ret += 6;
 
-  return ret;
+  ALLOC_C(ret) = ALLOC_MAGIC;
+  ALLOC_S(ret) = size;
+
+  return memset(ret, 0, size);
 }
 
 
 static inline void* __DFL_ck_realloc(void* orig, u32 size) {
   void* ret;
-  u32   old_usable = 0,
-        new_usable;
+  u32   old_size = 0;
 
   if (!size) {
-    free(orig);
+    if (orig) free(orig - 6);
     return NULL;
   }
 
-  if (orig) old_usable = malloc_usable_size(orig);
+  if (orig) {
+    if (ALLOC_C(orig) != ALLOC_MAGIC) FATAL("Bad alloc canary");
+    old_size = ALLOC_S(orig);
+    orig -= 6;
+  }
 
   ALLOC_CHECK_SIZE(size);
-  ret = realloc(orig, size);
+  ret = realloc(orig, size + 6);
   ALLOC_CHECK_RESULT(ret, size);
 
-  new_usable = malloc_usable_size(ret);
+  ret += 6;
 
-  if (new_usable > old_usable)
-    memset(ret + old_usable, 0, new_usable - old_usable);
+  ALLOC_C(ret) = ALLOC_MAGIC;
+  ALLOC_S(ret) = size;
+
+  if (size > old_size)
+    memset(ret + old_size, 0, size - old_size);
 
   return ret;
 }
@@ -103,45 +100,44 @@ static inline void* __DFL_ck_realloc(void* orig, u32 size) {
 static inline void* __DFL_ck_strdup(u8* str) {
   void* ret;
   u32   size;
-  u32   usable;
 
   if (!str) return NULL;
 
   size = strlen((char*)str) + 1;
 
   ALLOC_CHECK_SIZE(size);
-  ret = malloc(size);
+  ret = malloc(size + 6);
   ALLOC_CHECK_RESULT(ret, size);
 
-  usable = malloc_usable_size(ret);
+  ret += 6;
 
-  memcpy(ret, str, size);
+  ALLOC_C(ret) = ALLOC_MAGIC;
+  ALLOC_S(ret) = size;
 
-  if (usable > size)
-    memset(ret + size, 0, usable - size);
-
-  return ret;
+  return memcpy(ret, str, size);
 }
 
 
 static inline void* __DFL_ck_memdup(u8* mem, u32 size) {
   void* ret;
-  u32   usable;
 
   if (!mem || !size) return NULL;
 
   ALLOC_CHECK_SIZE(size);
-  ret = malloc(size);
+  ret = malloc(size + 6);
   ALLOC_CHECK_RESULT(ret, size);
+  
+  ret += 6;
 
-  usable = malloc_usable_size(ret);
+  ALLOC_C(ret) = ALLOC_MAGIC;
+  ALLOC_S(ret) = size;
 
-  memcpy(ret, mem, size);
+  return memcpy(ret, mem, size);
+}
 
-  if (usable > size)
-    memset(ret + size, 0, usable - size);
 
-  return ret;
+static inline void __DFL_ck_free(void* mem) {
+  if (mem) free(mem - 6);
 }
 
 
@@ -153,7 +149,7 @@ static inline void* __DFL_ck_memdup(u8* mem, u32 size) {
 #define ck_realloc      __DFL_ck_realloc
 #define ck_strdup       __DFL_ck_strdup
 #define ck_memdup       __DFL_ck_memdup
-#define ck_free         free
+#define ck_free         __DFL_ck_free
 
 #else
 
@@ -281,7 +277,7 @@ static inline void* __AD_ck_memdup(u8* mem, u32 size, const char* file,
 static inline void __AD_ck_free(void* ptr, const char* file,
                                 const char* func, u32 line) {
   __AD_free_buf(ptr, file, func, line);
-  free(ptr);
+  __DFL_ck_free(ptr);
 }
 
 

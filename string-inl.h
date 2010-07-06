@@ -109,7 +109,7 @@ static inline void* inl_memmem(const void* haystack, u32 h_len,
 
 #define ADD_STR_DATA(_buf_ptr, _buf_len, _str) do { \
     u32 _sl = strlen((char*)_str); \
-    if ((_buf_len) + (_sl) + 1 > malloc_usable_size(_buf_ptr)) { \
+    if ((_buf_len) + (_sl) + 1 > ALLOC_S(_buf_ptr)) { \
       u32 _nsiz = ((_buf_len) + _sl + 1024) >> 10 << 10; \
       (_buf_ptr)  = ck_realloc(_buf_ptr, _nsiz); \
     } \

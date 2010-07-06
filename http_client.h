@@ -239,12 +239,12 @@ struct dns_entry {
 
 #define FREE(_ar) do { \
     while ((_ar)->c--) { \
-      free((_ar)->n[(_ar)->c]); \
-      free((_ar)->v[(_ar)->c]); \
+      ck_free((_ar)->n[(_ar)->c]); \
+      ck_free((_ar)->v[(_ar)->c]); \
     } \
-    free((_ar)->t); \
-    free((_ar)->n); \
-    free((_ar)->v); \
+    ck_free((_ar)->t); \
+    ck_free((_ar)->n); \
+    ck_free((_ar)->v); \
   } while (0)
 
 

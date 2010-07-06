@@ -1321,7 +1321,7 @@ static void dealloc_pivots(struct pivot_desc* cur) {
 u8* new_xss_tag(u8* prefix) {
   static u8* ret;
 
-  if (ret) free(ret);
+  if (ret) __DFL_ck_free(ret);
   ret = __DFL_ck_alloc((prefix ? strlen((char*)prefix) : 0) + 32);
 
   if (!scan_id) scan_id = R(999999) + 1;
