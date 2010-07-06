@@ -2022,12 +2022,15 @@ network_error:
           s32 read_res;
           u8 p_ret;
 
+SSL_read_more:
+
           c->read_buf = ck_realloc(c->read_buf, c->read_len + READ_CHUNK + 1);
 
           if (c->proto == PROTO_HTTPS) {
             s32 ssl_err;
 
             c->SSL_rd_w_wr = 0;
+
 
             read_res = SSL_read(c->srv_ssl, c->read_buf + c->read_len,
                                 READ_CHUNK);
@@ -2050,6 +2053,10 @@ network_error:
 
           c->read_len += read_res;
           c->read_buf = ck_realloc(c->read_buf, c->read_len + 1);
+
+          /* Retry reading until SSL_ERROR_WANT_READ. */
+
+          if (read_res && c->read_len < size_limit) goto SSL_read_more;
 
           c->read_buf[c->read_len] = 0; /* NUL-terminate for sanity. */
 

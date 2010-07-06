@@ -1,3 +1,9 @@
+Version 1.48b:
+--------------
+
+  - A fix to SSL handling to avoid mystery fetch failures when
+    talking to certain servers.
+
 Version 1.47b:
 --------------
 
