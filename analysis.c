@@ -2357,6 +2357,16 @@ static void check_for_stuff(struct http_request* req,
     return;
   }
 
+  /* Add more directory signatures here... */
+
+  if (strstr((char*)sniffbuf, "<A HREF=\"?N=D\">") ||
+      strstr((char*)sniffbuf, "<a href=\"?C=N;O=D\">") ||
+      strstr((char*)sniffbuf, "<h1>Index of /") ||
+      strstr((char*)sniffbuf, ">[To Parent Directory]<")) {
+    problem(PROB_FILE_POI, req, res, (u8*)"Directory listing", req->pivot, 0);
+    return;
+  }
+
   if (res->sniff_mime_id == MIME_ASC_GENERIC) {
     u8* x = sniffbuf;
     u32 slashes = 0;

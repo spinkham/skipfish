@@ -137,7 +137,10 @@ static inline void* __DFL_ck_memdup(u8* mem, u32 size) {
 
 
 static inline void __DFL_ck_free(void* mem) {
-  if (mem) free(mem - 6);
+  if (mem) {
+    if (ALLOC_C(mem) != ALLOC_MAGIC) FATAL("Bad alloc canary");
+    free(mem - 6);
+  }
 }
 
 

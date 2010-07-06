@@ -1,3 +1,10 @@
+Version 1.49b:
+--------------
+
+  - Minor improvement to the allocator,
+
+  - Several directory listing signatures added.
+
 Version 1.48b:
 --------------
 
