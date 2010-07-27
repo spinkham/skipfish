@@ -76,7 +76,7 @@ static inline void* __DFL_ck_realloc(void* orig, u32 size) {
   }
 
   if (orig) {
-    if (ALLOC_C(orig) != ALLOC_MAGIC) FATAL("Bad alloc canary");
+    if (ALLOC_C(orig) != ALLOC_MAGIC) ABORT("Bad alloc canary");
     old_size = ALLOC_S(orig);
     orig -= 6;
   }
@@ -138,7 +138,7 @@ static inline void* __DFL_ck_memdup(u8* mem, u32 size) {
 
 static inline void __DFL_ck_free(void* mem) {
   if (mem) {
-    if (ALLOC_C(mem) != ALLOC_MAGIC) FATAL("Bad alloc canary");
+    if (ALLOC_C(mem) != ALLOC_MAGIC) ABORT("Bad alloc canary");
     free(mem - 6);
   }
 }

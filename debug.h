@@ -86,6 +86,13 @@
     exit(1); \
   } while (0)
 
+#define ABORT(x...) do { \
+    F_DEBUG(cLRD "[-] PROGRAM ABORT : " cBRI x); \
+    F_DEBUG(cLRD "\n    Stop location : " cNOR "%s(), %s:%u\n" cRST, \
+            __FUNCTION__, __FILE__, __LINE__); \
+    abort(); \
+  } while (0)
+
 #define PFATAL(x...) do { \
     F_DEBUG(cLRD "[-]  SYSTEM ERROR : " cBRI x); \
     F_DEBUG(cLRD "\n    Stop location : " cNOR "%s(), %s:%u\n", \

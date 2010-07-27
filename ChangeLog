@@ -1,3 +1,10 @@
+Version 1.50b:
+--------------
+
+  - abort() instead of exit() in several places.
+
+  - Cleaned up mem leak, incorrect use of ck_free() in IDN handling.
+
 Version 1.49b:
 --------------
 
