@@ -1,3 +1,8 @@
+Version 1.52b:
+--------------
+
+  - Fixed HTTP read loop after 1.48b.
+
 Version 1.51b:
 --------------
 

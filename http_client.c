@@ -2059,7 +2059,8 @@ SSL_read_more:
 
           /* Retry reading until SSL_ERROR_WANT_READ. */
 
-          if (read_res && c->read_len < size_limit) goto SSL_read_more;
+          if (c->proto == PROTO_HTTPS &&
+              read_res && c->read_len < size_limit) goto SSL_read_more;
 
           c->read_buf[c->read_len] = 0; /* NUL-terminate for sanity. */
 
