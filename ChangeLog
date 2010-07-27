@@ -1,4 +1,4 @@
-Version 1.50b:
+Version 1.51b:
 --------------
 
   - abort() instead of exit() in several places.

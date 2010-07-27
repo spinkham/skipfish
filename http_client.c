@@ -285,6 +285,7 @@ u8 parse_url(u8* url, struct http_request* req, struct http_request* ref) {
 
       if (idna_to_ascii_8z((char*)host, &output, 0) != IDNA_SUCCESS ||
           strlen(output) > MAX_DNS_LEN) {
+        ck_free(host);
         free(output);
         return 1;
       }
