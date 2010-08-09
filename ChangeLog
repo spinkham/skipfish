@@ -1,3 +1,13 @@
+Version 1.54b:
+--------------
+
+  - Improved loop detector on mappings that only look at the last path segment.
+
+Version 1.53b:
+--------------
+
+  - Slight improvement to JSON discriminator.
+
 Version 1.52b:
 --------------
 

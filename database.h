@@ -55,7 +55,8 @@
 
 #define PSTATE_TYPE_CHECK       20              /* Type check (unknown only) */
 #define PSTATE_404_CHECK        22              /* 404 check (dir only)      */
-#define PSTATE_IPS_CHECK        25              /* IPS filtering check       */
+#define PSTATE_PARENT_CHECK     24              /* Parent check (dir only)   */
+#define PSTATE_IPS_CHECK        26              /* IPS filtering check       */
 
 /* For directories only (injecting children nodes): */
 
@@ -102,6 +103,7 @@ struct pivot_desc {
   struct http_response* res;                    /* HTTP response seen        */
 
   u8 res_varies;                                /* Response varies?          */
+  u8 bad_parent;                                /* Parent is well-behaved?   */
 
   /* Fuzzer and probe state data: */
 
@@ -220,9 +222,10 @@ u8 is_c_sens(struct pivot_desc* pv);
 #define PROB_LIMITS             20102           /* Crawl limits exceeded.    */
 
 #define PROB_404_FAIL           20201           /* Behavior probe failed.    */
-#define PROB_IPS_FILTER         20202           /* IPS behavior detected.    */
-#define PROB_IPS_FILTER_OFF     20203           /* IPS no longer active.     */
-#define PROB_VARIES             20204           /* Response varies.          */
+#define PROB_PARENT_FAIL        20202           /* Parent behavior problem   */
+#define PROB_IPS_FILTER         20203           /* IPS behavior detected.    */
+#define PROB_IPS_FILTER_OFF     20204           /* IPS no longer active.     */
+#define PROB_VARIES             20205           /* Response varies.          */
 
 #define PROB_NOT_DIR            20301           /* Node should be a dir.     */
 

@@ -1213,6 +1213,7 @@ void dump_pivots(struct pivot_desc* cur, u8 nest) {
     case PSTATE_FETCH:        SAY("PSTATE_FETCH\n"); break;
     case PSTATE_TYPE_CHECK:   SAY("PSTATE_TYPE_CHECK\n"); break;
     case PSTATE_404_CHECK:    SAY("PSTATE_404_CHECK\n"); break;
+    case PSTATE_PARENT_CHECK: SAY("PSTATE_PARENT_CHECK\n"); break;
     case PSTATE_IPS_CHECK:    SAY("PSTATE_IPS_CHECK\n"); break;
     case PSTATE_CHILD_INJECT: SAY("PSTATE_CHILD_INJECT\n"); break;
     case PSTATE_CHILD_DICT:   SAY("PSTATE_CHILD_DICT\n"); break;

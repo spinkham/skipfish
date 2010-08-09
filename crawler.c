@@ -201,6 +201,7 @@ static void destroy_misc_data(struct pivot_desc* pv,
  */
 
 static u8 dir_404_callback(struct http_request*, struct http_response*);
+static u8 dir_parent_callback(struct http_request*, struct http_response*);
 static u8 dir_ips_callback(struct http_request*, struct http_response*);
 static void inject_init(struct pivot_desc*);
 static void inject_init2(struct pivot_desc*);
@@ -1442,7 +1443,7 @@ static void end_injection_checks(struct pivot_desc* pv) {
 
     if (url_allowed(pv->req) && !pv->res_varies) {
 
-      if (pv->r404_cnt) {
+      if (pv->r404_cnt && !pv->bad_parent) {
         pv->state   = PSTATE_CHILD_DICT;
         pv->cur_key = 0;
         crawl_dir_dict_init(pv);
@@ -2247,6 +2248,7 @@ static u8 dir_404_callback(struct http_request* req,
 
   struct http_request* n;
   u32 i;
+  s32 ppval = -1, pval = -1, val = -1;
 
   DEBUG_CALLBACK(req, res);
 
@@ -2441,9 +2443,81 @@ bad_404:
      404 signatures largely eliminates the need for BH_COUNT identical probes
      to confirm sane behavior here. */
 
+  /* The next probe is checking if /foo/current_path/ returns the same
+     response as /bar/current_path/. If yes, then the directory probably
+     should not be fuzzed. */
+
+  req->pivot->state = PSTATE_PARENT_CHECK;
+
+  n = req_copy(RPREQ(req), req->pivot, 1);
+  n->callback = dir_parent_callback;
+  n->user_val = 0;
+
+  /* Last path element is /; previous path element is current dir name; 
+     previous previous element is parent dir name. Find and replace it. */
+
+  for (i=0;i<n->par.c;i++) {
+    if (PATH_SUBTYPE(n->par.t[i])) {
+      ppval = pval;
+      pval = val;
+      val = i;
+    }
+  }
+
+  if (ppval != -1 && req->pivot->r404_cnt) {
+
+    ck_free(n->par.v[ppval]);
+    n->par.v[ppval] = ck_strdup((u8*)BOGUS_FILE);
+    async_request(n);
+
+  } else {
+
+    /* Top-level dir - nothing to replace. Do a dummy call to 
+       dir_parent_callback() to proceed directly to IPS checks. */
+
+    n->user_val = 1;
+    dir_parent_callback(n, res);
+    destroy_request(n);
+
+  }
+
+  return 0;
+
+}
+
+
+/* STAGE 3: Called to verify that changing parent path element has an effect, once. */
+
+static u8 dir_parent_callback(struct http_request* req,
+                              struct http_response* res) {
+
+  struct http_request* n;
+
+  DEBUG_CALLBACK(req, res);
+
+  if (req->user_val || req->pivot->r404_skip) {
+    DEBUG("* Check not carried out (non-existent / bad parent).\n");
+    goto schedule_next;
+  }
+
+  if (FETCH_FAIL(res)) {
+    handle_error(req, res, (u8*)"during parent checks", 0);
+    goto schedule_next;
+  }
+
+  if (same_page(&res->sig, &RPRES(req)->sig)) {
+    problem(PROB_PARENT_FAIL, req, res, 0, req->pivot, 0);
+    DEBUG("* Parent may be bogus, skipping.\n");
+    req->pivot->bad_parent = 1;
+  } else {
+    DEBUG("* Parent behaves OK.\n");
+  }
+
   /* Regardless of the outcome, let's schedule a final IPS check. Theoretically,
      a single request would be fine; but some servers, such as gws, tend
      to respond to /?foo very differently than to /. */
+
+schedule_next:
 
   req->pivot->state = PSTATE_IPS_CHECK;
 
@@ -2464,7 +2538,7 @@ bad_404:
 }
 
 
-/* STAGE 3: Called on IPS check, twice. */
+/* STAGE 4: Called on IPS check, twice. */
 
 static u8 dir_ips_callback(struct http_request* req,
                            struct http_response* res) {

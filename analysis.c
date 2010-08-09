@@ -125,6 +125,7 @@ static void test_add_link(u8* str, struct http_request* ref,
 
   if (!strncasecmp((char*)str, "skipfish:", 10) ||
       !strncasecmp((char*)str, "//skipfish.invalid/", 20) ||
+      inl_strcasestr(str, (u8*) "/" BOGUS_FILE) ||
       !strncasecmp((char*)str, "http://skipfish.invalid/", 25)) return;
 
   /* Don't add links that look like they came from JS code with fragmented HTML
@@ -646,9 +647,11 @@ void scrape_response(struct http_request* req, struct http_response* res) {
 
   res->scraped = 1;
 
-  /* Do not scrape pages that are identical to their parent. */
+  /* Do not scrape pages that are identical to their parent, or are parented
+     by suspicious locations. */
 
-  if (RPAR(req)->res && same_page(&res->sig, &RPAR(req)->res->sig)) {
+  if (RPAR(req)->res && (same_page(&res->sig, &RPAR(req)->res->sig) ||
+      RPAR(req)->bad_parent)) {
     DEBUG("* Not extracting links because page looks the same as parent.\n");
     return;
   }
@@ -1536,11 +1539,18 @@ void content_checks(struct http_request* req, struct http_response* res) {
 
   if (is_javascript(res) || is_css(res)) check_js_xss(req, res, res->payload);
 
-  /* Responses that do not contain the term "function" are much more likely to
-     be dynamic JSON than just static scripts. Let's try to highlight these. */
+  /* Responses that do not contain the term "function", "if", "for", "while", etc,
+     are much more likely to be dynamic JSON than just static scripts. Let's
+     try to highlight these. */
 
   if (is_javascript(res) && !res->json_safe &&
       (!req->method || !strcmp((char*)req->method, "GET")) &&
+      !strstr((char*)res->payload, "if (") &&
+      !strstr((char*)res->payload, "if(") &&
+      !strstr((char*)res->payload, "for (") &&
+      !strstr((char*)res->payload, "for(") &&
+      !strstr((char*)res->payload, "while (") &&
+      !strstr((char*)res->payload, "while(") &&
       !strstr((char*)res->payload, "function ") &&
       !strstr((char*)res->payload, "function("))
     problem(PROB_JS_XSSI, req, res, NULL, req->pivot, 0);
