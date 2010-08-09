@@ -2432,10 +2432,30 @@ bad_404:
     req->pivot->r404_cnt = 0;
 
     /* We can still try parsing the response, if it differs from parent
-       in any way... */
+       and is not on parent's 404 list. */
 
-    if (!RPAR(req)->res || !same_page(&RPRES(req)->sig, &RPAR(req)->res->sig))
+    if (!RPAR(req)->res) { 
       PIVOT_CHECKS(req->pivot->req, req->pivot->res);
+    } else {
+
+      if (!same_page(&RPRES(req)->sig, &RPAR(req)->res->sig)) {
+
+        struct pivot_desc* par;
+        par = dir_parent(req->pivot);
+
+        if (par) {
+
+          for (i=0;i<par->r404_cnt;i++)
+            if (same_page(&res->sig, &par->r404[i])) break;
+
+        }
+
+        if (!par || i == par->r404_cnt) 
+          PIVOT_CHECKS(req->pivot->req, req->pivot->res);
+
+      }
+
+    }  
 
   } else DEBUG("* 404 detection successful.\n");
 
