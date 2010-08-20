@@ -439,7 +439,7 @@ static void inject_init(struct pivot_desc* pv) {
 
   /* Do a PUT probe, but only on directories proper. */
 
-  if (pv->state == PSTATE_CHILD_INJECT) {
+  if (pv->type == PIVOT_DIR || pv->type == PIVOT_SERV) {
     struct http_request* n;
     n = req_copy(pv->req, pv, 1);
     if (n->method) ck_free(n->method);
@@ -1437,13 +1437,10 @@ static void end_injection_checks(struct pivot_desc* pv) {
 
   if (pv->state == PSTATE_CHILD_INJECT) {
 
-    /* Do not proceed with parametric tests if pivot is not
-       in scope (but got added as a parent of an in-scope
-       node), or 404 checks went wrong. */
-
     if (url_allowed(pv->req) && !pv->res_varies) {
 
-      if (pv->r404_cnt && !pv->bad_parent) {
+      if ((pv->type == PIVOT_DIR || pv->type == PIVOT_SERV) 
+          && pv->r404_cnt && !pv->bad_parent) {
         pv->state   = PSTATE_CHILD_DICT;
         pv->cur_key = 0;
         crawl_dir_dict_init(pv);
@@ -2003,8 +2000,6 @@ void crawl_par_trylist_init(struct pivot_desc* pv) {
 
   DEBUG_HELPER(pv);
 
-  pv->try_pending += (pv->try_cnt - pv->try_cur);
-
   for (i=pv->try_cur;i<pv->try_cnt;i++) {
     u32 c;
 
@@ -2012,7 +2007,7 @@ void crawl_par_trylist_init(struct pivot_desc* pv) {
 
     for (c=0;c<pv->child_cnt;c++)
       if (!((is_c_sens(pv) ? strcmp : strcasecmp)((char*)pv->try_list[i],
-            (char*)pv->child[c]->name))) break;
+            (char*)pv->child[c]->name))) continue;
 
     /* Matching current node? Ditto. */
 
@@ -2024,6 +2019,9 @@ void crawl_par_trylist_init(struct pivot_desc* pv) {
 
       if (R(100) < crawl_prob) {
         struct http_request* n;
+
+        pv->try_pending++;
+
         n = req_copy(pv->req, pv, 1);
         ck_free(TPAR(n));
         TPAR(n) = ck_strdup(pv->try_list[i]);
@@ -2174,8 +2172,19 @@ u8 fetch_file_callback(struct http_request* req, struct http_response* res) {
 
   }
 
+  /* On non-param nodes, we want to proceed with path-based injection
+     checks. On param nodes, we want to proceed straght to parametric
+     testng, instead. */
+
   unlock_children(req->pivot);
-  crawl_parametric_init(req->pivot);
+
+  if (req->pivot->type == PIVOT_PARAM) {
+    crawl_parametric_init(req->pivot);
+  } else {
+    req->pivot->state = PSTATE_CHILD_INJECT;
+    inject_init(req->pivot);
+  }
+
 
   /* This is the initial callback, keep the response. */
   return 1;
@@ -2966,7 +2975,7 @@ schedule_next:
 
   /* Well, we need to do something. */
 
-  if (req->pivot->type == PIVOT_DIR)
+  if (req->pivot->type == PIVOT_DIR || req->pivot->type == PIVOT_SERV)
     fetch_dir_callback(RPREQ(req), RPRES(req));
   else fetch_file_callback(RPREQ(req), RPRES(req));
 

@@ -1,3 +1,13 @@
+Version 1.56b:
+--------------
+
+  - Path-based injection attacks now also carried out on file / pathinfo nodes.
+
+  - Minor bugfix to try_list logic.
+
+  - Slight tweak to form parsing to properly handle specified but empty action=
+    strings.
+
 Version 1.55b:
 --------------
 
