@@ -335,6 +335,11 @@ extern u32 max_depth,
            max_trylist,
            max_guesses;
 
+extern u32 guess_cnt,
+           extension_cnt,
+           keyword_total_cnt,
+           keyword_orig_cnt;
+
 /* Check if the URL is permitted under current rules (0 = no, 1 = yes): */
 
 u8 url_allowed_host(struct http_request* req);

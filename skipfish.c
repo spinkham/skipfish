@@ -55,7 +55,25 @@ const char* malloc_options  = "jz";
 const char* _malloc_options = "jz";
 
 
-void usage(char* argv0) {
+/* Ctrl-C handler... */
+
+static u8 stop_soon, clear_screen;
+
+static void ctrlc_handler(int sig) {
+  stop_soon = 1;
+}
+
+
+/* Screen resizing handler. */
+
+static void resize_handler(int sig) {
+  clear_screen = 1;
+}
+
+
+/* Usage info. */
+
+static void usage(char* argv0) {
   SAY("Usage: %s [ options ... ] -o output_dir start_url [ start_url2 ... ]\n\n"
 
       "Authentication and access options:\n\n"
@@ -123,20 +141,50 @@ void usage(char* argv0) {
 }
 
 
-/* Ctrl-C handler... */
+/* Welcome screen. */
 
-static u8 stop_soon, clear_screen;
+#ifdef SHOW_SPLASH
+void splash_screen(void) {
+  char keybuf[8];
+  u32  time_cnt = 0;
 
-static void ctrlc_handler(int sig) {
-  stop_soon = 1;
+  SAY("\x1b[H\x1b[J");
+
+  SAY(cBRI "Welcome to " cYEL "skipfish" cBRI ". Here are some useful tips:\n\n"
+
+      "1) To abort the scan at any time, press " cCYA "Ctrl-C" cBRI ". A partial report will be written\n"
+      "   to the specified location. To view a list of currently scanned URLs, you can\n"
+      "   press " cCYA "space" cBRI " at any time during the scan.\n\n"
+
+      "2) Watch the number requests per second shown on the main screen. If this figure\n"
+      "   drops below 100-200, the scan will likely take a very long time.\n\n"
+
+      "3) The scanner does not auto-limit the scope of the scan; on complex sites, you\n"
+      "   may need to specify locations to exclude, or limit brute-force steps.\n\n"
+
+      "4) There are several new releases of the scanner every month. If you run into\n"
+      "   trouble, check for a newer version first, let the author know next.\n\n"
+
+      "More info: " cYEL "http://code.google.com/p/skipfish/wiki/KnownIssues\n\n" cBRI);
+
+  if (!no_fuzz_ext && (keyword_orig_cnt * extension_cnt) > 1000) {
+
+    SAY(cLRD 
+
+        "NOTE: The scanner is currently configured for directory brute-force attacks,\n"
+        "and will make about " cBRI "%u" cLRD " requests per every fuzzable location. If this is\n"
+        "not what you wanted, stop now and consult the documentation.\n\n",
+        keyword_orig_cnt * extension_cnt);
+
+  }
+
+  SAY(cLBL "Press any key to continue (or wait 60 seconds)... ");
+
+  while (!stop_soon && fread(keybuf, 1, sizeof(keybuf), stdin) == 0 && time_cnt++ < 600) 
+    usleep(100000);
+  
 }
-
-
-/* Screen resizing handler. */
-
-static void resize_handler(int sig) {
-  clear_screen = 1;
-}
+#endif /* SHOW_SPLASH */
 
 
 /* Main entry point */
@@ -449,8 +497,12 @@ int main(int argc, char** argv) {
   gettimeofday(&tv, NULL);
   st_time = tv.tv_sec * 1000LL + tv.tv_usec / 1000;
 
+#ifdef SHOW_SPLASH
+  if (!be_quiet) splash_screen();
+#endif /* SHOW_SPLASH */
+
   if (!be_quiet) SAY("\x1b[H\x1b[J");
-    else SAY(cLGN "[*] " cBRI "Scan in progress, please stay tuned...\n");
+  else SAY(cLGN "[*] " cBRI "Scan in progress, please stay tuned...\n");
 
   while ((next_from_queue() && !stop_soon) || (!show_once++)) {
 

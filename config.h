@@ -25,6 +25,8 @@
 
 #define USE_COLOR               1       /* Use terminal colors             */
 
+#define SHOW_SPLASH             1       /* Annoy user with a splash screen */
+
 /* Default paths to runtime files: */
 
 #define ASSETS_DIR              "assets"

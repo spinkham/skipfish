@@ -75,10 +75,10 @@ static u32 keyword_cnt[WORD_HASH];      /* Per-bucket keyword counts       */
 static u8 **extension,                  /* Extension list                  */
           **guess;                      /* Keyword candidate list          */
 
-static u32 guess_cnt,                   /* Number of keyword candidates    */
-           extension_cnt,               /* Number of extensions            */
-           keyword_total_cnt,           /* Current keyword count           */
-           keyword_orig_cnt;            /* At-boot keyword count           */
+u32 guess_cnt,                          /* Number of keyword candidates    */
+    extension_cnt,                      /* Number of extensions            */
+    keyword_total_cnt,                  /* Current keyword count           */
+    keyword_orig_cnt;                   /* At-boot keyword count           */
 
 static u32 cur_xss_id, scan_id;         /* Stored XSS manager IDs          */
 static struct http_request** xss_req;   /* Stored XSS manager req cache    */
