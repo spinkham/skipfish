@@ -52,9 +52,10 @@ u32 num_deny_urls,
     num_trust_domains,
     num_skip_params;
 
-u32 max_depth    = MAX_DEPTH,
-    max_children = MAX_CHILDREN,
-    max_guesses  = MAX_GUESSES;
+u32 max_depth       = MAX_DEPTH,
+    max_children    = MAX_CHILDREN,
+    max_descendants = MAX_DESCENDANTS,
+    max_guesses     = MAX_GUESSES;
 
 u8  dont_add_words;                     /* No auto dictionary building     */
 
@@ -83,6 +84,31 @@ u32 guess_cnt,                          /* Number of keyword candidates    */
 static u32 cur_xss_id, scan_id;         /* Stored XSS manager IDs          */
 static struct http_request** xss_req;   /* Stored XSS manager req cache    */
 
+
+/* Checks descendant counts. */
+
+u8 descendants_ok(struct pivot_desc* pv) {
+
+  if (pv->child_cnt > max_children) return 0;
+
+  while (pv) {
+    if (pv->desc_cnt > max_descendants) return 0;
+    pv = pv->parent;
+  }
+
+  return 1;
+
+}
+
+
+void add_descendant(struct pivot_desc* pv) {
+
+  while (pv) {
+    pv->desc_cnt++;
+    pv = pv->parent;
+  }
+
+}
 
 /* Maps a parsed URL (in req) to the pivot tree, creating or modifying nodes
    as necessary, and scheduling them for crawl. This should be called only
@@ -167,6 +193,8 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
 
     root_pivot.child[root_pivot.child_cnt++] = cur;
 
+    add_descendant(&root_pivot);
+
     cur->type     = PIVOT_SERV;
     cur->state    = PSTATE_FETCH;
     cur->linked   = 2;
@@ -234,7 +262,7 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
 
       /* Enforce user limits. */
 
-      if ((i + 1) >= max_depth || cur->child_cnt > max_children) {
+      if ((i + 1) >= max_depth || !descendants_ok(cur)) {
         problem(PROB_LIMITS, req, res, (u8*)"Child node limit exceeded", cur, 
                 0);
         return;
@@ -260,6 +288,8 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
                               sizeof(struct pivot_desc*));
 
       cur->child[cur->child_cnt++] = n;
+
+      add_descendant(cur);
 
       n->parent  = cur;
       n->linked  = via_link;
@@ -427,7 +457,7 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
 
       /* Enforce user limits. */
 
-      if (cur->child_cnt > max_children) {
+      if (!descendants_ok(cur)) {
         problem(PROB_LIMITS, req, res, (u8*)"Child node limit exceeded", cur, 0);
         return;
       }
@@ -440,6 +470,8 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
                               sizeof(struct pivot_desc*));
 
       cur->child[cur->child_cnt++] = n;
+
+      add_descendant(cur);
 
       n->parent  = cur;
       n->type    = PIVOT_PARAM;
@@ -1236,8 +1268,9 @@ void dump_pivots(struct pivot_desc* cur, u8 nest) {
   }
 
   SAY(cGRA "%sFlags    : " cNOR "linked %u, case %u/%u, fuzz_par %d, ips %u, "
-      "sigs %u, reqs %u\n", indent, cur->linked, cur->csens, cur->c_checked,
-      cur->fuzz_par, cur->uses_ips, cur->r404_cnt, cur->pending);
+      "sigs %u, reqs %u, desc %u/%u\n", indent, cur->linked, cur->csens, cur->c_checked,
+      cur->fuzz_par, cur->uses_ips, cur->r404_cnt, cur->pending, cur->child_cnt,
+      cur->desc_cnt);
 
   if (cur->req) {
     url = serialize_path(cur->req, 1, 0);

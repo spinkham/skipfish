@@ -96,6 +96,7 @@ struct pivot_desc {
   struct pivot_desc* parent;                    /* Parent pivot, if any      */
   struct pivot_desc** child;                    /* List of children          */
   u32 child_cnt;                                /* Number of children        */
+  u32 desc_cnt;                                 /* Number of descendants     */
 
   struct issue_desc* issue;                     /* List of issues found      */
   u32 issue_cnt;                                /* Number of issues          */
@@ -152,6 +153,14 @@ struct pivot_desc {
 };
 
 extern struct pivot_desc root_pivot;
+
+/* Checks child / descendant limits. */
+
+u8 descendants_ok(struct pivot_desc* pv);
+
+/* Increases descendant count. */
+
+void add_descendant(struct pivot_desc* pv);
 
 /* Maps a parsed URL (in req) to the pivot tree, creating or modifying nodes
    as necessary, and scheduling them for crawl; via_link should be 1 if the
@@ -332,6 +341,7 @@ extern u32 num_deny_urls,
 
 extern u32 max_depth,
            max_children,
+           max_descendants,
            max_trylist,
            max_guesses;
 

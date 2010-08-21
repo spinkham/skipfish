@@ -1654,7 +1654,7 @@ static void crawl_par_numerical_init(struct pivot_desc* pv) {
 
   DEBUG_HELPER(pv);
 
-  if (pv->child_cnt >= max_children) goto schedule_next;
+  if (!descendants_ok(pv)) goto schedule_next;
 
   /* Skip to the first digit, then to first non-digit. */
 
@@ -1754,7 +1754,7 @@ static u8 par_numerical_callback(struct http_request* req,
         !((is_c_sens(req->pivot) ? strcmp : strcasecmp)((char*)TPAR(req),
         (char*)req->pivot->child[i]->name))) goto schedule_next;
 
-  if (req->pivot->child_cnt >= max_children) goto schedule_next;
+  if (!descendants_ok(req->pivot)) goto schedule_next;
 
   /* Hmm, looks like we're onto something. Let's manually create a dummy
      pivot and attach it to current node, without any activity planned.
@@ -1776,6 +1776,8 @@ static u8 par_numerical_callback(struct http_request* req,
                                  * sizeof(struct pivot_desc*));
 
   req->pivot->child[req->pivot->child_cnt++] = n;
+
+  add_descendant(req->pivot);
 
   req->pivot = n;
 
@@ -1814,7 +1816,7 @@ static void crawl_par_dict_init(struct pivot_desc* pv) {
 
 restart_dict:
 
-  if (pv->child_cnt >= max_children) {
+  if (!descendants_ok(pv)) {
     crawl_par_trylist_init(pv);
     return;
   }
@@ -1945,7 +1947,7 @@ static u8 par_dict_callback(struct http_request* req,
         !((is_c_sens(req->pivot) ? strcmp : strcasecmp)((char*)TPAR(req),
         (char*)req->pivot->child[i]->name))) goto schedule_next;
 
-  if (req->pivot->child_cnt >= max_children) goto schedule_next;
+  if (!descendants_ok(req->pivot)) goto schedule_next;
 
   n = ck_alloc(sizeof(struct pivot_desc));
 
@@ -1963,6 +1965,9 @@ static u8 par_dict_callback(struct http_request* req,
                                  * sizeof(struct pivot_desc*));
 
   req->pivot->child[req->pivot->child_cnt++] = n;
+
+  add_descendant(req->pivot);
+
   req->pivot = n;
 
   keep = 1;
@@ -1992,7 +1997,7 @@ void crawl_par_trylist_init(struct pivot_desc* pv) {
      no point in going through the try list if restarted. */
 
   if (pv->fuzz_par == -1 || pv->bogus_par || pv->res_varies
-      || pv->child_cnt >= max_children) {
+      || !descendants_ok(pv)) {
     pv->state = PSTATE_DONE;
     return;
   } else
@@ -2078,7 +2083,7 @@ static u8 par_trylist_callback(struct http_request* req,
         !((is_c_sens(req->pivot) ? strcmp : strcasecmp)((char*)TPAR(req),
         (char*)req->pivot->child[i]->name))) goto schedule_next;
 
-  if (req->pivot->child_cnt >= max_children) goto schedule_next;
+  if (!descendants_ok(req->pivot)) goto schedule_next;
 
   n = ck_alloc(sizeof(struct pivot_desc));
 
@@ -2096,6 +2101,9 @@ static u8 par_trylist_callback(struct http_request* req,
                                  * sizeof(struct pivot_desc*));
 
   req->pivot->child[req->pivot->child_cnt++] = n;
+
+  add_descendant(req->pivot);
+
   req->pivot = n;
 
   RESP_CHECKS(req, res);
@@ -2634,7 +2642,7 @@ static void crawl_dir_dict_init(struct pivot_desc* pv) {
   if (in_dict_init || pv->pending > DICT_BATCH || pv->state != PSTATE_CHILD_DICT)
     return;
 
-  if (pv->child_cnt >= max_children) {
+  if (!descendants_ok(pv)) {
     crawl_parametric_init(pv);
     return;
   }

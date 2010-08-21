@@ -89,6 +89,7 @@ static void usage(char* argv0) {
 
       "  -d max_depth   - maximum crawl tree depth (%u)\n"
       "  -c max_child   - maximum children to index per node (%u)\n"
+      "  -x max_desc    - maximum descendants to index per branch (%u)\n"
       "  -r r_limit     - max total number of requests to send (%u)\n"
       "  -p crawl%%      - node and link crawl probability (100%%)\n"
       "  -q hex         - repeat probabilistic scan with given seed\n"
@@ -133,9 +134,9 @@ static void usage(char* argv0) {
       "  -s s_limit     - response size limit (%u B)\n\n"
 
       "Send comments and complaints to <lcamtuf@google.com>.\n", argv0,
-      max_depth, max_children, max_requests, DEF_WORDLIST, MAX_GUESSES,
-      max_connections, max_conn_host, max_fail, resp_tmout, rw_tmout,
-      idle_tmout, size_limit);
+      max_depth, max_children, max_descendants, max_requests, DEF_WORDLIST,
+      MAX_GUESSES, max_connections, max_conn_host, max_fail, resp_tmout,
+      rw_tmout, idle_tmout, size_limit);
 
   exit(1);
 }
@@ -214,7 +215,7 @@ int main(int argc, char** argv) {
   SAY("skipfish version " VERSION " by <lcamtuf@google.com>\n");
 
   while ((opt = getopt(argc, argv,
-          "+A:F:C:H:b:Nd:c:r:p:I:X:S:D:PJOYQMZUEK:W:LVT:G:R:B:q:g:m:f:t:w:i:s:o:hu")) > 0)
+          "+A:F:C:H:b:Nd:c:x:r:p:I:X:S:D:PJOYQMZUEK:W:LVT:G:R:B:q:g:m:f:t:w:i:s:o:hu")) > 0)
 
     switch (opt) {
 
@@ -360,6 +361,11 @@ int main(int argc, char** argv) {
       case 'c':
         max_children = atoi(optarg);
         if (!max_children) FATAL("Invalid value '%s'.", optarg);
+        break;
+
+      case 'x':
+        max_descendants = atoi(optarg);
+        if (!max_descendants) FATAL("Invalid value '%s'.", optarg);
         break;
 
       case 'p':

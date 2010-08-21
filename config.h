@@ -70,7 +70,8 @@
 /* Configurable settings for crawl database (cmdline override): */
 
 #define MAX_DEPTH       16              /* Maximum crawl tree depth        */
-#define MAX_CHILDREN    1024            /* Maximum children per tree node  */
+#define MAX_CHILDREN    512             /* Maximum children per tree node  */
+#define MAX_DESCENDANTS 8192            /* Maximum descendants per branch  */
 #define MAX_SAMENAME    3               /* Identically named path nodes    */
 
 /* Crawl / analysis constants: */
