@@ -2462,10 +2462,12 @@ static void check_for_stuff(struct http_request* req,
   if (res->sniff_mime_id == MIME_ASC_GENERIC) {
     u8* cur = res->payload;
     u8  all_delim = 0;
+    u8* eol;
 
     do {
-      u8 *eol = (u8*)strchr((char*)cur, '\n');
       u32 del = strcspn((char*)cur, ",|;\n");
+
+      eol = (u8*)strchr((char*)cur, '\n');
 
       if (!cur[del] || cur[del] == '\n') {
         all_delim = 0;
@@ -2475,7 +2477,7 @@ static void check_for_stuff(struct http_request* req,
       all_delim = 1;
       cur = eol + 1;
 
-    } while (cur && *cur);
+    } while (eol && cur && *cur);
 
     if (all_delim) {
       problem(PROB_FILE_POI, req, res,

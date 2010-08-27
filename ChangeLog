@@ -1,3 +1,8 @@
+Version 1.60b:
+--------------
+
+  - Minor sniffer fix to better handle CSV file checks.
+
 Version 1.59b:
 --------------
 
