@@ -2353,7 +2353,7 @@ static void check_for_stuff(struct http_request* req,
       while (*x && (isalnum(*x) || strchr("./*!+=$", *x)) &&
              (x - sniffbuf) < 128) x++;
 
-      if (*x == ':' || !*x || isspace(*x))
+      if (*x == ':' || !*x || *x == '\r' || *x == '\n')
         problem(PROB_FILE_POI, req, res, (u8*)
                 "Possible password file", req->pivot, 0);
 

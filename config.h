@@ -240,10 +240,10 @@ static const char* form_suggestion[][2] = {
   { "site"     , "http://example.com/?sfish_form_test" },
   { "domain"   , "example.com" },
   { "search"   , "a" },
-  { "comment"  , "jellyfish" },
-  { "desc"     , "jellyfish" },
-  { "title"    , "jellyfish" },
-  { "subject"  , "jellyfish" },
+  { "comment"  , "skipfish" },
+  { "desc"     , "skipfish" },
+  { "title"    , "skipfish" },
+  { "subject"  , "skipfish" },
   { NULL       , "1" }
 
 };
