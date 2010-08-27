@@ -1,3 +1,8 @@
+Version 1.59b:
+--------------
+
+  - Fixed several file POI checks that depended on MIME information.
+
 Version 1.58b:
 --------------
 

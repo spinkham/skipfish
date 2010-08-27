@@ -1767,6 +1767,9 @@ void content_checks(struct http_request* req, struct http_response* res) {
 
   /* CHECK 4: Known exceptions / error pages, etc. */
 
+  detect_mime(req, res);
+  res->sniffed_mime = (u8*)mime_map[res->sniff_mime_id][0];
+
   check_for_stuff(req, res);
 
 binary_checks:
@@ -2391,8 +2394,10 @@ static void check_for_stuff(struct http_request* req,
       x++;
     }
 
-    if (slashes == 5)
+    if (slashes == 5) {
       problem(PROB_FILE_POI, req, res, (u8*)"CVS RCS data", req->pivot, 0);
+      return;
+    }
 
   }
 
