@@ -2348,7 +2348,7 @@ static void check_for_stuff(struct http_request* req,
     while (*x && (isalnum(*x) || strchr("._-+$", *x)) &&
            (x - sniffbuf) < 64) x++;
 
-    if (x != sniffbuf && *x == ':') {
+    if (x != sniffbuf && *x == ':' && x[1] != '/' && x[1] != '.') {
       x++;
       while (*x && (isalnum(*x) || strchr("./*!+=$", *x)) &&
              (x - sniffbuf) < 128) x++;
