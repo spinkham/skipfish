@@ -1,3 +1,8 @@
+Version 1.63b:
+--------------
+
+  - Changed param injection check slightly to work better with WordPress.
+
 Version 1.62b:
 --------------
 

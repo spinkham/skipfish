@@ -1504,7 +1504,7 @@ static void crawl_parametric_init(struct pivot_desc* pv) {
   for (i=0;i<BH_CHECKS;i++) {
     n = req_copy(pv->req, pv, 1);
     ck_free(TPAR(n));
-    TPAR(n) = ck_strdup((u8*)BOGUS_FILE);
+    TPAR(n) = ck_strdup((u8*)BOGUS_PARAM);
     n->callback = par_check_callback;
     n->user_val = i;
     async_request(n);

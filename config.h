@@ -96,6 +96,7 @@
 /* Crawler / probe constants: */
 
 #define BOGUS_FILE     "sfi9876"        /* Name that should not exist      */
+#define BOGUS_PARAM    "9876sfi"        /* Meaningless parameter           */
 #define MAX_404        4                /* Maximum number of 404 sigs      */
 #define PAR_MAX_DIGITS 6                /* Max digits in a fuzzable int    */
 #define PAR_INT_FUZZ   100              /* Fuzz by + / - this much         */
