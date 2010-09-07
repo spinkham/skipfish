@@ -1130,14 +1130,14 @@ schedule_next:
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   if (!is_num) SET_VECTOR(orig_state, n, "9 - 1");
-  else APPEND_VECTOR(orig_state, n, "- 0 - 0");
+  else APPEND_VECTOR(orig_state, n, " - 0 - 0");
   n->callback = inject_check7_callback;
   n->user_val = 6;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   if (!is_num) SET_VECTOR(orig_state, n, "9 1 -");
-  else APPEND_VECTOR(orig_state, n, "0 0 - -");
+  else APPEND_VECTOR(orig_state, n, " 0 0 - -");
   n->callback = inject_check7_callback;
   n->user_val = 7;
   async_request(n);

@@ -245,6 +245,7 @@ static const char* form_suggestion[][2] = {
   { "desc"     , "skipfish" },
   { "title"    , "skipfish" },
   { "subject"  , "skipfish" },
+  { "message"  , "skipfish" },
   { NULL       , "1" }
 
 };
