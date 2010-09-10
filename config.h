@@ -231,6 +231,7 @@ static const char* form_suggestion[][2] = {
   { "user"     , "skipfish" },
   { "nick"     , "skipfish" },
   { "pass"     , "skipfish" },
+  { "pwd"      , "skipfish" },
   { "year"     , "2010" },
   { "card"     , "4111111111111111" }, /* Reserved */
   { "code"     , "000" },

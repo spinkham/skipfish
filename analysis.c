@@ -1066,9 +1066,10 @@ static u8 is_css(struct http_response* res) {
 
     }
 
-    /* @import or @charset is a clear indicator of CSS. */
+    /* @import, @media, or @charset is a clear indicator of CSS. */
 
     if (*text == '@' && (!strncasecmp((char*)text + 1, "import", 6) ||
+        !strncasecmp((char*)text + 1, "media", 5) ||
         !strncasecmp((char*)text + 1, "charset", 7))) {
       res->css_type = 2;
       return 1;
@@ -1562,7 +1563,7 @@ void content_checks(struct http_request* req, struct http_response* res) {
 
     if (*tmp == '<') {
       u8* tag_name;
-      u32 len = strcspn((char*)++tmp, "> \t\r\n"), space_len;
+      u32 len = strcspn((char*)++tmp, ">= \t\r\n"), space_len;
       u8  remote_script = 0;
 
       /* Skip comments where possible. */
@@ -1809,9 +1810,13 @@ binary_checks:
      value... and also failed to sniff.
 
      Mismatch between MIME_ASC_HTML and MIME_XML_XHTML is not worth
-     complaining about, too. */
+     complaining about; the same about JS or CSS responses being
+     sniffed as "unknown ASCII". */
 
   if (res->sniff_mime_id != res->decl_mime_id &&
+      !((res->decl_mime_id == MIME_ASC_JAVASCRIPT ||
+         res->decl_mime_id == MIME_ASC_CSS) && 
+        res->sniff_mime_id == MIME_ASC_GENERIC) &&
       !(res->decl_mime_id == MIME_ASC_HTML && 
         res->sniff_mime_id == MIME_XML_XHTML) &&
       !(res->decl_mime_id == MIME_XML_XHTML && 

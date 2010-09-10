@@ -1209,6 +1209,7 @@ w 1 1 1 online
 w 1 1 1 op
 w 1 1 1 open
 w 1 1 1 openbsd
+w 1 1 1 opencart
 w 1 1 1 opendir
 w 1 1 1 openejb
 w 1 1 1 openjpa
@@ -1985,6 +1986,7 @@ w 1 1 1 zboard
 w 1 1 1 zencart
 w 1 1 1 zend
 w 1 1 1 zero
+w 1 1 1 zimbra
 w 1 1 1 zipfiles
 w 1 1 1 zips
 w 1 1 1 zoom

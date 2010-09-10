@@ -1,3 +1,10 @@
+Version 1.65b:
+--------------
+
+  - Relaxed MIME matching on claimed CSS/JS that fails MIME sniffing logic.
+
+  - Proper detection of @media in CSS.
+
 Version 1.64b:
 --------------
 
