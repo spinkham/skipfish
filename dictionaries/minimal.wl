@@ -4,7 +4,6 @@ e 1 1 1 class
 e 1 1 1 cnf
 e 1 1 1 conf
 e 1 1 1 config
-e 1 1 1 csproj
 e 1 1 1 csv
 e 1 1 1 err
 e 1 1 1 error
@@ -19,7 +18,6 @@ e 1 1 1 orig
 e 1 1 1 out
 e 1 1 1 part
 e 1 1 1 pl
-e 1 1 1 rb
 e 1 1 1 sql
 e 1 1 1 svn-base
 e 1 1 1 temp
@@ -517,6 +515,7 @@ w 1 1 1 crossdomain
 w 1 1 1 crypt
 w 1 1 1 crypto
 w 1 1 1 cs
+w 1 1 1 csproj
 w 1 1 1 css
 w 1 1 1 current
 w 1 1 1 custom
@@ -1418,6 +1417,7 @@ w 1 1 1 r
 w 1 1 1 radio
 w 1 1 1 random
 w 1 1 1 rar
+w 1 1 1 rb
 w 1 1 1 rdf
 w 1 1 1 read
 w 1 1 1 readme
