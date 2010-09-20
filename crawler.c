@@ -2278,9 +2278,11 @@ static u8 dir_404_callback(struct http_request* req,
 
   /* If the first 404 probe returned something that looks like the
      "root" page for the currently tested directory, panic. But don't
-     do that check on server pivots. */
+     do that check on server pivots, or if valid redirect detected
+     earlier. */
 
-  if (!req->user_val && req->pivot->type != PIVOT_SERV && RPRES(req) && 
+  if (!req->user_val && !req->pivot->sure_dir && 
+      req->pivot->type != PIVOT_SERV && RPRES(req) && 
       same_page(&res->sig, &RPRES(req)->sig)) {
     DEBUG("* First 404 probe identical with parent!\n");
     goto schedule_next;
@@ -2926,7 +2928,7 @@ static u8 unknown_check_callback(struct http_request* req,
      checks).
 
      If pivot != res, and res is not a 404 response, assume dir;
-     and if it is 404, assume file.
+     and if it is 404, assume file, except if pivot redirected to res.
 
      We also have a special case if the original request returned a
      non-empty 2xx response, but the new one returned 3xx-5xx - this is
@@ -2935,6 +2937,24 @@ static u8 unknown_check_callback(struct http_request* req,
   if (same_page(&RPRES(req)->sig, &res->sig)) goto assume_dir; else {
     u32 i = 0;
     struct pivot_desc* par = dir_parent(req->pivot);
+
+    if (res->code == 404 && RPRES(req)->code >= 300 && RPRES(req)->code < 400) {
+      u8 *loc = GET_HDR((u8*)"Location", &RPRES(req)->hdr);
+
+      if (loc) {
+        u8* path = serialize_path(req, 1, 0);
+
+        if (!strcasecmp((char*)path, (char*)loc)) {
+          ck_free(path);
+          req->pivot->sure_dir = 1;
+          goto assume_dir;
+        }
+
+        ck_free(path);
+
+      }
+
+    }
 
     if (par)
       for (i=0;i<par->r404_cnt;i++)

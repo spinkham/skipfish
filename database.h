@@ -109,6 +109,7 @@ struct pivot_desc {
   /* Fuzzer and probe state data: */
 
   u8 no_fuzz;                                   /* Do not attepmt fuzzing.   */
+  u8 sure_dir;                                  /* Very sure it's a dir?     */
 
   u8  uses_ips;                                 /* Uses IPS filtering?       */
 

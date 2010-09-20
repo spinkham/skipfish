@@ -1,3 +1,4 @@
+e 1 1 1 7z
 e 1 1 1 asmx
 e 1 1 1 asp
 e 1 1 1 aspx
@@ -14,6 +15,7 @@ e 1 1 1 conf
 e 1 1 1 config
 e 1 1 1 cpp
 e 1 1 1 cs
+e 1 1 1 csproj
 e 1 1 1 csv
 e 1 1 1 dat
 e 1 1 1 db
@@ -25,6 +27,7 @@ e 1 1 1 ep
 e 1 1 1 err
 e 1 1 1 error
 e 1 1 1 exe
+e 1 1 1 fcgi
 e 1 1 1 gif
 e 1 1 1 gz
 e 1 1 1 htm
@@ -53,6 +56,8 @@ e 1 1 1 orig
 e 1 1 1 out
 e 1 1 1 part
 e 1 1 1 pdf
+e 1 1 1 pem
+e 1 1 1 pfx
 e 1 1 1 php
 e 1 1 1 php3
 e 1 1 1 phtml
@@ -63,6 +68,8 @@ e 1 1 1 ppt
 e 1 1 1 properties
 e 1 1 1 py
 e 1 1 1 rar
+e 1 1 1 rb
+e 1 1 1 rhtml
 e 1 1 1 rss
 e 1 1 1 rtf
 e 1 1 1 save
@@ -71,6 +78,7 @@ e 1 1 1 shtml
 e 1 1 1 so
 e 1 1 1 sql
 e 1 1 1 stackdump
+e 1 1 1 svn-base
 e 1 1 1 swf
 e 1 1 1 tar
 e 1 1 1 tar.bz2
@@ -87,5 +95,5 @@ e 1 1 1 ws
 e 1 1 1 xls
 e 1 1 1 xml
 e 1 1 1 xsl
+e 1 1 1 yml
 e 1 1 1 zip
-e 1 1 1 7z
