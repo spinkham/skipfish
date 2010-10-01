@@ -285,7 +285,7 @@ u8* url_decode_token(u8* str, u32 len, u8 plus);
    otherwise let pretty much everything else go through, as it may help with
    the exploitation of certain vulnerabilities. */
 
-u8* url_encode_token(u8* str, u32 len);
+u8* url_encode_token(u8* str, u32 len, u8 also_slash);
 
 /* Reconstructs URI from http_request data. Includes protocol and host
    if with_host is non-zero. */

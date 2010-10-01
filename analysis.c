@@ -2354,11 +2354,12 @@ static void check_for_stuff(struct http_request* req,
            (x - sniffbuf) < 64) x++;
 
     if (x != sniffbuf && *x == ':' && x[1] != '/' && x[1] != '.') {
-      x++;
+      u8* start_x = ++x;
+
       while (*x && (isalnum(*x) || strchr("./*!+=$", *x)) &&
              (x - sniffbuf) < 128) x++;
 
-      if (*x == ':' || !*x || *x == '\r' || *x == '\n')
+      if (*x == ':' || ((start_x != x) && (!*x || *x == '\r' || *x == '\n')))
         problem(PROB_FILE_POI, req, res, (u8*)
                 "Possible password file", req->pivot, 0);
 

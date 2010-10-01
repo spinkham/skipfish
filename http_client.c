@@ -440,7 +440,7 @@ u8* url_decode_token(u8* str, u32 len, u8 plus) {
    tokens. We otherwise let pretty much everything else go through, as it
    may help with the exploitation of certain vulnerabilities. */
 
-u8* url_encode_token(u8* str, u32 len) {
+u8* url_encode_token(u8* str, u32 len, u8 also_slash) {
 
   u8 *ret = ck_alloc(len * 3 + 1);
   u8 *src = str, *dst = ret;
@@ -448,7 +448,8 @@ u8* url_encode_token(u8* str, u32 len) {
   while (len--) {
     u8 c = *(src++);
 
-    if (c <= 0x20 || c >= 0x80 || strchr("#%&=/+;,!$?", c)) {
+    if (c <= 0x20 || c >= 0x80 || strchr("#%&=+;,!$?", c) ||
+        (also_slash && c == '/')) {
       if (c == 0xFF) c = 0;
       sprintf((char*)dst, "%%%02X", c);
       dst += 3;
@@ -666,13 +667,13 @@ u8* serialize_path(struct http_request* req, u8 with_host, u8 with_post) {
 
       if (req->par.n[i]) {
         u32 len = strlen((char*)req->par.n[i]);
-        u8* str = url_encode_token(req->par.n[i], len);
+        u8* str = url_encode_token(req->par.n[i], len, 1);
         ASD(str); ASD("=");
         ck_free(str);
       }
       if (req->par.v[i]) {
         u32 len = strlen((char*)req->par.v[i]);
-        u8* str = url_encode_token(req->par.v[i], len);
+        u8* str = url_encode_token(req->par.v[i], len, 1);
         ASD(str);
         ck_free(str);
       }
@@ -699,13 +700,13 @@ u8* serialize_path(struct http_request* req, u8 with_host, u8 with_post) {
 
       if (req->par.n[i]) {
         u32 len = strlen((char*)req->par.n[i]);
-        u8* str = url_encode_token(req->par.n[i], len);
+        u8* str = url_encode_token(req->par.n[i], len, 0);
         ASD(str); ASD("=");
         ck_free(str);
       }
       if (req->par.v[i]) {
         u32 len = strlen((char*)req->par.v[i]);
-        u8* str = url_encode_token(req->par.v[i], len);
+        u8* str = url_encode_token(req->par.v[i], len, 0);
         ASD(str);
         ck_free(str);
       }
@@ -725,13 +726,13 @@ u8* serialize_path(struct http_request* req, u8 with_host, u8 with_post) {
 
       if (req->par.n[i]) {
         u32 len = strlen((char*)req->par.n[i]);
-        u8* str = url_encode_token(req->par.n[i], len);
+        u8* str = url_encode_token(req->par.n[i], len, 0);
         ASD(str); ASD("=");
         ck_free(str);
       }
       if (req->par.v[i]) {
         u32 len = strlen((char*)req->par.v[i]);
-        u8* str = url_encode_token(req->par.v[i], len);
+        u8* str = url_encode_token(req->par.v[i], len, 0);
         ASD(str);
         ck_free(str);
       }
@@ -869,7 +870,9 @@ u8* build_request_data(struct http_request* req) {
 
     ASD("Accept-Encoding: gzip\r\n");
     ASD("Connection: keep-alive\r\n");
-    ASD("User-Agent: Mozilla/5.0 SF/" VERSION "\r\n");
+
+    if (!GET_HDR((u8*)"User-Agent", &req->par))
+      ASD("User-Agent: Mozilla/5.0 SF/" VERSION "\r\n");
 
     /* Some servers will reject to gzip responses unless "Mozilla/..."
        is seen in User-Agent. Bleh. */
@@ -1017,14 +1020,14 @@ u8* build_request_data(struct http_request* req) {
         if (pay_pos) ADD_STR_DATA(pay_buf, pay_pos, "&");
         if (req->par.n[i]) {
           u32 len = strlen((char*)req->par.n[i]);
-          u8* str = url_encode_token(req->par.n[i], len);
+          u8* str = url_encode_token(req->par.n[i], len, 0);
           ADD_STR_DATA(pay_buf, pay_pos, str);
           ADD_STR_DATA(pay_buf, pay_pos, "=");
           ck_free(str);
         }
         if (req->par.v[i]) {
           u32 len = strlen((char*)req->par.v[i]);
-          u8* str = url_encode_token(req->par.v[i], len);
+          u8* str = url_encode_token(req->par.v[i], len, 0);
           ADD_STR_DATA(pay_buf, pay_pos, str);
           ck_free(str);
         }

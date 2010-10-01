@@ -34,7 +34,7 @@
 
 /* Various default settings for HTTP client (cmdline override): */
 
-#define MAX_CONNECTIONS         50      /* Simultaneous connection cap     */
+#define MAX_CONNECTIONS         40      /* Simultaneous connection cap     */
 #define MAX_CONN_HOST           10      /* Per-host connction cap          */
 #define MAX_REQUESTS            1e8     /* Total request count cap         */
 #define MAX_FAIL                100     /* Max consecutive failed requests */
