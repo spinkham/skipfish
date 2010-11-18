@@ -49,12 +49,6 @@ struct __AD_trk_obj* __AD_trk[ALLOC_BUCKETS];
 u32 __AD_trk_cnt[ALLOC_BUCKETS];
 #endif /* DEBUG_ALLOCATOR */
 
-
-/* *BSD where J or Z is set are incompatible with our allocator. */
-const char* malloc_options  = "jz";
-const char* _malloc_options = "jz";
-
-
 /* Ctrl-C handler... */
 
 static u8 stop_soon, clear_screen;
@@ -199,8 +193,6 @@ int main(int argc, char** argv) {
   struct termios term;
   struct timeval tv;
   u64 st_time, en_time;
-
-  unsetenv("MALLOC_CHECK_");
 
   signal(SIGINT, ctrlc_handler);
   signal(SIGWINCH, resize_handler);

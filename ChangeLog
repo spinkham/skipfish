@@ -1,3 +1,10 @@
+Version 1.70b:
+--------------
+
+  - Improved SQL syntax detection slightly to avoid phone number FP.
+
+  - Removed obsolete allocator flags.
+
 Version 1.69b:
 --------------
 

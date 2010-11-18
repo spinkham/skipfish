@@ -386,7 +386,7 @@ static u8* make_up_form_value(u8* name, struct http_request* req,
 }
 
 
-/* Helper for collect_form_data() - checks for a probable anti-XSRF token
+/* Helper for collect_form_data() - checks for probable anti-XSRF token
    values. */
 
 static u8 maybe_xsrf(u8* token) {

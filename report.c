@@ -130,8 +130,8 @@ static void sort_annotate_pivot(struct pivot_desc* pv) {
 
   if (pv->fuzz_par != -1 && !pv->bogus_par &&
       (((q1 = (u8*)strchr((char*)pv->req->par.v[pv->fuzz_par], '(')) &&
-        (q2 = (u8*)strchr((char*)pv->req->par.v[pv->fuzz_par], ')')) && q1 < q2)
-      ||
+        (q2 = (u8*)strchr((char*)pv->req->par.v[pv->fuzz_par], ')')) && q1 < q2 &&
+         !isdigit(q1[1])) ||
       ((inl_strcasestr(pv->req->par.v[pv->fuzz_par], (u8*)"SELECT ") || 
         inl_strcasestr(pv->req->par.v[pv->fuzz_par], (u8*)"DELETE ") ) &&
         inl_strcasestr(pv->req->par.v[pv->fuzz_par], (u8*)" FROM ")) ||

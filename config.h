@@ -124,7 +124,7 @@
   "?_test1=ccddeeeimmnossstwwxy.:\\\\\\" \
   "&_test2=acdepsstw//" \
   "&_test3=bhins//" \
-  "&_test4=CEEFLMORSTeeinnnosttx--*" \
+  "&_test4=CEEFLMORSTeeinnnosttx-*" \
   "&_test5=cefhilnosu///" \
   "&_test6=acceiilpprrrssttt1)(" \
   "&_test7=aaaceijlprrsttv1):("
