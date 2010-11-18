@@ -537,7 +537,7 @@ int main(int argc, char** argv) {
   }
 
   gettimeofday(&tv, NULL);
-  en_time = tv.tv_sec * 1000L + tv.tv_usec / 1000L;
+  en_time = tv.tv_sec * 1000LL + tv.tv_usec / 1000;
 
   SAY("\n");
 

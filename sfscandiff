@@ -1,0 +1,107 @@
+#!/bin/bash
+
+echo "sfscandiff - skipfish scan result comparator (lcamtuf@google.com)" 1>&2
+
+if [ ! "$#" = "2" ]; then
+  echo "Usage: $0 /path/to/old/scan/ /path/to/new/scan/" 1>&2
+  exit 1
+fi
+
+if [ ! -s "$1/summary.js" ]; then
+  echo "ERROR: First parameter does not point to a valid skipfish scan directory." 1>&2
+  exit 1
+fi
+
+if [ ! -s "$2/summary.js" ]; then
+  echo "ERROR: Second parameter does not point to a valid skipfish scan directory." 1>&2
+  exit 1
+fi
+
+OLD_SCAN="$1"
+NEW_SCAN="$2"
+
+# Takes two parameters: old scan subdir and new scan subdir
+
+function check_dir {
+
+  # echo "Comparing: old=[$1] new=[$2]..."
+
+  echo "0" >"$2/.diff_cnt"
+
+  echo "var diff_data = {" >"$2/diff_data.js"
+
+  grep "'dir':" "$2/child_index.js" | awk -F "'dir': " '{print $2}' | \
+    sed "s/,.*'sig'://" | sed "s/[,}]*$//" |sed "s/'//g" | \
+    while read -r dir sig; do
+
+      # echo "  Checking dir=[$dir] sig=[$sig]"
+
+      # Find matching child node first.
+
+      MATCH_DIR=`grep -E "'sig': $sig[, ]" "$1/child_index.js" 2>/dev/null | \
+        awk -F "'dir': " '{print $2}' | cut -d"'" -f2 | head -1`
+
+      test "$MATCH_DIR" = "" && MATCH_DIR="not_found"
+
+      # Recurse into children first, to get an accurate count of differences
+      # for all descendants.
+
+      check_dir "$1/$MATCH_DIR" "$2/$dir"
+
+      # Read difference count from descendands. If node does not appear in
+      # old scan, add 1 to the count. Store count.
+
+      DIFF_CNT=`cat "$2/$dir/.diff_cnt" 2>/dev/null`
+      test "$DIFF_CNT" = "" && DIFF_CNT=0
+
+      test "$MATCH_DIR" = "not_found" && DIFF_CNT=$[DIFF_CNT+1]
+
+      echo "  '$dir': $DIFF_CNT," >>"$2/diff_data.js"
+
+      # Update total count for parent node ($2)
+
+      TOTAL_DIFF_CNT=`cat "$2/.diff_cnt" 2>/dev/null`
+      TOTAL_DIFF_CNT=$[TOTAL_DIFF_CNT+DIFF_CNT]
+      echo "$TOTAL_DIFF_CNT" >"$2/.diff_cnt"
+
+    done
+
+  # Now, for every issue, see if a matching issue appears in old scan.
+  # If not, add it to diff_data.
+
+  grep "'severity':" "$2/issue_index.js" | while read -r line; do
+
+      LOOK_FOR=`echo "$line" | awk -F"'fetched':" '{print $1}'`
+      ISSUE_DIR=`echo "$line" | awk -F"'dir':" '{print $2}'|cut -d"'" -f2`
+
+      # echo "  Checking issue=[$ISSUE_DIR]"
+
+      if ! grep -qF "$LOOK_FOR" "$1/issue_index.js" 2>/dev/null; then
+        echo "  '$ISSUE_DIR': 1," >>"$2/diff_data.js"      
+      fi
+
+    done
+
+  echo "  '_eof': 0" >>"$2/diff_data.js"
+  echo "};" >>"$2/diff_data.js"
+
+}
+
+echo -n "Finding new results in $NEW_SCAN... "
+
+check_dir "$OLD_SCAN" "$NEW_SCAN"
+
+TOTAL=`cat "$NEW_SCAN/.diff_cnt"`
+
+if [ "$TOTAL" = "0" ]; then
+  echo "no new findings."
+elif [ "$TOTAL" = "1" ]; then
+  echo "one new or modified node found."
+else
+  echo "$TOTAL new or modified nodes found."
+fi
+
+grep -qF "var diff_mode" "$NEW_SCAN/summary.js" || 
+  echo "var diff_mode  = true;" >>"$NEW_SCAN/summary.js"
+
+exit 0

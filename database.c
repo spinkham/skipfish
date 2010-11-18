@@ -587,6 +587,10 @@ void problem(u32 type, struct http_request* req, struct http_response* res,
 
   pv->issue_cnt++;
 
+  /* Propagate parent issue counts. */
+
+  do { pv->desc_issue_cnt++; } while ((pv = pv->parent));
+
 }
 
 

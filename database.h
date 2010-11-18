@@ -100,6 +100,7 @@ struct pivot_desc {
 
   struct issue_desc* issue;                     /* List of issues found      */
   u32 issue_cnt;                                /* Number of issues          */
+  u32 desc_issue_cnt;                           /* Number of child issues    */
 
   struct http_response* res;                    /* HTTP response seen        */
 

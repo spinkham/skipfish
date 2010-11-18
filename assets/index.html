@@ -93,6 +93,13 @@ td.child_ctr:hover {
   font-weight: bold;
 }
 
+.name_diff {
+  font-weight: bold;
+  color: white;
+  background-color: red;
+  padding: 0.2em 0.5em 0.2em 0.5em;
+}
+
 span.sum_name {
   font-weight: bold;
   border: 1px solid white;
@@ -119,6 +126,13 @@ span.sum_name:hover {
 
 .issue_desc {
   font-weight: bold;
+}
+
+.issue_desc_diff {
+  font-weight: bold;
+  color: white;
+  background-color: blue;
+  padding: 0.2em 0.5em 0.2em 0.5em;
 }
 
 .comment {
@@ -227,9 +241,10 @@ div.req_hdr:hover {
 
 <script>
 
-var c_count = 0;
+var c_count      = 0;
 var ignore_click = false;
-var max_samples = 100;
+var max_samples  = 100;
+var diff_mode    = false;
 
 /* Descriptions for issues reported by the scanner. */
 
@@ -484,6 +499,12 @@ function load_node(dir, tid) {
   x.send(null);
   eval(x.responseText);
 
+  if (diff_mode) {
+    x.open('GET', dir + 'diff_data.js', false);
+    x.send(null);
+    eval(x.responseText);
+  }
+
   delete x;
 
   next_opacity('c_' + tid, 0);
@@ -504,7 +525,11 @@ function load_node(dir, tid) {
       case 4:  add_html += '<img src="i_high.png" title="High risk: system compromise">'; break;
     }
 
-    add_html += '</td>\n<td><div style="issue_desc">' + issue_desc[i.type] + '</div>\n<ol>\n';
+    if (!diff_mode || diff_data[i.dir] == undefined) {
+      add_html += '</td>\n<td><div class="issue_desc">' + issue_desc[i.type] + '</div>\n<ol>\n';
+    } else {
+      add_html += '</td>\n<td><div class="issue_desc_diff">' + issue_desc[i.type] + '</div>\n<ol>\n';
+    }
 
     for (var cno2 = cno; cno2 < issue.length; cno2++) {
       var i2 = issue[cno2];
@@ -588,7 +613,15 @@ function load_node(dir, tid) {
 
     if (c.dupe) add_html += '<img src="n_clone.png" title="Suspected duplicate">' + 
       '<span class="dupe_name" title="' + H(c.url) + '">' + H(TRUNC(c.name)) + '</span>\n';
-    else add_html += '<span class="name" title="' + H(c.url) + '">' + H(TRUNC(c.name)) + '</span>\n';
+    else {
+      if (!diff_mode || diff_data[c.dir] == 0) {
+        add_html += '<span class="name" title="' + H(c.url) + '">' + H(TRUNC(c.name)) + '</span>\n';
+      } else if (diff_data[c.dir] == 1) {
+        add_html += '<span class="name_diff" title="' + H(c.url) + '">' + H(TRUNC(c.name)) + '</span>\n';
+      } else {
+        add_html += '<span class="name_diff" title="' + H(c.url) + '">' + H(TRUNC(c.name)) + ' (' + diff_data[c.dir] + ' more)</span>\n';
+      }
+    }
 
     if (c.linked == 0)
       add_html += '<img src="n_unlinked.png" title="Not linked (brute-forced)" class="i2">';

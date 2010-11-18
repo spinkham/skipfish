@@ -181,8 +181,8 @@ static inline u32 hash_extra(u8* str) {
 /* Registers a new pivot signature, or updates an existing one. */
 
 static void maybe_add_sig(struct pivot_desc* pv) {
-  u32 i, issue_sig = ~pv->issue_cnt, 
-         child_sig = ~pv->child_cnt;
+  u32 i, issue_sig = ~(pv->issue_cnt | (pv->desc_issue_cnt << 16)), 
+         child_sig = ~(pv->desc_cnt | (pv->child_cnt << 16));
 
   if (!pv->res) return;
 
@@ -531,12 +531,13 @@ static void output_crawl_tree(struct pivot_desc* pv) {
     describe_res(f, pv->child[i]->res);
 
     fprintf(f,", 'missing': %s, 'csens': %s, 'child_cnt': %u, "
-            "'issue_cnt': [ %u, %u, %u, %u, %u ] }%s\n", 
+            "'issue_cnt': [ %u, %u, %u, %u, %u ], 'sig': 0x%x }%s\n", 
             pv->child[i]->missing ? "true" : "false",
             pv->child[i]->csens ? "true" : "false",
             pv->child[i]->total_child_cnt, pv->child[i]->total_issues[1],
             pv->child[i]->total_issues[2], pv->child[i]->total_issues[3],
             pv->child[i]->total_issues[4], pv->child[i]->total_issues[5],
+            pv->child[i]->pv_sig,
             (i == pv->child_cnt - 1) ? "" : ",");
   }
 

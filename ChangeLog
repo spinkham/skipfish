@@ -1,3 +1,12 @@
+Version 1.71b:
+--------------
+
+  - Child signatures now exposed in the report,
+
+  - Improvements to duplicate node detection,
+
+  - sfscandiff tool added to compare reports.
+
 Version 1.70b:
 --------------
 

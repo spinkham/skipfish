@@ -251,6 +251,12 @@ results over HTTP). The index.html file is static; actual results are stored
 as a hierarchy of JSON files, suitable for machine processing or different 
 presentation frontends if needs be.
 
+A simple companion script, sfscandiff, can be used to compute a delta for
+two scans executed against the same target with the same flags. The newer
+report will be non-destructively annotated by adding red background to all
+new or changed nodes; and blue background to all new or changed issues
+found.
+
 Some sites may require authentication; for simple HTTP credentials, you can 
 try:
 
@@ -500,15 +506,15 @@ know:
     currently employed by skipfish; but in the long run, should be provided
     as a last-resort option. 
 
-  * Scan resume option. 
+  * Scan resume option.
 
-  * Option to limit document sampling or save samples directly to disk. 
+  * Option to limit document sampling or save samples directly to disk.
 
-  * Standalone installation (make install) support. 
+  * Standalone installation (make install) support.
 
-  * Config file support. 
+  * Config file support.
 
-  * A database for banner / version checks? 
+  * A database for banner / version checks?
 
 -------------------------------------
 9. Oy! Something went horribly wrong!
