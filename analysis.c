@@ -1381,8 +1381,9 @@ next_elem:
      might be time or year. Time would have nn:... */
 
   if (hr == -1 && isdigit(*str) && str[2] == ':') {
-    sscanf((char*)str, "%02llu:%02llu:%02llu", &hr, &min,
-                                               &sec);
+    sscanf((char*)str, "%02llu:%02llu:%02llu", (long long*)&hr,
+                                               (long long*)&min,
+                                               (long long*)&sec);
     while (*str && (isdigit(*str) || *str == ':')) str++;
     goto next_elem;
   }

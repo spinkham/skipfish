@@ -565,9 +565,9 @@ static void output_crawl_tree(struct pivot_desc* pv) {
             tmp, (i == pv->issue_cnt - 1) ? "" : ",");
 
     if (mkdir((char*)tmp, 0755)) PFATAL("Cannot create '%s'.", tmp);
-    chdir((char*)tmp);
+    if (chdir((char*)tmp)) PFATAL("chdir unexpectedly fails!");
     save_req_res(pv->issue[i].req, pv->issue[i].res, 1);
-    chdir((char*)"..");
+    if (chdir((char*)"..")) PFATAL("chdir unexpectedly fails!");
 
     /* Issue samples next! */
 
@@ -599,9 +599,9 @@ static void output_crawl_tree(struct pivot_desc* pv) {
     u8 tmp[32];
     sprintf((char*)tmp, "c%u", i);
     if (mkdir((char*)tmp, 0755)) PFATAL("Cannot create '%s'.", tmp);
-    chdir((char*)tmp);
+    if (chdir((char*)tmp)) PFATAL("chdir unexpectedly fails!");
     output_crawl_tree(pv->child[i]);
-    chdir((char*)"..");
+    if (chdir((char*)"..")) PFATAL("chdir unexpectedly fails!");
   }
 
   if ((!(proc_cnt++ % 50)) || pv->type == PIVOT_ROOT) {
@@ -645,7 +645,7 @@ static void output_summary_views() {
 
     sprintf((char*)tmp, "_m%u", i);
     if (mkdir((char*)tmp, 0755)) PFATAL("Cannot create '%s'.", tmp);
-    chdir((char*)tmp);
+    if (chdir((char*)tmp)) PFATAL("chdir unexpectedly fails!");
 
     fprintf(f, "  { 'mime': '%s', 'samples': [\n", m_samp[i].det_mime);
 
@@ -654,9 +654,9 @@ static void output_summary_views() {
       u8* p = serialize_path(m_samp[i].req[c], 1, 0);
       sprintf((char*)tmp2, "%u", c);
       if (mkdir((char*)tmp2, 0755)) PFATAL("Cannot create '%s'.", tmp2);
-      chdir((char*)tmp2);
+      if (chdir((char*)tmp2)) PFATAL("chdir unexpectedly fails!");
       save_req_res(m_samp[i].req[c], m_samp[i].res[c], 0);
-      chdir("..");
+      if (chdir("..")) PFATAL("chdir unexpectedly fails!");
       fprintf(f, "    { 'url': '%s', 'dir': '%s/%s', 'linked': %d, 'len': %d"
               " }%s\n", js_escape(p), tmp, tmp2,
               m_samp[i].req[c]->pivot->linked, m_samp[i].res[c]->pay_len,
@@ -665,7 +665,7 @@ static void output_summary_views() {
     }
 
     fprintf(f, "  }%s\n", (i == m_samp_cnt - 1) ? "" : ",");
-    chdir("..");
+    if (chdir("..")) PFATAL("chdir unexpectedly fails!");
   }
 
   fprintf(f, "];\n\n");
@@ -680,7 +680,7 @@ static void output_summary_views() {
 
     sprintf((char*)tmp, "_i%u", i);
     if (mkdir((char*)tmp, 0755)) PFATAL("Cannot create '%s'.", tmp);
-    chdir((char*)tmp);
+    if (chdir((char*)tmp)) PFATAL("chdir unexpectedly fails!");
 
     fprintf(f, "  { 'severity': %d, 'type': %d, 'samples': [\n", 
             PSEV(i_samp[i].type) - 1, i_samp[i].type);
@@ -690,9 +690,9 @@ static void output_summary_views() {
       u8* p = serialize_path(i_samp[i].i[c]->req, 1, 0);
       sprintf((char*)tmp2, "%u", c);
       if (mkdir((char*)tmp2, 0755)) PFATAL("Cannot create '%s'.", tmp2);
-      chdir((char*)tmp2);
+      if (chdir((char*)tmp2)) PFATAL("chdir unexpectedly fails!");
       save_req_res(i_samp[i].i[c]->req, i_samp[i].i[c]->res, 0);
-      chdir("..");
+      if (chdir("..")) PFATAL("chdir unexpectedly fails!");
       fprintf(f, "    { 'url': '%s', ", js_escape(p));
       fprintf(f, "'extra': '%s', 'dir': '%s/%s' }%s\n", 
               i_samp[i].i[c]->extra ? js_escape(i_samp[i].i[c]->extra) : 
@@ -702,7 +702,7 @@ static void output_summary_views() {
     }
 
     fprintf(f, "  }%s\n", (i == i_samp_cnt - 1) ? "" : ",");
-    chdir("..");
+    if (chdir("..")) PFATAL("chdir unexpectedly fails!");
   }
 
   fprintf(f, "];\n\n");
@@ -731,7 +731,8 @@ static int copy_asset(const struct dirent* d) {
 
   if (i >= 0 && o >= 0) {
     s32 c;
-    while ((c = read(i, buf, 1024)) > 0) write(o, buf, c);
+    while ((c = read(i, buf, 1024)) > 0) 
+      if (write(o, buf, c) != c) break;
   } 
 
   close(i);

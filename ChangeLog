@@ -1,3 +1,8 @@
+Version 1.73b:
+--------------
+
+  - Silence some pointless compiler warnings on newer systems.
+  
 Version 1.72b:
 --------------
 
