@@ -101,7 +101,7 @@ static void usage(char* argv0) {
 
       "  -o dir         - write output to specified directory (required)\n"
       "  -J             - be less picky about MIME / charset mismatches\n"
-      "  -M             - log warnings about mixed content\n"
+      "  -M             - log warnings about mixed content / non-SSL passwords\n"
       "  -E             - log all HTTP/1.0 / HTTP/1.1 caching intent mismatches\n"
       "  -U             - log all external URLs and e-mails seen\n"
       "  -Q             - completely suppress duplicate nodes in reports\n"

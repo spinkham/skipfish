@@ -262,6 +262,7 @@ u8 is_c_sens(struct pivot_desc* pv);
 
 #define PROB_CACHE_LOW          30701           /* Cache nit-picking         */
 
+
 /* - Moderate severity issues (data compromise): */
 
 #define PROB_BODY_XSS           40101           /* Document body XSS         */
@@ -283,6 +284,8 @@ u8 is_c_sens(struct pivot_desc* pv);
 #define PROB_DIR_TRAVERSAL      40501           /* Directory traversal       */
 
 #define PROB_CACHE_HI           40601           /* Serious caching issues    */
+
+#define PROB_PASS_NOSSL         40701           /* Password form, no HTTPS   */
 
 /* - High severity issues (system compromise): */
 

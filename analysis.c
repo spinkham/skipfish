@@ -580,7 +580,12 @@ next_tag:
 final_checks:
 
   if (pass_form) {
-    problem(PROB_PASS_FORM, req, orig_res, NULL, req->pivot, 0);
+
+    if (warn_mixed && (req->proto != PROTO_HTTPS || orig_req->proto != PROTO_HTTPS)) 
+      problem(PROB_PASS_NOSSL, req, orig_res, NULL, req->pivot, 0);
+    else
+      problem(PROB_PASS_FORM, req, orig_res, NULL, req->pivot, 0);
+
   } else {
 
     if (tag_cnt && !has_xsrf) {
