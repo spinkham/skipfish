@@ -893,7 +893,7 @@ u8* build_request_data(struct http_request* req) {
     ASD("Keep-Alive: 300\r\n");
     ASD("Connection: keep-alive\r\n");
 
-  } else /* MSIE */ {
+  } else if (browser_type == BROWSER_MSIE) {
 
     ASD("Accept: */*\r\n");
 
@@ -908,6 +908,22 @@ u8* build_request_data(struct http_request* req) {
 
     ASD("Accept-Encoding: gzip, deflate\r\n");
     ASD("Connection: Keep-Alive\r\n");
+
+  } else /* iPhone */ {
+
+    if (!GET_HDR((u8*)"User-Agent", &req->par))
+      ASD("User-Agent: Mozilla/5.0 (iPhone; U; CPU iPhone OS 4_1 like Mac OS "
+          "X; en-us) AppleWebKit/532.9 (KHTML, like Gecko) Version/4.0.5 "
+          "Mobile/8B117 Safari/6531.22.7 SF/" VERSION "\r\n");
+
+    ASD("Accept: application/xml,application/xhtml+xml,text/html;q=0.9,"
+        "text/plain;q=0.8,image/png,*/*;q=0.5\r\n");
+
+    if (!GET_HDR((u8*)"Accept-Language", &req->par))
+      ASD("Accept-Language: en-us\r\n");
+
+    ASD("Accept-Encoding: gzip, deflate\r\n");
+    ASD("Connection: keep-alive\r\n");
 
   }
 

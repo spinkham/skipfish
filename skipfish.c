@@ -73,10 +73,10 @@ static void usage(char* argv0) {
       "Authentication and access options:\n\n"
 
       "  -A user:pass   - use specified HTTP authentication credentials\n"
-      "  -F host:IP     - pretend that 'host' resolves to 'IP'\n"
+      "  -F host=IP     - pretend that 'host' resolves to 'IP'\n"
       "  -C name=val    - append a custom cookie to all requests\n"
       "  -H name=val    - append a custom HTTP header to all requests\n"
-      "  -b (i|f)       - use headers consistent with MSIE / Firefox\n"
+      "  -b (i|f|p)     - use headers consistent with MSIE / Firefox / iPhone\n"
       "  -N             - do not accept any new cookies\n\n"
 
       "Crawl scope options:\n\n"
@@ -372,6 +372,7 @@ int main(int argc, char** argv) {
       case 'b':
         if (optarg[0] == 'i') browser_type = BROWSER_MSIE; else
         if (optarg[0] == 'f') browser_type = BROWSER_FFOX; else
+        if (optarg[0] == 'p') browser_type = BROWSER_PHONE; else
           usage(argv[0]);
         break;
 

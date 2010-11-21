@@ -312,7 +312,8 @@ parameters...
 By default, skipfish sends minimalistic HTTP headers to reduce the amount of 
 data exchanged over the wire; some sites examine User-Agent strings or header 
 ordering to reject unsupported clients, however. In such a case, you can use 
--b ie or -b ffox to mimic one of the two popular browsers.
+-b ie, -b ffox, or -b phone to mimic one of the two popular browsers (or
+iPhone).
 
 When it comes to customizing your HTTP requests, you can also use the -H 
 option to insert any additional, non-standard headers; or -F to define a 
