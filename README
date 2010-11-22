@@ -98,7 +98,7 @@ A rough list of the security checks offered by the tool is outlined below.
 
   * High risk flaws (potentially leading to system compromise):
 
-    * Server-side SQL injection (including blind vectors, numerical parameters).
+    * Server-side query injection (including blind vectors, numerical parameters).
     * Explicit SQL-like syntax in GET or POST parameters.
     * Server-side shell command injection (including blind vectors).
     * Server-side XML / XPath injection (including blind vectors).
@@ -111,7 +111,7 @@ A rough list of the security checks offered by the tool is outlined below.
     * Stored and reflected XSS vectors in document body (minimal JS XSS support).
     * Stored and reflected XSS vectors via HTTP redirects.
     * Stored and reflected XSS vectors via HTTP header splitting.
-    * Directory traversal (including constrained vectors).
+    * Directory traversal / RFI (including constrained vectors).
     * Assorted file POIs (server-side sources, configs, etc).
     * Attacker-supplied script and CSS inclusion vectors (stored and reflected).
     * External untrusted script and CSS inclusion vectors.

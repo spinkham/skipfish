@@ -2276,7 +2276,9 @@ static void check_for_stuff(struct http_request* req,
     return;
   }
 
-  if (strstr((char*)res->payload, "<b>Fatal error</b>:")) {
+  if (strstr((char*)res->payload, "<b>Fatal error</b>:") ||
+      strstr((char*)res->payload, "<b>Parse error</b>:") ||
+      strstr((char*)res->payload, "</b> on line <b>")) {
     problem(PROB_ERROR_POI, req, res, (u8*)"PHP error", req->pivot, 0);
     return;
   }

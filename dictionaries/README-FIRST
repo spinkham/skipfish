@@ -57,8 +57,9 @@ The basic modes you should be aware of (in order of request cost):
 
      complete  - all-inclusive dictionary, over 150,000 requests.
 
-   This mode is recommended when doing thorough assessments of reasonably
-   responsive servers.
+   Normal fuzzing mode is recommended when doing thorough assessments of
+   reasonably responsive servers; but it may be prohibitively expensive
+   when dealing with very large or very slow sites.
 
 As should be obvious, the -W option points to a dictionary to be used; the
 scanner updates the file based on scan results, so please always make a
@@ -83,7 +84,8 @@ Additional options supported by the aforementioned modes:
 
   -Y      - inhibits full ${filename}.${extension} brute-force: the scanner
             will only brute-force one component at a time. This greatly
-            improves scan times, but reduces coverage.
+            improves scan times, but reduces coverage. Modes 2 and 3
+            shown above make use of this flag.
 
   -R num  - purges all dictionary entries that had no non-404 hits for
             the last <num> scans. Prevents dictionary creep in repeated
@@ -93,37 +95,37 @@ Additional options supported by the aforementioned modes:
 More about dictionary design:
 -----------------------------
 
-Each dictionary may consist of a number of extensions, and a number of
-"regular" keywords. Extensions are considered just a special subset of
-the keyword list.
+Each dictionary may consist of a number of extensions, and a number of 
+"regular" keywords. Extensions are considered just a special subset of the
+keyword list.
 
 You can create custom dictionaries, conforming to this format:
 
 type hits total_age last_age keyword
 
-...where 'type' is either 'e' or 'w' (extension or wordlist); 'hits'
-is the total number of times this keyword resulted in a non-404 hit
-in all previous scans; 'total_age' is the number of scan cycles this
-word is in the dictionary; 'last_age' is the number of scan cycles
-since the last 'hit'; and 'keyword' is the actual keyword.
+...where 'type' is either 'e' or 'w' (extension or wordlist); 'hits' is the
+total number of times this keyword resulted in a non-404 hit in all previous
+scans; 'total_age' is the number of scan cycles this word is in the dictionary;
+'last_age' is the number of scan cycles since the last 'hit'; and 'keyword' is
+the actual keyword.
 
-Do not duplicate extensions as keywords - if you already have 'html' as
-an 'e' entry, there is no need to also create a 'w' one.
+Do not duplicate extensions as keywords - if you already have 'html' as an 'e'
+entry, there is no need to also create a 'w' one.
 
-There must be no empty or malformed lines, comments in the wordlist
-file. Extension keywords must have no leading dot (e.g., 'exe', not '.exe'),
-and all keywords should be NOT url-encoded (e.g., 'Program Files', not
+There must be no empty or malformed lines, comments in the wordlist file.
+Extension keywords must have no leading dot (e.g., 'exe', not '.exe'), and all
+keywords should be NOT url-encoded (e.g., 'Program Files', not 
 'Program%20Files'). No keyword should exceed 64 characters.
 
-If you omit -W in the command line, 'skipfish.wl' is assumed. This
-file does not exist by default; this is by design.
+If you omit -W in the command line, 'skipfish.wl' is assumed. This file does
+not exist by default; this is by design.
 
-The scanner will automatically learn new keywords and extensions based on
-any links discovered during the scan; and will also analyze pages and
-extract words to use as keyword candidates.
+The scanner will automatically learn new keywords and extensions based on any
+links discovered during the scan; and will also analyze pages and extract
+words to use as keyword candidates.
 
 Tread carefully; poor wordlists are one of the reasons why some web security
 scanners perform worse than expected. You will almost always be better off
 narrowing down or selectively extending the supplied set (and possibly
-contributing back your changes upstream!), than importing a giant
-wordlist scored elsewhere.
+contributing back your changes upstream!), than importing a giant wordlist
+scored elsewhere.
