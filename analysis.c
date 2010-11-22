@@ -1789,7 +1789,7 @@ binary_checks:
   if ((tmp = GET_HDR((u8*)"Content-Disposition", &res->hdr)) &&
       inl_strcasestr(tmp, (u8*)"attachment")) return;
 
-  if (relaxed_mime) {
+  if (!relaxed_mime) {
 
     /* CHECK 5A: Renderable documents that are not CSS or static JS are of
        particular interest when it comes to MIME / charset mistakes. */
@@ -2023,10 +2023,12 @@ static void detect_mime(struct http_request* req, struct http_response* res) {
         inl_strcasestr(sniffbuf, (u8*)"<span") ||
         inl_strcasestr(sniffbuf, (u8*)"<div") ||
         inl_strcasestr(sniffbuf, (u8*)"<img") ||
+        inl_strcasestr(sniffbuf, (u8*)"<form") ||
         inl_strcasestr(sniffbuf, (u8*)"<br") ||
         inl_strcasestr(sniffbuf, (u8*)"<td") ||
         inl_strcasestr(sniffbuf, (u8*)"<h1") ||
         inl_strcasestr(sniffbuf, (u8*)"<li") ||
+        inl_strcasestr(sniffbuf, (u8*)"<p>") ||
         inl_strcasestr(sniffbuf, (u8*)"href=")) {
       res->sniff_mime_id = MIME_ASC_HTML;
       return;
