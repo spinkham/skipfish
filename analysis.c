@@ -1209,7 +1209,7 @@ static u8 is_javascript(struct http_response* res) {
 
     /* Illegal identifier, or too many whitespaces? Bail out. */
 
-    if (!isalnum(*text) && (!strchr(" \t\r\n_.", *text) ||
+    if (!isalnum(*text) && (!strchr(" \t\r\n_.$", *text) ||
         (white_cnt++) > MAX_JS_WHITE)) {
       res->js_type = 1;
       return 0;

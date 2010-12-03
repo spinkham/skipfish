@@ -651,7 +651,8 @@ static u8 inject_check1_callback(struct http_request* req,
 
   if (orig_state == PSTATE_CHILD_INJECT) {
 
-    if (!same_page(&MRES(0)->sig, &RPRES(req)->sig) &&
+    if (MRES(0)->code < 300 &&
+        !same_page(&MRES(0)->sig, &RPRES(req)->sig) &&
         !same_page(&MRES(0)->sig, &MRES(1)->sig)) {
       problem(PROB_DIR_LIST, MREQ(0), MRES(0),
         (u8*)"unique response for /./", 
@@ -663,7 +664,8 @@ static u8 inject_check1_callback(struct http_request* req,
       RESP_CHECKS(RPREQ(req), MRES(0));
     }
 
-    if (!same_page(&MRES(2)->sig, &RPRES(req)->sig) &&
+    if (MRES(2)->code < 300 &&
+        !same_page(&MRES(2)->sig, &RPRES(req)->sig) &&
         !same_page(&MRES(2)->sig, &MRES(3)->sig)) {
       problem(PROB_DIR_LIST, MREQ(2), MRES(2), 
         (u8*)"unique response for \\.\\", 
