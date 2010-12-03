@@ -35,6 +35,7 @@
 u32 crawl_prob = 100;    /* Crawl probability (1-100%)     */
 u8  no_fuzz_ext;         /* Don't fuzz extensions for dirs */
 u8  no_500_dir;          /* Don't crawl 500 directories    */
+u8  delete_bin;          /* Don't keep binary responses    */
 
 /*
 
@@ -1453,6 +1454,7 @@ static void end_injection_checks(struct pivot_desc* pv) {
     } else {
 
       pv->state = PSTATE_DONE;
+      if (delete_bin) maybe_delete_payload(pv);
       return;
 
     }
@@ -1461,6 +1463,7 @@ static void end_injection_checks(struct pivot_desc* pv) {
 
     if (pv->bogus_par || pv->res_varies) {
       pv->state = PSTATE_DONE;
+      if (delete_bin) maybe_delete_payload(pv);
     } else {
       crawl_par_numerical_init(pv);
     }
@@ -1492,6 +1495,7 @@ static void crawl_parametric_init(struct pivot_desc* pv) {
 
   if (pv->fuzz_par < 0 || !url_allowed(pv->req) || !param_allowed(pv->name)) {
     pv->state = PSTATE_DONE;
+    if (delete_bin) maybe_delete_payload(pv);
     return;
   }
 
@@ -1787,6 +1791,8 @@ static u8 par_numerical_callback(struct http_request* req,
 
   secondary_ext_init(orig_pv, req, res, 1);
 
+  if (delete_bin) maybe_delete_payload(n);
+
 schedule_next:
 
   if (!(--(orig_pv->num_pending))) {
@@ -1979,6 +1985,8 @@ static u8 par_dict_callback(struct http_request* req,
   if (!req->user_val)
     secondary_ext_init(orig_pv, req, res, 1);
 
+  if (delete_bin) maybe_delete_payload(n);
+
 schedule_next:
 
   if (!req->user_val) 
@@ -2000,7 +2008,10 @@ void crawl_par_trylist_init(struct pivot_desc* pv) {
 
   if (pv->fuzz_par == -1 || pv->bogus_par || pv->res_varies
       || !descendants_ok(pv)) {
+
     pv->state = PSTATE_DONE;
+    if (delete_bin) maybe_delete_payload(pv);
+
     return;
   } else
     pv->state = PSTATE_PAR_TRYLIST;
@@ -2046,6 +2057,7 @@ void crawl_par_trylist_init(struct pivot_desc* pv) {
 
   if (!pv->try_pending) {
     pv->state = PSTATE_DONE;
+    if (delete_bin) maybe_delete_payload(pv);
     return;
   }
 
@@ -2112,10 +2124,14 @@ static u8 par_trylist_callback(struct http_request* req,
 
   secondary_ext_init(orig_pv, req, res, 1);
 
+  if (delete_bin) maybe_delete_payload(n);
+
 schedule_next:
 
-  if (!(--(orig_pv->try_pending)))
+  if (!(--(orig_pv->try_pending))) {
     orig_pv->state = PSTATE_DONE;
+    if (delete_bin) maybe_delete_payload(orig_pv);
+  }
 
   /* Copied over to pivot. */
   return n ? 1 : 0;

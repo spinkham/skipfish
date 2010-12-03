@@ -30,7 +30,8 @@ extern u32 crawl_prob;          /* Crawl probability (1-100%)  */
 extern u8  no_parse,            /* Disable HTML link detection */
            warn_mixed,          /* Warn on mixed content?      */
            no_fuzz_ext,         /* Don't fuzz ext in dirs?     */
-           no_500_dir,		/* Don't assume dirs on 500    */
+           no_500_dir,          /* Don't assume dirs on 500    */
+           delete_bin,          /* Don't keep binary responses */
            log_ext_urls;        /* Log external URLs?          */
 
 /* Provisional debugging callback. */

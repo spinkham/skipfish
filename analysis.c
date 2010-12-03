@@ -34,7 +34,6 @@ u8  no_parse,            /* Disable HTML link detection */
     warn_mixed,          /* Warn on mixed content       */
     log_ext_urls,        /* Log all external URLs       */
     no_forms,            /* Do not submit forms         */
-    relaxed_mime,        /* Relax cset / mime checks    */
     pedantic_cache;      /* Match HTTP/1.0 and HTTP/1.1 */
 
 /* Form autofill hints: */
@@ -1789,16 +1788,18 @@ binary_checks:
   if ((tmp = GET_HDR((u8*)"Content-Disposition", &res->hdr)) &&
       inl_strcasestr(tmp, (u8*)"attachment")) return;
 
-  if (!relaxed_mime) {
+//  if (!relaxed_mime) {
+//
+//    /* CHECK 5A: Renderable documents that are not CSS or static JS are of
+//       particular interest when it comes to MIME / charset mistakes. */
+//
+//    if (is_mostly_ascii(res) && !is_css(res) && (!is_javascript(res) ||
+//        (!strstr((char*)res->payload, "function ") &&
+//        !strstr((char*)res->payload, "function(")))) high_risk = 1;
+//
+//  } else
 
-    /* CHECK 5A: Renderable documents that are not CSS or static JS are of
-       particular interest when it comes to MIME / charset mistakes. */
-
-    if (is_mostly_ascii(res) && !is_css(res) && (!is_javascript(res) ||
-        (!strstr((char*)res->payload, "function ") &&
-        !strstr((char*)res->payload, "function(")))) high_risk = 1;
-
-  } else {
+  {
 
     /* CHECK 5B: Documents with skipfish signature strings echoed back
        are of particular interest when it comes to MIME / charset mistakes. */
@@ -2544,3 +2545,34 @@ static void check_for_stuff(struct http_request* req,
   }
 
 }
+
+
+/* Deletes payload of binary responses if requested. This is called when pivot
+   enters PSTATE_DONE. */
+
+void maybe_delete_payload(struct pivot_desc* pv) {
+  u8  tmp[64];
+  u32 i;
+
+  if (pv->res->pay_len > 256 && !is_mostly_ascii(pv->res)) {
+    ck_free(pv->res->payload);
+    sprintf((char*)tmp, "[Deleted binary payload (%u bytes)]", pv->res->pay_len);
+    pv->res->payload = ck_strdup(tmp);
+    pv->res->pay_len = strlen((char*)tmp);
+  }
+
+  for (i=0;i<pv->issue_cnt;i++) {
+
+    if (pv->issue[i].res->pay_len > 256 && 
+        !is_mostly_ascii(pv->issue[i].res)) {
+      ck_free(pv->issue[i].res->payload);
+      sprintf((char*)tmp, "[Deleted binary payload (%u bytes)]", 
+              pv->issue[i].res->pay_len);
+      pv->issue[i].res->payload = ck_strdup(tmp);
+      pv->issue[i].res->pay_len = strlen((char*)tmp);
+    }
+
+  }
+
+}
+

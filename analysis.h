@@ -31,7 +31,6 @@ extern u8  no_parse,            /* Disable HTML link detection */
            warn_mixed,          /* Warn on mixed content       */
            log_ext_urls,        /* Log all external URLs       */
            no_forms,            /* Do not submit forms         */
-           relaxed_mime,        /* Relax cset / mime checks    */
            pedantic_cache;      /* Match HTTP/1.0 and HTTP/1.1 */
 
 /* Helper macros to group various useful checks: */
@@ -73,6 +72,10 @@ void scrape_response(struct http_request* req, struct http_response* res);
    401, 500 codes, exception messages, source code, offensive comments, etc. */
 
 void content_checks(struct http_request* req, struct http_response* res);
+
+/* Deletes payload of binary responses if requested. */
+
+void maybe_delete_payload(struct pivot_desc* pv);
 
 /* MIME detector output codes: */
 

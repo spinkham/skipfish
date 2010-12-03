@@ -358,15 +358,6 @@ the test dramatically. Another similarly crippling option that reduces the
 risk of persistent effects of a scan is -O, which inhibits all form parsing 
 and submission steps.
 
-By default, skipfish complains loudly about all MIME or character set 
-mismatches on renderable documents, and classifies many of them as "medium 
-risk"; this is because, if any user-controlled content is returned, the 
-situation could lead to cross-site scripting attacks in certain browsers. On 
-some poorly designed and maintained sites, this may contribute too much 
-noise; if so, you may use -J to mark these issues as "low risk" unless the 
-scanner can explicitly sees its own user input being echoed back on the 
-resulting page. This may miss many subtle attack vectors, though.
-
 Some sites that handle sensitive user data care about SSL - and about getting
 it right. Skipfish may optionally assist you in figuring out problematic
 mixed content or password submission scenarios - use the -M option to enable
@@ -412,9 +403,12 @@ sites.
 
 Lastly, -f controls the maximum number of consecutive HTTP errors you are 
 willing to see before aborting the scan; and -s sets the maximum length of a 
-response to fetch and parse (longer responses will be truncated).
+response to fetch and parse (longer responses will be truncated). When
+scanning large, multimedia-heavy sites, you may also want to specify -e -
+preventing binary documents from being kept verbatim for the report, and
+freeing up a lot of RAM.
 
-Further rate-limiting is available through third-party user mode tools such 
+Further rate-limiting is available through third-party user mode tools such
 as trickle, or kernel-level traffic shaping.
 
 Oh, and real-time scan statistics can be suppressed with -u.
@@ -430,11 +424,10 @@ issues):
 $ ./skipfish -MEU -C "AuthCookie=value" -X /logout.aspx -o output_dir \
   http://www.example.com/
 
-Five-connection crawl, but no brute-force; pretending to be MSIE and caring 
-less about ambiguous MIME or character set mismatches, and trusting 
-example.com links:
+Five-connection crawl, but no brute-force; pretending to be MSIE and and
+trusting example.com content):
 
-$ ./skipfish -m 5 -LVJ -W /dev/null -o output_dir -b ie -B example.com \
+$ ./skipfish -m 5 -LV -W /dev/null -o output_dir -b ie -B example.com \
   http://www.example.com/
 
 Brute force only (no HTML link extraction), limited to a single directory and 

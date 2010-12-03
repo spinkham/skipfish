@@ -38,7 +38,7 @@ The basic modes you should be aware of (in order of request cost):
 
    This method has a cost of about 1,700 requests per fuzzed location, and is
    recommended for rapid assessments, especially when working with slow 
-   servers.
+   servers or very large services.
 
 4) Normal dictionary fuzzing. In this mode, every ${filename}.${extension}
    pair will be attempted. This mode is significantly slower, but offers

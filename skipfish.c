@@ -100,7 +100,6 @@ static void usage(char* argv0) {
       "Reporting options:\n\n"
 
       "  -o dir         - write output to specified directory (required)\n"
-      "  -J             - be less picky about MIME / charset mismatches\n"
       "  -M             - log warnings about mixed content / non-SSL passwords\n"
       "  -E             - log all HTTP/1.0 / HTTP/1.1 caching intent mismatches\n"
       "  -U             - log all external URLs and e-mails seen\n"
@@ -125,7 +124,8 @@ static void usage(char* argv0) {
       "  -t req_tmout   - total request response timeout (%u s)\n"
       "  -w rw_tmout    - individual network I/O timeout (%u s)\n"
       "  -i idle_tmout  - timeout on idle HTTP connections (%u s)\n"
-      "  -s s_limit     - response size limit (%u B)\n\n"
+      "  -s s_limit     - response size limit (%u B)\n"
+      "  -e             - do not keep binary responses for reporting\n\n"
 
       "Send comments and complaints to <lcamtuf@google.com>.\n", argv0,
       max_depth, max_children, max_descendants, max_requests, DEF_WORDLIST,
@@ -207,7 +207,7 @@ int main(int argc, char** argv) {
   SAY("skipfish version " VERSION " by <lcamtuf@google.com>\n");
 
   while ((opt = getopt(argc, argv,
-          "+A:F:C:H:b:Nd:c:x:r:p:I:X:S:D:PJOYQMZUEK:W:LVT:G:R:B:q:g:m:f:t:w:i:s:o:hu")) > 0)
+          "+A:F:C:H:b:Nd:c:x:r:p:I:X:S:D:POYQMZUEK:W:LVT:G:R:B:q:g:m:f:t:w:i:s:o:hue")) > 0)
 
     switch (opt) {
 
@@ -275,10 +275,6 @@ int main(int argc, char** argv) {
       case 'X':
         if (*optarg == '*') optarg++;
         APPEND_FILTER(deny_urls, num_deny_urls, optarg);
-        break;
-
-      case 'J':
-        relaxed_mime = 1;
         break;
 
       case 'S':
@@ -434,6 +430,10 @@ int main(int argc, char** argv) {
 
       case 'u':
         be_quiet = 1;
+        break;
+
+      case 'e':
+        delete_bin = 1;
         break;
 
       case 'Z':
