@@ -403,10 +403,11 @@ sites.
 
 Lastly, -f controls the maximum number of consecutive HTTP errors you are 
 willing to see before aborting the scan; and -s sets the maximum length of a 
-response to fetch and parse (longer responses will be truncated). When
-scanning large, multimedia-heavy sites, you may also want to specify -e -
-preventing binary documents from being kept verbatim for the report, and
-freeing up a lot of RAM.
+response to fetch and parse (longer responses will be truncated). 
+
+When scanning large, multimedia-heavy sites, you may also want to specify -e.
+This prevents binary documents from being kept in memory for reporting
+purposes, and frees up a lot of RAM.
 
 Further rate-limiting is available through third-party user mode tools such
 as trickle, or kernel-level traffic shaping.

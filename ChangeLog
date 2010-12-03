@@ -1,3 +1,8 @@
+Version 1.81b:
+--------------
+
+  - Fix to numerical SQL injection detector logic.
+
 Version 1.80b:
 --------------
 

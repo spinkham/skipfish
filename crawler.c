@@ -1200,7 +1200,7 @@ static u8 inject_check7_callback(struct http_request* req,
     RESP_CHECKS(MREQ(2), MRES(2));
   }
 
-  if (same_page(&MRES(2)->sig, &MRES(6)->sig) &&
+  if (same_page(&MRES(1)->sig, &MRES(6)->sig) &&
       !same_page(&MRES(6)->sig, &MRES(7)->sig)) {
     problem(PROB_SQL_INJECT, MREQ(7), MRES(7),
       (u8*)"response suggests arithmetic evaluation on server side (type 2)",
