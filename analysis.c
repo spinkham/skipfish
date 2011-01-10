@@ -2557,7 +2557,7 @@ void maybe_delete_payload(struct pivot_desc* pv) {
   u8  tmp[64];
   u32 i;
 
-  if (pv->res->pay_len > 256 && !is_mostly_ascii(pv->res)) {
+  if (pv->res && pv->res->pay_len > 256 && !is_mostly_ascii(pv->res)) {
     ck_free(pv->res->payload);
     sprintf((char*)tmp, "[Deleted binary payload (%u bytes)]", pv->res->pay_len);
     pv->res->payload = ck_strdup(tmp);
@@ -2566,7 +2566,7 @@ void maybe_delete_payload(struct pivot_desc* pv) {
 
   for (i=0;i<pv->issue_cnt;i++) {
 
-    if (pv->issue[i].res->pay_len > 256 && 
+    if (pv->issue[i].res && pv->issue[i].res->pay_len > 256 && 
         !is_mostly_ascii(pv->issue[i].res)) {
       ck_free(pv->issue[i].res->payload);
       sprintf((char*)tmp, "[Deleted binary payload (%u bytes)]", 

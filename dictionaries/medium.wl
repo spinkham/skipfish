@@ -836,6 +836,7 @@ w 1 1 1 getjobid
 w 1 1 1 gfx
 w 1 1 1 gid
 w 1 1 1 gif
+w 1 1 1 git
 w 1 1 1 gitweb
 w 1 1 1 glimpse
 w 1 1 1 global
