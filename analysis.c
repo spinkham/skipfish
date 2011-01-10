@@ -1176,7 +1176,10 @@ static u8 is_javascript(struct http_response* res) {
         end = text + strcspn((char*)text, "\r\n");
       } else if (text[1] == '*') {
         end = (u8*)strstr((char*)text + 2, "*/");
-        if (end) end += 2;
+        if (end) end += 2; else {
+          res->js_type = 1;
+          return 0;
+        }
       } else {
         res->js_type = 1;
         return 0;

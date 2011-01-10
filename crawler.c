@@ -1184,7 +1184,7 @@ static u8 inject_check7_callback(struct http_request* req,
        misc[7] = 9 1 - (or orig 0 0 - -)
 
      If misc[0] == misc[1], but misc[0] != misc[2], probable (numeric) SQL
-     injection. Ditto for misc[2] == misc[6], but misc[6] != misc[7]. 
+     injection. Ditto for misc[1] == misc[6], but misc[6] != misc[7]. 
 
      If misc[3] != misc[4] and misc[3] != misc[5], probable text SQL 
      injection.

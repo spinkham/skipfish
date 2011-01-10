@@ -1,3 +1,8 @@
+Version 1.82b:
+--------------
+
+  - NULL pointer in is_javascript() fixed.
+
 Version 1.81b:
 --------------
 
