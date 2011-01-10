@@ -334,11 +334,10 @@ u8 same_page(struct http_sig* sig1, struct http_sig* sig2);
    (_cnt)++; \
  } while (0)
 
-extern u8 **deny_urls, **deny_strings, **allow_urls, **allow_domains,
+extern u8 **deny_urls, **allow_urls, **allow_domains,
           **trust_domains, **skip_params;
 
 extern u32 num_deny_urls,
-           num_deny_strings,
            num_allow_urls,
            num_allow_domains,
            num_trust_domains,

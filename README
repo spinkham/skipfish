@@ -280,8 +280,7 @@ $ ./skipfish -X /logout/logout.aspx ...other parameters...
 
 The -X option is also useful for speeding up your scans by excluding /icons/, 
 /doc/, /manuals/, and other standard, mundane locations along these lines. In 
-general, you can use -X, plus -I (only spider URLs matching a substring) and 
--S (ignore links on pages where a substring appears in response body) to 
+general, you can use -X and -I (only spider URLs matching a substring) to
 limit the scope of a scan any way you like - including restricting it only to 
 a specific protocol and port:
 

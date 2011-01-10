@@ -89,7 +89,6 @@ static void usage(char* argv0) {
       "  -q hex         - repeat probabilistic scan with given seed\n"
       "  -I string      - only follow URLs matching 'string'\n"
       "  -X string      - exclude URLs matching 'string'\n"
-      "  -S string      - exclude pages containing 'string'\n"
       "  -K string      - do not fuzz parameters named 'string'\n"
       "  -D domain      - crawl cross-site links to another domain\n"
       "  -B domain      - trust, but do not crawl, another domain\n"
@@ -207,7 +206,7 @@ int main(int argc, char** argv) {
   SAY("skipfish version " VERSION " by <lcamtuf@google.com>\n");
 
   while ((opt = getopt(argc, argv,
-          "+A:F:C:H:b:Nd:c:x:r:p:I:X:S:D:POYQMZUEK:W:LVT:G:R:B:q:g:m:f:t:w:i:s:o:hue")) > 0)
+          "+A:F:C:H:b:Nd:c:x:r:p:I:X:D:POYQMZUEK:W:LVT:G:R:B:q:g:m:f:t:w:i:s:o:hue")) > 0)
 
     switch (opt) {
 
@@ -275,11 +274,6 @@ int main(int argc, char** argv) {
       case 'X':
         if (*optarg == '*') optarg++;
         APPEND_FILTER(deny_urls, num_deny_urls, optarg);
-        break;
-
-      case 'S':
-        if (*optarg == '*') optarg++;
-        APPEND_FILTER(deny_strings, num_deny_strings, optarg);
         break;
 
       case 'T': {

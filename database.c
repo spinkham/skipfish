@@ -39,14 +39,12 @@
 struct pivot_desc root_pivot;
 
 u8 **deny_urls,                         /* List of banned URL substrings   */
-   **deny_strings,                      /* List of banned page substrings  */
    **allow_urls,                        /* List of required URL substrings */
    **allow_domains,                     /* List of allowed vhosts          */
    **trust_domains,                     /* List of trusted vhosts          */
    **skip_params;                       /* List of parameters to ignore    */
 
 u32 num_deny_urls,
-    num_deny_strings,
     num_allow_urls,
     num_allow_domains,
     num_trust_domains,
@@ -1398,7 +1396,6 @@ void destroy_database() {
   dealloc_pivots(0);
 
   ck_free(deny_urls);
-  ck_free(deny_strings);
   ck_free(allow_urls);
   ck_free(allow_domains);
   ck_free(trust_domains);
