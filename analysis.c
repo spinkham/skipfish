@@ -2489,7 +2489,8 @@ static void check_for_stuff(struct http_request* req,
 
       eol = (u8*)strchr((char*)cur, '\n');
 
-      if (!cur[del] || cur[del] == '\n') {
+      if (!cur[del] || cur[del] == '\n' || (cur[del] == ',' && 
+          cur[del+1] == ' ')) {
         all_delim = 0;
         break;
       }
