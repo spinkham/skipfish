@@ -10,6 +10,7 @@ e 1 1 1 error
 e 1 1 1 html
 e 1 1 1 inc
 e 1 1 1 ini
+e 1 1 1 jar
 e 1 1 1 java
 e 1 1 1 key
 e 1 1 1 log
@@ -25,6 +26,7 @@ e 1 1 1 test
 e 1 1 1 tmp
 e 1 1 1 txt
 e 1 1 1 xml
+e 1 1 1 xslt
 e 1 1 1 zip
 w 1 1 1 .bash_history
 w 1 1 1 .bashrc
@@ -136,6 +138,7 @@ w 1 1 1 SQL
 w 1 1 1 SUNWmc
 w 1 1 1 SiteScope
 w 1 1 1 SiteServer
+w 1 1 1 SOAPMonitor
 w 1 1 1 Spy
 w 1 1 1 TEMP
 w 1 1 1 TMP
@@ -195,6 +198,7 @@ w 1 1 1 addressbook
 w 1 1 1 adm
 w 1 1 1 admin
 w 1 1 1 admin_
+w 1 1 1 admin-console
 w 1 1 1 admins
 w 1 1 1 adodb
 w 1 1 1 ads
@@ -965,9 +969,12 @@ w 1 1 1 javadoc
 w 1 1 1 javascript
 w 1 1 1 javax
 w 1 1 1 jboss
+w 1 1 1 jbossas
+w 1 1 1 jbossws
 w 1 1 1 jdbc
 w 1 1 1 jhtml
 w 1 1 1 jigsaw
+w 1 1 1 jira
 w 1 1 1 jj
 w 1 1 1 jmx-console
 w 1 1 1 job

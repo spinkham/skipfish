@@ -1,4 +1,5 @@
 e 1 1 1 7z
+e 1 1 1 as
 e 1 1 1 asmx
 e 1 1 1 asp
 e 1 1 1 aspx
@@ -34,6 +35,7 @@ e 1 1 1 htm
 e 1 1 1 html
 e 1 1 1 inc
 e 1 1 1 ini
+e 1 1 1 jar
 e 1 1 1 java
 e 1 1 1 jhtml
 e 1 1 1 jpg
@@ -87,13 +89,16 @@ e 1 1 1 temp
 e 1 1 1 test
 e 1 1 1 tgz
 e 1 1 1 tmp
+e 1 1 1 tpl
 e 1 1 1 trace
 e 1 1 1 txt
 e 1 1 1 vb
 e 1 1 1 vbs
+e 1 1 1 war
 e 1 1 1 ws
 e 1 1 1 xls
 e 1 1 1 xml
 e 1 1 1 xsl
+e 1 1 1 xslt
 e 1 1 1 yml
 e 1 1 1 zip
