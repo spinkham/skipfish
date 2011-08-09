@@ -27,7 +27,7 @@ The basic modes you should be aware of (in order of request cost):
 
    This method is only slightly more request-intensive than #1, and therefore,
    generally recommended in cases where time is of essence. The cost is about
-   90 requests per fuzzed location.
+   100 requests per fuzzed location.
 
 3) Directory OR extension brute-force only. In this mode, the scanner will only
    try fuzzing the file name, or the extension, at any given time - but will 
@@ -36,7 +36,7 @@ The basic modes you should be aware of (in order of request cost):
    cp dictionaries/complete.wl dictionary.wl
    ./skipfish -W dictionary.wl -Y [...other options...]
 
-   This method has a cost of about 1,700 requests per fuzzed location, and is
+   This method has a cost of about 2,000 requests per fuzzed location, and is
    recommended for rapid assessments, especially when working with slow 
    servers or very large services.
 
@@ -50,12 +50,12 @@ The basic modes you should be aware of (in order of request cost):
    Replace XXX with:
 
      minimal   - recommended starter dictionary, mostly focusing on backup
-                 and source files, under 50,000 requests per fuzzed location.
+                 and source files, about 60,000 requests per fuzzed location.
 
      medium    - more thorough dictionary, focusing on common frameworks,
-                 under 100,000 requests.
+                 about 140,000 requests.
 
-     complete  - all-inclusive dictionary, over 150,000 requests.
+     complete  - all-inclusive dictionary, over 210,000 requests.
 
    Normal fuzzing mode is recommended when doing thorough assessments of
    reasonably responsive servers; but it may be prohibitively expensive

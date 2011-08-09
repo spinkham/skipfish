@@ -10,8 +10,10 @@ e 1 1 1 bz2
 e 1 1 1 c
 e 1 1 1 cc
 e 1 1 1 cfg
+e 1 1 1 cfm
 e 1 1 1 cgi
 e 1 1 1 class
+e 1 1 1 cnf
 e 1 1 1 conf
 e 1 1 1 config
 e 1 1 1 cpp
