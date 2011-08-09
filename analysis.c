@@ -80,7 +80,7 @@ void pivot_header_checks(struct http_request* req,
   for (i=0;i<res->hdr.c;i++) {
 
     if (res->hdr.t[i] != PARAM_HEADER ||
-        strncasecmp((char*)res->hdr.n[i], "X-", 2)) continue;
+        case_prefix(res->hdr.n[i], "X-")) continue;
 
     if (!RPAR(req)->res) par_hdr = NULL;
     else par_hdr = GET_HDR(res->hdr.n[i], &RPAR(req)->res->hdr);
@@ -96,7 +96,7 @@ void pivot_header_checks(struct http_request* req,
     for (i=0;i<RPAR(req)->res->hdr.c;i++) {
 
       if (RPAR(req)->res->hdr.t[i] != PARAM_HEADER ||
-          strncasecmp((char*)RPAR(req)->res->hdr.n[i], "X-", 2)) continue;
+          case_prefix(RPAR(req)->res->hdr.n[i], "X-")) continue;
 
       cur_hdr = GET_HDR(RPAR(req)->res->hdr.n[i], &res->hdr);
 
@@ -122,10 +122,10 @@ static void test_add_link(u8* str, struct http_request* ref,
 
   /* Don't add injected links. */
 
-  if (!strncasecmp((char*)str, "skipfish:", 9) ||
-      !strncasecmp((char*)str, "//skipfish.invalid/", 19) ||
+  if (!case_prefix(str, "skipfish:") ||
+      !case_prefix(str, "//skipfish.invalid/") ||
       inl_strcasestr(str, (u8*) "/" BOGUS_FILE) ||
-      !strncasecmp((char*)str, "http://skipfish.invalid/", 24)) return;
+      !case_prefix(str, "http://skipfish.invalid/")) return;
 
   /* Don't add links that look like they came from JS code with fragmented HTML
      snippets, etc. */
@@ -136,7 +136,7 @@ static void test_add_link(u8* str, struct http_request* ref,
   if ((str[0] == '\'' || str[0] == '"') && (str[1] == '+' || str[1] == ' '))
     return;
 
-  if (!strncasecmp((char*)str, "mailto:", 7)) {
+  if (!case_prefix(str, "mailto:")) {
 
     if (log_ext_urls) {
       u8* qmark = (u8*)strchr((char*)str, '?');
@@ -262,19 +262,19 @@ static u8* html_decode_param(u8* url, u8 also_js) {
 
     if (url[i] == '&') {
 
-      if (!strncasecmp((char*)url + i + 1, "amp;", 4)) {
+      if (!case_prefix(url + i + 1, "amp;")) {
         ret[pos++] = '&';
         i += 4;
         continue;
-      } else if (!strncasecmp((char*)url + i + 1, "quot;", 5)) {
+      } else if (!case_prefix(url + i + 1, "quot;")) {
         ret[pos++] = '\'';
         i += 5;
         continue;
-      } else if (!strncasecmp((char*)url + i + 1, "lt;", 3)) {
+      } else if (!case_prefix(url + i + 1, "lt;")) {
         ret[pos++] = '<';
         i += 3;
         continue;
-      } else if (!strncasecmp((char*)url + i + 1, "gt;", 3)) {
+      } else if (!case_prefix(url + i + 1, "gt;")) {
         ret[pos++] = '>';
         i += 3;
         continue;
@@ -398,8 +398,7 @@ static u8 maybe_xsrf(u8* token) {
 
   /* Unix time is not a valid token. */
 
-  if (!strncasecmp((char*)token, (char*)tm_prefix, strlen((char*)tm_prefix)))
-    return 0;
+  if (!case_prefix(token, tm_prefix)) return 0;
 
   tmp = token;
   while (*tmp && (isdigit(*tmp) || strchr("abcdef", tolower(*tmp)))) {
@@ -464,7 +463,7 @@ static void collect_form_data(struct http_request* req,
       cur_str++;
       *tag_end = 0;
 
-      if (!strncasecmp((char*)cur_str, "/form", 5)) {
+      if (!case_prefix(cur_str, "/form")) {
         *tag_end = '>';
         goto final_checks;
       }
@@ -909,8 +908,7 @@ next_tag:
        We do not make assumptins about syntax such as /foo/, though, as
        it could very well be a regex in a JS block. */
 
-    if (!strncmp((char*)clean_url, "./", 2) || !strncmp((char*)clean_url,
-        "../", 3)) {
+    if (!prefix(clean_url, "./") || !prefix(clean_url, "../")) {
 add_link:
       test_add_link(clean_url, base ? base : req, res, 0, 0);
       goto url_done;
@@ -921,7 +919,7 @@ add_link:
 
     while (clean_url[lead] && (isalnum(clean_url[lead]))) lead++;
 
-    if (lead && !strncmp((char*)clean_url + lead, "://", 3) &&
+    if (lead && !prefix(clean_url + lead, "://") &&
         clean_url[lead + 3]) goto add_link;
 
     /* URL CHECK 3: If the result ends with <str>.<known_ext>,
@@ -1047,7 +1045,7 @@ static u8 is_css(struct http_response* res) {
 
     /* Skip HTML, CSS comments. */
 
-    if (!strncmp((char*)text, "<!--", 4)) {
+    if (!prefix(text, "<!--")) {
       text += 4;
       continue;
     }
@@ -1072,9 +1070,9 @@ static u8 is_css(struct http_response* res) {
 
     /* @import, @media, or @charset is a clear indicator of CSS. */
 
-    if (*text == '@' && (!strncasecmp((char*)text + 1, "import", 6) ||
-        !strncasecmp((char*)text + 1, "media", 5) ||
-        !strncasecmp((char*)text + 1, "charset", 7))) {
+    if (*text == '@' && (!case_prefix(text + 1, "import") ||
+        !case_prefix(text + 1, "media") ||
+        !case_prefix(text + 1, "charset"))) {
       res->css_type = 2;
       return 1;
     }
@@ -1157,11 +1155,11 @@ static u8 is_javascript(struct http_response* res) {
 
     /* Skip HTML, JS comments. Special case for MOTW. */
 
-    if (!strncmp((char*)text, "<!--", 4)) {
+    if (!prefix(text, "<!--")) {
 
       text += 4;
 
-      if (!strncmp((char*)text, " saved from url=", 16)) {
+      if (!prefix(text, " saved from url=")) {
         res->js_type = 1;
         return 0;
       }
@@ -1194,7 +1192,7 @@ static u8 is_javascript(struct http_response* res) {
 
     if (!first)
       while (json_safe[i]) {
-        if (!strncasecmp((char*)text, json_safe[i], strlen(json_safe[i]))) {
+        if (!case_prefix(text, json_safe[i])) {
           res->js_type   = 2;
           res->json_safe = 1;
           return 1;
@@ -1270,20 +1268,20 @@ static void check_js_xss(struct http_request* req, struct http_response* res,
          and current string starts with //skipfishy thingees,
          complain. */
 
-      if ((!strncmp((char*)last_word, "innerHTML", 9) ||
-          !strncmp((char*)last_word, "open", 4) ||
-          !strncmp((char*)last_word, "url", 3) ||
-          !strncmp((char*)last_word, "href", 4) ||
-          !strncmp((char*)last_word, "write", 5)) &&
-          (!strncasecmp((char*)text + 1,"//skipfish.invalid/", 19) ||
-          !strncasecmp((char*)text + 1,"http://skipfish.invalid/", 24) ||
-          !strncasecmp((char*)text + 1,"skipfish:", 9)))
+      if ((!prefix(last_word, "innerHTML") ||
+          !prefix(last_word, "open") ||
+          !prefix(last_word, "url") ||
+          !prefix(last_word, "href") ||
+          !prefix(last_word, "write")) &&
+          (!case_prefix(text + 1,"//skipfish.invalid/") ||
+          !case_prefix(text + 1,"http://skipfish.invalid/") ||
+          !case_prefix(text + 1,"skipfish:")))
         problem(PROB_URL_XSS, req, res,
           (u8*)"injected URL in JS/CSS code", req->pivot, 0);
 
     } else if (in_quot && *text == in_quot) in_quot = 0;
 
-    else if (!in_quot && !strncasecmp((char*)text, "sfi", 3) &&
+    else if (!in_quot && !case_prefix(text, "sfi") &&
         sscanf((char*)text, "sfi%06uv%06u", &tag_id, &scan_id) == 2) {
       struct http_request* orig = get_xss_request(tag_id, scan_id);
 
@@ -1576,7 +1574,7 @@ void content_checks(struct http_request* req, struct http_response* res) {
 
       /* Skip comments where possible. */
 
-      if (!strncmp((char*)tmp, "!--", 3)) {
+      if (!prefix(tmp, "!--")) {
         u8* next = (u8*)strstr((char*)tmp + 3, "-->");
         if (next) {
           tmp = next + 3;
@@ -1644,7 +1642,7 @@ void content_checks(struct http_request* req, struct http_response* res) {
              strcasecmp((char*)tag_name, "input")) ||
             !strcasecmp((char*)param_name, "codebase")) && clean_val) {
 
-          if (!strncasecmp((char*)clean_val, "skipfish://", 11))
+          if (!case_prefix(clean_val, "skipfish:"))
             problem(PROB_URL_XSS, req, res, tag_name, req->pivot, 0);
 
           /* A bit hairy, but in essence, links to attacker-supplied
@@ -1652,8 +1650,8 @@ void content_checks(struct http_request* req, struct http_response* res) {
              are sorta noteworthy, depending on context; and A links
              are usually of little relevance. */
 
-          if (!strncasecmp((char*)clean_val, "http://skipfish.invalid/", 24) ||
-              !strncasecmp((char*)clean_val, "//skipfish.invalid/", 19)) {
+          if (!case_prefix(clean_val, "http://skipfish.invalid/") ||
+              !case_prefix(clean_val, "//skipfish.invalid/")) {
 
             if (!strcasecmp((char*)tag_name, "script") ||
                 !strcasecmp((char*)tag_name, "link"))
@@ -1679,14 +1677,14 @@ void content_checks(struct http_request* req, struct http_response* res) {
             url += 4;
             if (*url == '\'' || *url == '"') { url++; semi_safe = 1; }
 
-            if (!strncasecmp((char*)url, "http://skipfish.invalid/", 24) ||
-                !strncasecmp((char*)url, "//skipfish.invalid/", 19))
+            if (!case_prefix(url, "http://skipfish.invalid/") ||
+                !case_prefix(url, "//skipfish.invalid/"))
               problem(PROB_URL_REDIR, req, res, (u8*)"injected URL in META refresh",
                       req->pivot, 0);
 
             /* Unescaped semicolon in Refresh headers is unsafe with MSIE6. */
 
-           if (!strncasecmp((char*)url, "skipfish://", 11) ||
+           if (!case_prefix(url, "skipfish:") ||
                (!semi_safe && strchr((char*)url, ';')))
              problem(PROB_URL_XSS, req, res, (u8*)"injected URL in META refresh",
                      req->pivot, 0);
@@ -1705,7 +1703,7 @@ void content_checks(struct http_request* req, struct http_response* res) {
 
         /* CHECK 3.3: JavaScript on*=, CSS style= parameters. */
 
-        if ((!strncasecmp((char*)param_name, "on", 2) ||
+        if ((!case_prefix(param_name, "on") ||
             !strcasecmp((char*)param_name, "style")) && clean_val) 
           check_js_xss(req, res, clean_val);
 
@@ -1941,19 +1939,19 @@ static void detect_mime(struct http_request* req, struct http_response* res) {
     }
 
 
-    if (!strncmp((char*)sniffbuf, "%!PS", 4)) {
+    if (!prefix(sniffbuf, "%!PS")) {
       res->sniff_mime_id = MIME_ASC_POSTSCRIPT;
       return;
     }
 
-    if (!strncmp((char*)sniffbuf, "{\\rtf", 5)) {
+    if (!prefix(sniffbuf, "{\\rtf")) {
       res->sniff_mime_id = MIME_ASC_RTF;
       return;
     }
 
     /* Adobe PDF (may be mostly ASCII in some cases). */
 
-    if (!strncmp((char*)sniffbuf, "%PDF", 4)) {
+    if (!prefix(sniffbuf, "%PDF")) {
       res->sniff_mime_id = MIME_EXT_PDF;
       return;
     }
@@ -2058,29 +2056,29 @@ static void detect_mime(struct http_request* req, struct http_response* res) {
       return;
     }
 
-    if (!strncmp((char*)sniffbuf, "GIF8", 4)) {
+    if (!prefix(sniffbuf, "GIF8")) {
       res->sniff_mime_id = MIME_IMG_GIF;
       return;
     }
 
-    if (sniffbuf[0] == 0x89 && !strncmp((char*)sniffbuf + 1, "PNG", 3)) {
+    if (sniffbuf[0] == 0x89 && !prefix(sniffbuf + 1, "PNG")) {
       res->sniff_mime_id = MIME_IMG_PNG;
       return;
     }
 
-    if (!strncmp((char*)sniffbuf, "BM", 2)) {
+    if (!prefix(sniffbuf, "BM")) {
       res->sniff_mime_id = MIME_IMG_BMP;
       return;
     }
 
-    if (!strncmp((char*)sniffbuf, "II", 2) && sniffbuf[2] == 42 /* dec */) {
+    if (!prefix(sniffbuf, "II") && sniffbuf[2] == 42 /* dec */) {
       res->sniff_mime_id = MIME_IMG_TIFF;
       return;
     }
 
     /* Next: RIFF containers (AVI, ANI, WAV). */
 
-    if (!strncmp((char*)sniffbuf, "RIFF", 4)) {
+    if (!prefix(sniffbuf, "RIFF")) {
 
       if (sniffbuf[8] == 'A') {
         if (sniffbuf[9] == 'C')
@@ -2123,27 +2121,27 @@ static void detect_mime(struct http_request* req, struct http_response* res) {
       return;
     }
 
-    if (!strncasecmp((char*)sniffbuf, "OggS", 4)) {
+    if (!prefix(sniffbuf, "OggS")) {
       res->sniff_mime_id = MIME_AV_OGG;
       return;
     }
 
-    if (sniffbuf[0] == 0x28 && !strncasecmp((char*)sniffbuf + 1, "RMF", 3)) {
+    if (sniffbuf[0] == 0x28 && !prefix(sniffbuf + 1, "RMF")) {
       res->sniff_mime_id = MIME_AV_RA;
       return;
     }
 
-    if (sniffbuf[0] == 0x2E && !strncasecmp((char*)sniffbuf + 1, "RMF", 3)) {
+    if (sniffbuf[0] == 0x2E && !prefix(sniffbuf + 1, "RMF")) {
       res->sniff_mime_id = MIME_AV_RV;
       return;
     }
 
-    if (!strncmp((char*)sniffbuf + 4, "free", 4) ||
-        !strncmp((char*)sniffbuf + 4, "mdat", 4) ||
-        !strncmp((char*)sniffbuf + 4, "wide", 4) ||
-        !strncmp((char*)sniffbuf + 4, "pnot", 4) ||
-        !strncmp((char*)sniffbuf + 4, "skip", 4) ||
-        !strncmp((char*)sniffbuf + 4, "moov", 4)) {
+    if (!prefix(sniffbuf + 4, "free") ||
+        !prefix(sniffbuf + 4, "mdat") ||
+        !prefix(sniffbuf + 4, "wide") ||
+        !prefix(sniffbuf + 4, "pnot") ||
+        !prefix(sniffbuf + 4, "skip") ||
+        !prefix(sniffbuf + 4, "moov")) {
       /* Oookay, that was weird... */
       res->sniff_mime_id = MIME_AV_QT;
       return;
@@ -2151,20 +2149,20 @@ static void detect_mime(struct http_request* req, struct http_response* res) {
 
     /* Flash and FLV. */
 
-    if (!strncmp((char*)sniffbuf, "FLV", 3)) {
+    if (!prefix(sniffbuf, "FLV")) {
       res->sniff_mime_id = MIME_AV_FLV;
       return;
     }
 
-    if (!strncmp((char*)sniffbuf, "FCWS", 4) ||
-        !strncmp((char*)sniffbuf, "CWS", 3)) {
+    if (!prefix(sniffbuf, "FCWS") ||
+        !prefix(sniffbuf, "CWS")) {
       res->sniff_mime_id = MIME_EXT_FLASH;
       return;
     }
 
     /* Adobe PDF. */
 
-    if (!strncmp((char*)sniffbuf, "%PDF", 4)) {
+    if (!prefix(sniffbuf, "%PDF")) {
       res->sniff_mime_id = MIME_EXT_PDF;
       return;
     }
@@ -2172,7 +2170,7 @@ static void detect_mime(struct http_request* req, struct http_response* res) {
     /* JAR versus ZIP. A bit tricky, because, well, they are both just
        ZIP archives. */
 
-    if (!strncmp((char*)sniffbuf, "PK", 2) &&
+    if (!prefix(sniffbuf, "PK") &&
         sniffbuf[2] < 6 && sniffbuf[3] < 7) {
 
       if (inl_memmem(res->payload, res->pay_len, "META-INF/", 9))
@@ -2429,7 +2427,7 @@ static void check_for_stuff(struct http_request* req,
 
   /* This should also cover most cases of Perl, Python, etc. */
 
-  if (!strncmp((char*)sniffbuf, "#!/", 3)) {
+  if (!prefix(sniffbuf, "#!/")) {
     problem(PROB_FILE_POI, req, res, (u8*)"shell script", req->pivot, 0);
     return;
   }

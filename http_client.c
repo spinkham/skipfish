@@ -86,6 +86,12 @@ u64 bytes_sent,
 u8 *auth_user,
    *auth_pass;
 
+#ifdef PROXY_SUPPORT
+u8* use_proxy;
+u32 use_proxy_addr;
+u16 use_proxy_port;
+#endif /* PROXY_SUPPORT */
+
 u8  ignore_cookies;
 
 /* Internal globals for queue management: */
@@ -187,10 +193,10 @@ u8 parse_url(u8* url, struct http_request* req, struct http_request* ref) {
 
   if (maybe_proto && url[maybe_proto] == ':') {
 
-    if (!strncasecmp((char*)url, "http:", 5)) {
+    if (!case_prefix(url, "http:")) {
       req->proto = PROTO_HTTP;
       cur += 5;
-    } else if (!strncasecmp((char*)url, "https:", 6)) {
+    } else if (!case_prefix(url, "https:")) {
       req->proto = PROTO_HTTPS;
       cur += 6;
     } else return 1;
@@ -509,12 +515,12 @@ void tokenize_path(u8* str, struct http_request* req, u8 add_slash) {
          probes. This is to avoid recursion if it actually worked in some
          way. */
 
-      if (!strncmp((char*)cur, "/\\.\\", 4) && (cur[4] == '/' || !cur[4])) {
+      if (!prefix(cur, "/\\.\\") && (cur[4] == '/' || !cur[4])) {
         cur += 4;
         continue;
       }
 
-      if (!strncasecmp((char*)cur, "/%5c.%5c", 8) &&
+      if (!case_prefix(cur, "/%5c.%5c") &&
           (cur[8] == '/' || !cur[8])) {
         cur += 8;
         continue;
@@ -758,6 +764,39 @@ u32 maybe_lookup_host(u8* name) {
   u32 ret_addr = 0;
   struct in_addr in;
 
+#ifdef PROXY_SUPPORT
+
+  /* If configured to use proxy, look up proxy IP once; and return that
+     address for all host names. */
+
+  if (use_proxy) {
+
+    if (!use_proxy_addr) {
+
+     /* Don't bother resolving raw IP addresses, naturally. */
+
+      if (inet_aton((char*)use_proxy, &in))
+        return (use_proxy_addr = (u32)in.s_addr);
+
+      h = gethostbyname((char*)use_proxy);
+
+      /* If lookup fails with a transient error, be nice - try again. */
+
+      if (!h && h_errno == TRY_AGAIN) h = gethostbyname((char*)name);
+
+      if (!h || !(use_proxy_addr = *(u32*)h->h_addr_list[0]))
+        FATAL("Unable to resolve proxy host name '%s'.", use_proxy);
+
+    }
+
+    return use_proxy_addr;
+
+  }
+
+  /* If no proxy... */
+
+#endif /* PROXY_SUPPORT */
+
   /* Don't bother resolving raw IP addresses, naturally. */
 
   if (inet_aton((char*)name, &in))
@@ -848,6 +887,25 @@ u8* build_request_data(struct http_request* req) {
 
   if (req->method) ASD(req->method); else ASD((u8*)"GET");
   ASD(" ");
+
+#ifdef PROXY_SUPPORT
+
+  /* For non-CONNECT proxy requests, insert http://host[:port] too. */
+
+  if (use_proxy && req->proto == PROTO_HTTP) {
+    ASD("http://");
+    ASD(req->host);
+
+    if (req->port != 80) {
+      char port[7];
+      sprintf((char*)port, ":%u", req->port);
+      ASD(port);
+    }
+
+  }
+
+#endif /* PROXY_SUPPORT */
+
   ASD(path);
   ASD(" HTTP/1.1\r\n");
   ck_free(path);
@@ -926,7 +984,6 @@ u8* build_request_data(struct http_request* req) {
     ASD("Connection: keep-alive\r\n");
 
   }
-
 
   /* Request a limited range up front to minimize unwanted traffic.
      Note that some Oracle servers apparently fail on certain ranged
@@ -1224,7 +1281,7 @@ u8 parse_response(struct http_request* req, struct http_response* res,
     return 1;
   }
 
-  if (strncmp((char*)cur_line, "HTTP/1.", 7)) {
+  if (prefix(cur_line, "HTTP/1.")) {
     ck_free(cur_line);
     return 2;
   }
@@ -1248,7 +1305,7 @@ u8 parse_response(struct http_request* req, struct http_response* res,
 
     if (!cur_line[0]) break;
 
-    if (!strncasecmp((char*)cur_line, "Content-Length:", 15)) {
+    if (!case_prefix(cur_line, "Content-Length:")) {
 
       /* The value in Content-Length header would be useful for seeing if we
          have all the requested data already. Reject invalid values to avoid
@@ -1261,7 +1318,7 @@ u8 parse_response(struct http_request* req, struct http_response* res,
         }
       } else pay_len = -1;
 
-    } else if (!strncasecmp((char*)cur_line, "Transfer-Encoding:", 18)) {
+    } else if (!case_prefix(cur_line, "Transfer-Encoding:")) {
 
       /* Transfer-Encoding: chunked must be accounted for to properly
          determine if we received all the data when Content-Length not found. */
@@ -1271,7 +1328,7 @@ u8 parse_response(struct http_request* req, struct http_response* res,
       while (isspace(*x)) x++;
       if (!strcasecmp((char*)x, "chunked")) chunked = 1;
 
-    } else if (!strncasecmp((char*)cur_line, "Content-Encoding:", 17)) {
+    } else if (!case_prefix(cur_line, "Content-Encoding:")) {
 
       /* Content-Encoding is good to know, too. */
 
@@ -1282,7 +1339,7 @@ u8 parse_response(struct http_request* req, struct http_response* res,
       if (!strcasecmp((char*)x, "deflate") || !strcasecmp((char*)x, "gzip"))
         compressed = 1;
 
-    } else if (!strncasecmp((char*)cur_line, "Connection:", 11)) {
+    } else if (!case_prefix(cur_line, "Connection:")) {
 
       u8* x = cur_line + 11;
 
@@ -1887,7 +1944,12 @@ connect_error:
     }
 
     sin.sin_family = PF_INET;
+
+#ifdef PROXY_SUPPORT
+    sin.sin_port   = htons(use_proxy ? use_proxy_port : c->port);
+#else
     sin.sin_port   = htons(c->port);
+#endif /* ^PROXY_SUPPORT */
 
     memcpy(&sin.sin_addr, &q->req->addr, 4);
 
@@ -2052,7 +2114,6 @@ SSL_read_more:
             s32 ssl_err;
 
             c->SSL_rd_w_wr = 0;
-
 
             read_res = SSL_read(c->srv_ssl, c->read_buf + c->read_len,
                                 READ_CHUNK);

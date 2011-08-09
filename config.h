@@ -27,6 +27,12 @@
 
 #define SHOW_SPLASH             1       /* Annoy user with a splash screen */
 
+/* Define this to enable experimental HTTP proxy support, through the -J 
+   option in the command line. This mode will not work as expected for
+   HTTPS requests at this point. */
+
+// #define PROXY_SUPPORT           1
+
 /* Default paths to runtime files: */
 
 #define ASSETS_DIR              "assets"

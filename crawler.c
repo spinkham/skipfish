@@ -980,12 +980,12 @@ static u8 inject_check5_callback(struct http_request* req,
 
   if (val) {
 
-    if (!strncasecmp((char*)val, "http://skipfish.invalid/", 24) ||
-        !strncasecmp((char*)val, "//skipfish.invalid/", 19))
+    if (!case_prefix(val, "http://skipfish.invalid/") ||
+        !case_prefix(val, "//skipfish.invalid/"))
       problem(PROB_URL_REDIR, req, res, (u8*)"injected URL in 'Location' header",
               req->pivot, 0);
 
-    if (!strncasecmp((char*)val, "skipfish://", 11))
+    if (!case_prefix(val, "skipfish:"))
       problem(PROB_URL_XSS, req, res, (u8*)"injected URL in 'Location' header",
               req->pivot, 0);
 
@@ -998,14 +998,14 @@ static u8 inject_check5_callback(struct http_request* req,
 
     if (*val == '\'' || *val == '"') { val++; semi_safe++; }
 
-    if (!strncasecmp((char*)val, "http://skipfish.invalid/", 24) ||
-        !strncasecmp((char*)val, "//skipfish.invalid/", 19))
+    if (!case_prefix(val, "http://skipfish.invalid/") ||
+        !case_prefix(val, "//skipfish.invalid/"))
       problem(PROB_URL_REDIR, req, res, (u8*)"injected URL in 'Refresh' header",
               req->pivot, 0);
 
     /* Unescaped semicolon in Refresh headers is unsafe with MSIE6. */
 
-    if (!strncasecmp((char*)val, "skipfish://", 11) ||
+    if (!case_prefix(val, "skipfish:") ||
         (!semi_safe && strchr((char*)val, ';')))
       problem(PROB_URL_XSS, req, res, (u8*)"injected URL in 'Refresh' header",
               req->pivot, 0);
@@ -2821,7 +2821,7 @@ static u8 dir_dict_callback(struct http_request* req,
     /* Do not add 403 responses to .ht* requests - workaround for
        Apache filtering to keep reports clean. */
 
-    if (lp && !strncmp((char*)lp,".ht",3))
+    if (lp && !prefix(lp, ".ht"))
       i = ~req->pivot->r404_cnt;
 
     /* If not 404, do response, and does not look like

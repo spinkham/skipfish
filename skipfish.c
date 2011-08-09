@@ -77,6 +77,9 @@ static void usage(char* argv0) {
       "  -C name=val    - append a custom cookie to all requests\n"
       "  -H name=val    - append a custom HTTP header to all requests\n"
       "  -b (i|f|p)     - use headers consistent with MSIE / Firefox / iPhone\n"
+#ifdef PROXY_SUPPORT
+     "   -J proxy       - use a specified HTTP proxy server\n"
+#endif /* PROXY_SUPPORT */
       "  -N             - do not accept any new cookies\n\n"
 
       "Crawl scope options:\n\n"
@@ -234,7 +237,8 @@ static void read_urls(u8* fn) {
 int main(int argc, char** argv) {
   s32 opt;
   u32 loop_cnt = 0, purge_age = 0, seed;
-  u8 dont_save_words = 0, show_once = 0, be_quiet = 0, display_mode = 0;
+  u8  dont_save_words = 0, show_once = 0, be_quiet = 0, display_mode = 0,
+      has_fake = 0;
   u8 *wordlist = (u8*)DEF_WORDLIST, *output_dir = NULL;
 
   struct termios term;
@@ -254,7 +258,7 @@ int main(int argc, char** argv) {
   SAY("skipfish version " VERSION " by <lcamtuf@google.com>\n");
 
   while ((opt = getopt(argc, argv,
-          "+A:F:C:H:b:Nd:c:x:r:p:I:X:D:POYQMZUEK:W:LVT:G:R:B:q:g:m:f:t:w:i:s:o:hue")) > 0)
+          "+A:F:C:H:b:Nd:c:x:r:p:I:X:D:POYQMZUEK:W:LVT:J:G:R:B:q:g:m:f:t:w:i:s:o:hue")) > 0)
 
     switch (opt) {
 
@@ -268,6 +272,18 @@ int main(int argc, char** argv) {
           break;
         }
 
+#ifdef PROXY_SUPPORT
+      case 'J':  {
+          u8* x = (u8*)strchr(optarg, ':');
+          if (!x) FATAL("Proxy data must be in 'host:port' form.");
+          *(x++) = 0;
+          use_proxy = (u8*)optarg;
+          use_proxy_port = atoi((char*)x);
+          if (!use_proxy_port) FATAL("Incorrect proxy port number.");
+          break;
+        }
+#endif /* PROXY_SUPPORT */
+
       case 'F': {
           u8* x = (u8*)strchr(optarg, '=');
           u32 fake_addr;
@@ -277,6 +293,7 @@ int main(int argc, char** argv) {
           if (fake_addr == (u32)-1)
             FATAL("Could not parse IP address '%s'.", x + 1);
           fake_host((u8*)optarg, fake_addr);
+          has_fake = 1;
           break;
         }
 
@@ -486,6 +503,11 @@ int main(int argc, char** argv) {
         usage(argv[0]);
 
   }
+
+#ifdef PROXY_SUPPORT
+  if (has_fake && use_proxy)
+    FATAL("-F and -J should not be used together.");
+#endif /* PROXY_SUPPORT */
 
   if (access(ASSETS_DIR "/index.html", R_OK))
     PFATAL("Unable to access '%s/index.html' - wrong directory?", ASSETS_DIR);

@@ -405,6 +405,12 @@ extern u8 auth_type;
 extern u8 *auth_user,
           *auth_pass;
 
+#ifdef PROXY_SUPPORT
+extern u8* use_proxy;
+extern u32 use_proxy_addr;
+extern u16 use_proxy_port;
+#endif /* PROXY_SUPPORT */
+
 /* Global HTTP cookies, extra headers: */
 
 extern struct param_array global_http_par;

@@ -475,24 +475,24 @@ Below is a list of features currently missing in skipfish. If you wish to
 improve the tool by contributing code in one of these areas, please let me 
 know:
 
-  * Buffer overflow checks: after careful consideration, I suspect there is 
-    no reliable way to test for buffer overflows remotely. Much like the actual 
+  * Buffer overflow checks: after careful consideration, I suspect there is
+    no reliable way to test for buffer overflows remotely. Much like the actual
     fault condition we are looking for, proper buffer size checks may also
     result in uncaught exceptions, 500 messages, etc. I would love to be proved
     wrong, though. 
 
-  * Fully-fledged JavaScript XSS detection: several rudimentary checks are 
-    present in the code, but there is no proper script engine to evaluate 
-    expressions and DOM access built in. 
+  * Fully-fledged JavaScript XSS detection: several rudimentary checks are
+    present in the code, but there is no proper script engine to evaluate
+    expressions and DOM access built in.
 
-  * Variable length encoding character consumption / injection bugs: these 
+  * Variable length encoding character consumption / injection bugs: these
     problems seem to be largely addressed on browser level at this point, so
-    they were much lower priority at the time of this writing. 
+    they were much lower priority at the time of this writing.
 
-  * Security checks and link extraction for third-party, plugin-based 
+  * Security checks and link extraction for third-party, plugin-based
     content (Flash, Java, PDF, etc). 
 
-  * Password brute-force and numerical filename brute-force probes. 
+  * Password brute-force and numerical filename brute-force probes.
 
   * Search engine integration (vhosts, starting paths). 
 
@@ -500,11 +500,11 @@ know:
 
   * NTLM and digest authentication. 
 
-  * More specific PHP tests (eval injection, RFI). 
+  * More specific PHP tests (eval injection, RFI).
 
-  * Proxy support: somewhat incompatible with performance control features 
-    currently employed by skipfish; but in the long run, should be provided
-    as a last-resort option. 
+  * Proxy support: an experimental HTTP proxy support is available through
+    a #define directive in config.h. Adding support for HTTPS proxying is
+    more complicated, and still in the works.
 
   * Scan resume option.
 

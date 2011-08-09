@@ -1,3 +1,11 @@
+Version 1.94b:
+--------------
+
+  - Proxy support! Currently only works for HTTP, put behind #ifdef 
+    PROXY_SUPPORT.
+
+  - Change to prefix() and change_prefix() macros to limit the risk of bugs.
+
 Version 1.93b:
 --------------
 

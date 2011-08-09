@@ -51,6 +51,15 @@
 #include "types.h"
 
 
+/* Macros for easy string prefix matching */
+
+#define prefix(_long, _short) \
+  strncmp((char*)(_long), (char*)(_short), strlen((char*)(_short)))
+
+#define case_prefix(_long, _short) \
+  strncasecmp((char*)(_long), (char*)(_short), strlen((char*)(_short)))
+
+
 /* Modified NetBSD strcasestr() implementation (rolling strncasecmp). */
 
 static inline u8* inl_strcasestr(const u8* haystack, const u8* needle) {
