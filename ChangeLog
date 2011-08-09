@@ -1,3 +1,11 @@
+Version 2.03b:
+--------------
+
+  - Fixed a minor glitch in form parsing in analysis.c, courtesy of
+    Niloufar Pahlevan Sadegh.
+
+  - Two database.c bugfixes to wordlist handler, courtesy of Shaojie Wang.
+
 Version 2.02b:
 --------------
 

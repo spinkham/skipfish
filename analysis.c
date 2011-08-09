@@ -758,8 +758,8 @@ void scrape_response(struct http_request* req, struct http_response* res) {
 
         /* Forms with no URL submit to current location. */
 
-        if (!dirty_url || !*dirty_url || !strcmp((char*)dirty_url, "\"\"") ||
-            !strcmp((char*)dirty_url, "''")) {
+        if (!dirty_url || !*dirty_url || !prefix(dirty_url, (char*)"\"\"") ||
+            !prefix(dirty_url, (char*)"''")) {
           dirty_url = serialize_path(req, 1, 0);
           delete_dirty = dirty_url;
         }

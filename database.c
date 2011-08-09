@@ -974,7 +974,7 @@ void wordlist_confirm_word(u8* text) {
 
   for (i=0;i<tlen;i++) {
     if (!isalnum(text[i]) && !strchr(" _-~().:!^$", text[i])) return;
-    if (isdigit(text[0])) dcnt++;
+    if (isdigit(text[i])) dcnt++;
     if (text[i] == '.') {
       if (ppos != -1) too_many_dots = 1;
       ppos = i;
@@ -1018,7 +1018,7 @@ void wordlist_confirm_word(u8* text) {
     /* Period only? Too long? */
     if (tlen == 1 || tlen - ppos > 12) return;
 
-    if (ppos && ppos != tlen - 1 && !isdigit(text[ppos] + 1)) {
+    if (ppos && ppos != tlen - 1 && !isdigit(text[ppos + 1])) {
       wordlist_confirm_single(text + ppos + 1, 1, KW_GEN_AUTO, 0, 1, 0, 0);
       text[ppos] = 0;
       wordlist_confirm_single(text, 0, KW_GEN_AUTO, 0, 1, 0, 0);
