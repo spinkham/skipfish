@@ -250,7 +250,8 @@ your favorite browser (JavaScript must be enabled; and because of recent
 file:/// security improvements in certain browsers, you might need to access 
 results over HTTP). The index.html file is static; actual results are stored 
 as a hierarchy of JSON files, suitable for machine processing or different 
-presentation frontends if needs be.
+presentation frontends if needs be. In addition, a list of all the discovered
+URLs will be saved to a single file, pivots.txt, for easy postprocessing.
 
 A simple companion script, sfscandiff, can be used to compute a delta for
 two scans executed against the same target with the same flags. The newer

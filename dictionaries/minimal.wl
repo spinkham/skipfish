@@ -1114,6 +1114,7 @@ w 1 1 1 location
 w 1 1 1 lock
 w 1 1 1 locked
 w 1 1 1 log4j
+w 1 1 1 log4net
 w 1 1 1 logfile
 w 1 1 1 logger
 w 1 1 1 logging

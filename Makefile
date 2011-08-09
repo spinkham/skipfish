@@ -20,7 +20,7 @@
 #
 
 PROGNAME   = skipfish
-VERSION    = 1.88b
+VERSION    = 1.89b
 
 OBJFILES   = http_client.c database.c crawler.c analysis.c report.c
 INCFILES   = alloc-inl.h string-inl.h debug.h types.h http_client.h \

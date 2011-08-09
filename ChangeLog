@@ -1,3 +1,9 @@
+Version 1.89b:
+--------------
+
+  - Skipfish now saves all discovered URLs in a single file for third-party
+    tools: pivots.txt.
+
 Version 1.88b:
 --------------
 

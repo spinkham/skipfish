@@ -753,6 +753,63 @@ static void copy_static_code(u8* out_dir) {
 }
 
 
+/* Saves all pivots for use by third-party tools. */
+
+static void save_pivots(FILE* f, struct pivot_desc* cur) {
+
+  u32 i;
+
+  if (cur->req) {
+    u8* url = serialize_path(cur->req, 1, 1);
+
+    fprintf(f, "%s %s ", cur->req->method ? cur->req->method : (u8*)"GET",
+           js_escape(url));
+
+    ck_free(url);
+
+    switch (cur->type) {
+      case PIVOT_SERV:     fprintf(f, "type=serv"); break;
+      case PIVOT_DIR:      fprintf(f, "type=dir"); break;
+      case PIVOT_FILE:     fprintf(f, "type=file"); break;
+      case PIVOT_PATHINFO: fprintf(f, "type=pathinfo"); break;
+      case PIVOT_VALUE:    fprintf(f, "type=value"); break;
+      case PIVOT_UNKNOWN:  fprintf(f, "type=unknown"); break;
+      case PIVOT_PARAM:    fprintf(f, "type=param"); break;
+      default:             fprintf(f, "type=???");
+    }
+
+    switch (cur->linked) {
+      case 0:  fprintf(f, "linked=no"); break;
+      case 1:  fprintf(f, "linked=maybe"); break;
+      default: fprintf(f, "linked=yes");
+    }
+
+    if (cur->res)
+      fprintf(f, " dup=%u %scode=%u len=%u notes=%u\n", cur->dupe,
+             cur->missing ? "returns_404 " : "",
+             cur->res->code, cur->res->pay_len, cur->issue_cnt);
+    else
+      fprintf(f, " not_fetched\n");
+
+  }
+
+  for (i=0;i<cur->child_cnt;i++) save_pivots(f, cur->child[i]);
+
+}
+
+
+static void save_all_pivots(void) {
+  FILE *f = fopen("pivots.txt", "w");
+
+  if (!f) PFATAL("Cannot create 'pivots.txt'.");
+
+  save_pivots(f, &root_pivot);
+
+  fclose(f);
+}
+
+
+
 /* Writes report to index.html in the current directory. Will create
    subdirectories, helper files, etc. */
 
@@ -771,6 +828,9 @@ void write_report(u8* out_dir, u64 scan_time, u32 seed) {
 
   compute_counts(&root_pivot);
   SAY("\n");
+
+  SAY(cLGN "[+] " cNOR "Saving pivot data for third-party tools...\n");
+  save_all_pivots();
 
   SAY(cLGN "[+] " cNOR "Writing scan description...\n");
   output_scan_info(scan_time, seed);

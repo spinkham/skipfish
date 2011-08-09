@@ -720,7 +720,7 @@ u8* serialize_path(struct http_request* req, u8 with_host, u8 with_post) {
       if (POST_SUBTYPE(req->par.t[i])) {
 
       if (!got_search) {
-        ASD(" POST: ");
+        ASD(" DATA:");
         got_search = 1;
       } else ASD("&");
 

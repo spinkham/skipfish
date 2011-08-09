@@ -26,6 +26,7 @@ e 1 1 1 htm
 e 1 1 1 html
 e 1 1 1 inc
 e 1 1 1 ini
+e 1 1 1 jar
 e 1 1 1 java
 e 1 1 1 jhtml
 e 1 1 1 js
@@ -1051,7 +1052,6 @@ w 1 1 1 j2ee
 w 1 1 1 j2me
 w 1 1 1 jacob
 w 1 1 1 jakarta
-w 1 1 1 jar
 w 1 1 1 java-plugin
 w 1 1 1 javadoc
 w 1 1 1 javascript
@@ -1134,6 +1134,7 @@ w 1 1 1 location
 w 1 1 1 lock
 w 1 1 1 locked
 w 1 1 1 log4j
+w 1 1 1 log4net
 w 1 1 1 logfile
 w 1 1 1 logger
 w 1 1 1 logging
