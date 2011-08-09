@@ -111,7 +111,7 @@
 #ifdef QUEUE_FILO
 #define DICT_BATCH     100              /* Brute-force queue block         */
 #else
-#define DICT_BATCH     600              /* Brute-force queue block         */
+#define DICT_BATCH     300              /* Brute-force queue block         */
 #endif /* ^QUEUE_FILO */
 
 /* Single query for IPS detection - Evil Query of Doom (tm). */

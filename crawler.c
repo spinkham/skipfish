@@ -642,7 +642,11 @@ static void secondary_ext_start(struct pivot_desc* pv, struct http_request* req,
 
     /* Avoid foo.bar.bar. */
 
-    if (!strcasecmp((char*)lpos + 1, (char*)ex)){ i++; ck_free(tmp); continue; }
+    if (lpos && !strcasecmp((char*)lpos + 1, (char*)ex)) {
+      i++;
+      ck_free(tmp);
+      continue;
+    }
 
     sprintf((char*)tmp, "%s.%s", base_name, ex);
 

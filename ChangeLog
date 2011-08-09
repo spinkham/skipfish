@@ -1,3 +1,8 @@
+Version 2.02b:
+--------------
+
+  - Fixed a minor NULL pointer crash in -Y mode.
+
 Version 2.01b:
 --------------
 
