@@ -16,6 +16,7 @@ e 1 1 1 class
 e 1 1 1 cnf
 e 1 1 1 conf
 e 1 1 1 config
+e 1 1 1 core
 e 1 1 1 cpp
 e 1 1 1 cs
 e 1 1 1 csproj
@@ -587,7 +588,6 @@ w 1 1 1 cookies
 w 1 1 1 copies
 w 1 1 1 copy
 w 1 1 1 copyright
-w 1 1 1 core
 w 1 1 1 corp
 w 1 1 1 corpo
 w 1 1 1 corporate

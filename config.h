@@ -27,9 +27,9 @@
 
 #define SHOW_SPLASH             1       /* Annoy user with a splash screen */
 
-/* Define this to enable experimental HTTP proxy support, through the -J 
+/* Define this to enable experimental HTTP proxy support, through the -J
    option in the command line. This mode will not work as expected for
-   HTTPS requests at this point. */
+   HTTPS requests at this time - sorry. */
 
 // #define PROXY_SUPPORT           1
 

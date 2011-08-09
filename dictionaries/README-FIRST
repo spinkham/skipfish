@@ -3,11 +3,75 @@ This directory contains four alternative, hand-picked Skipfish dictionaries.
 PLEASE READ THIS FILE CAREFULLY BEFORE PICKING ONE. This is *critical* to
 getting good results in your work.
 
-----------------
-Dictionary modes
-----------------
+------------------------
+Key command-line options
+------------------------
 
-The basic modes you should be aware of (in order of request cost):
+The dictionary to be used by the tool can be specified with the -W option,
+and must conform to the format outlined at the end of this document. If you
+omit -W in the command line, 'skipfish.wl' is assumed. This file does not
+exist by default. That part is by design: THE SCANNER WILL MODIFY THE
+SUPPLIED FILE UNLESS SPECIFICALLY INSTRUCTED NOT TO.
+
+That's because the scanner automatically learns new keywords and extensions
+based on any links discovered during the scan, and on random sampling of 
+site contents. The information is consequently stored in the dictionary
+for future reuse, along with other bookkeeping information useful for
+determining which keywords perform well, and which ones don't.
+
+All this means that it is very important to maintain a separate dictionary
+for every separate set of unrelated target sites. Otherwise, undesirable
+interference will occur.
+
+With this out of the way, let's quickly review the options that may be used
+to fine-tune various aspects of dictionary handling:
+
+  -L      - do not automatically learn new keywords based on site content.
+
+            This option should not be normally used in most scanning
+            modes; if supplied, the scanner will not be able to discover
+            and leverage technology-specific terms and file extensions
+            unique to the architecture of the targeted site.
+
+  -G num  - change jar size for keyword candidates.
+
+            Up to <num> candidates are randomly selected from site
+            content, and periodically retried during brute-force checks;
+            when one of them results in a unique non-404 response, it is
+            promoted to the dictionary proper. Unsuccessful candidates are
+            gradually replaced with new picks, and then discarded at the
+            end of the scan. The default jar size is 256.
+
+  -V      - prevent the scanner from updating the dictionary file.
+
+            Normally, the primary read-write dictionary specified with the
+            -W option is updated at the end of the scan to add any newly
+            discovered keywords, and to update keyword usage stats. Using
+            this option eliminates this step.
+
+  -R num  - purge all dictionary entries that had no non-404 hits for
+            the last <num> scans.
+
+            This option prevents dictionary creep in repeated assessments,
+            but needs to be used with care: it will permanently nuke a
+            part of the dictionary!
+
+  -Y      - inhibit full ${filename}.${extension} brute-force.
+
+            In this mode, the scanner will only brute-force one component
+            at a time, trying all possible keywords without any extension,
+            and then trying to append extensions to any otherwise discovered
+            content.
+
+            This greatly improves scan times, but reduces coverage. Scan modes
+            2 and 3 shown in the next section make use of this flag.
+
+--------------
+Scanning modes
+--------------
+
+The basic dictionary-dependent modes you should be aware of (in order of the
+associated request cost):
 
 1) Orderly crawl with no DirBuster-like brute-force at all. In this mode, the
    scanner will not discover non-linked resources such as /admin,
@@ -20,24 +84,25 @@ The basic modes you should be aware of (in order of request cost):
 
 2) Orderly scan with minimal extension brute-force. In this mode, the scanner
    will not discover resources such as /admin, but will discover cases such as
-   /index.php.old:
+   /index.php.old (once index.php itself is spotted during an orderly crawl):
 
    cp dictionaries/extensions-only.wl dictionary.wl
    ./skipfish -W dictionary.wl -Y [...other options...]
 
    This method is only slightly more request-intensive than #1, and therefore,
-   generally recommended in cases where time is of essence. The cost is about
-   100 requests per fuzzed location.
+   is a marginally better alternative in cases where time is of essence. It's
+   still not recommended for most uses. The cost is about 100 requests per
+   fuzzed location.
 
 3) Directory OR extension brute-force only. In this mode, the scanner will only
-   try fuzzing the file name, or the extension, at any given time - but will 
+   try fuzzing the file name, or the extension, at any given time - but will
    not try every possible ${filename}.${extension} pair from the dictionary.
 
    cp dictionaries/complete.wl dictionary.wl
    ./skipfish -W dictionary.wl -Y [...other options...]
 
    This method has a cost of about 2,000 requests per fuzzed location, and is
-   recommended for rapid assessments, especially when working with slow 
+   recommended for rapid assessments, especially when working with slow
    servers or very large services.
 
 4) Normal dictionary fuzzing. In this mode, every ${filename}.${extension}
@@ -61,41 +126,29 @@ The basic modes you should be aware of (in order of request cost):
    reasonably responsive servers; but it may be prohibitively expensive
    when dealing with very large or very slow sites.
 
-As should be obvious, the -W option points to a dictionary to be used; the
-scanner updates the file based on scan results, so please always make a
-target-specific copy - do not use the master file directly, or it may be
-polluted with keywords not relevant to other targets.
+----------------------------------
+Using separate master dictionaries
+----------------------------------
 
-Additional options supported by the aforementioned modes:
+A recently introduced feature allows you to load any number of read-only
+supplementary dictionaries in addition to the "main" read-write one (-W
+dictionary.wl).
 
-  -L      - do not automatically learn new keywords based on site content.
-            This option should not be normally used in most scanning
-            modes; *not* using it significantly improves the coverage of
-            minimal.wl.
+This is a convenient way to isolate (and be able to continually update) your
+customized top-level wordlist, whilst still acquiring site-specific data in
+a separate file. The following syntax may be used to accomplish this:
 
-  -G num  - specifies jar size for keyword candidates selected from the
-            content; up to <num> candidates are kept and tried during
-            brute-force checks; when one of them results in a unique
-            non-404 response, it is promoted to the dictionary proper.
+./skipfish -W initially_empty_site_specific_dict.wl -W +supplementary_dict1.wl \
+  -W +supplementary_dict2.wl [...other options...]
 
-  -V      - prevents the scanner from updating the dictionary file with
-            newly discovered keywords and keyword usage stats (i.e., all
-            new findings are discarded on exit).
+Only the main dictionary will be modified as a result of the scan, and only
+newly discovered site-specific keywords will be appended there.
 
-  -Y      - inhibits full ${filename}.${extension} brute-force: the scanner
-            will only brute-force one component at a time. This greatly
-            improves scan times, but reduces coverage. Modes 2 and 3
-            shown above make use of this flag.
+----------------------------
+More about dictionary design
+----------------------------
 
-  -R num  - purges all dictionary entries that had no non-404 hits for
-            the last <num> scans. Prevents dictionary creep in repeated
-            assessments, but use with care!
-
------------------------------
-More about dictionary design:
------------------------------
-
-Each dictionary may consist of a number of extensions, and a number of 
+Each dictionary may consist of a number of extensions, and a number of
 "regular" keywords. Extensions are considered just a special subset of the
 keyword list.
 
@@ -103,29 +156,74 @@ You can create custom dictionaries, conforming to this format:
 
 type hits total_age last_age keyword
 
-...where 'type' is either 'e' or 'w' (extension or wordlist); 'hits' is the
-total number of times this keyword resulted in a non-404 hit in all previous
-scans; 'total_age' is the number of scan cycles this word is in the dictionary;
-'last_age' is the number of scan cycles since the last 'hit'; and 'keyword' is
-the actual keyword.
+...where 'type' is either 'e' or 'w' (extension or keyword), followed by a
+qualifier (explained below); 'hits' is the total number of times this keyword
+resulted in a non-404 hit in all previous scans; 'total_age' is the number of scan
+cycles this word is in the dictionary; 'last_age' is the number of scan cycles
+since the last 'hit'; and 'keyword' is the actual keyword.
 
-Do not duplicate extensions as keywords - if you already have 'html' as an 'e'
-entry, there is no need to also create a 'w' one.
+Qualifiers alter the meaning of an entry in the following way:
 
-There must be no empty or malformed lines, comments in the wordlist file.
-Extension keywords must have no leading dot (e.g., 'exe', not '.exe'), and all
-keywords should be NOT url-encoded (e.g., 'Program Files', not 
-'Program%20Files'). No keyword should exceed 64 characters.
+  wg - generic keyword that is not associated with any specific server-side
+       technology. Examples include 'backup', 'accounting', or 'logs'. These
+       will be indiscriminately combined with every known extension (e.g.,
+       'backup.php') during the fuzzing process.
 
-If you omit -W in the command line, 'skipfish.wl' is assumed. This file does
-not exist by default; this is by design.
+  ws - technology-specific keyword that are unlikely to have a random
+       extension; for example, with 'cgi-bin', testing for 'cgi-bin.php' is
+       usually a waste of time. Keywords tagged this way will be combined only
+       with a small set of technology-agnostic extensions - e.g., 'cgi-bin.old'.
 
-The scanner will automatically learn new keywords and extensions based on any
-links discovered during the scan; and will also analyze pages and extract
-words to use as keyword candidates.
+       NOTE: Technology-specific keywords that in the real world, are always
+       paired with a single, specific extension, should be combined with said
+       extension in the 'ws' entry itself, rather than trying to accommodate
+       them with 'wg' rules. For example, 'MANIFEST.MF' is OK.
 
-Tread carefully; poor wordlists are one of the reasons why some web security
-scanners perform worse than expected. You will almost always be better off
-narrowing down or selectively extending the supplied set (and possibly
-contributing back your changes upstream!), than importing a giant wordlist
-scored elsewhere.
+  eg - generic extension that is not specific to any well-defined technology,
+       or may pop-up in administrator- or developer-created auxiliary content.
+       Examples include 'bak', 'old', 'txt', or 'log'.
+
+  es - technology-specific extension, such as 'php', or 'cgi', that are
+       unlikely to spontaneously accompany random 'ws' keywords.
+
+Skipfish leverages this distinction by only trying the following brute-force
+combinations:
+
+  /some/path/wg_keyword ('index')
+  /some/path/ws_keyword ('cgi-bin')
+  /some/path/wg_extension ('old')
+  /some/path/ws_extension ('php')
+
+  /some/path/wg_keyword.wg_extension ('index.old')
+  /some/path/wg_keyword.ws_extension ('index.php')
+
+  /some/path/ws_keyword.ws_extension ('cgi-bin.old')
+
+To decide between 'wg' and 'ws', consider if you are likely to ever encounter
+files such as ${this_word}.php or ${this_word}.class. If not, tag the keyword
+as 'ws'.
+
+Similarly, to decide between 'eg' and 'es', think about the possibility of
+encoutering cgi-bin.${this_ext} or formmail.${this_ext}. If it seems unlikely,
+choose 'es'.
+
+For your convenience, all legacy keywords and extensions, as well as any entries
+detected automatically, will be stored in the dictionary with a '?' qualifier.
+This is equivalent to 'g', and is meant to assist the user in reviewing and
+triaging any automatically acquired dictionary data.
+
+Other notes about dictionaries:
+
+  - Do not duplicate extensions as keywords - if you already have 'html' as an
+    'e' entry, there is no need to also create a 'w' one.
+
+  - There must be no empty or malformed lines, or comments, in the wordlist
+    file. Extension keywords must have no leading dot (e.g., 'exe', not '.exe'),
+    and all keywords should be NOT url-encoded (e.g., 'Program Files', not
+    'Program%20Files'). No keyword should exceed 64 characters.
+
+  - Tread carefully; poor wordlists are one of the reasons why some web security
+    scanners perform worse than expected. You will almost always be better off
+    narrowing down or selectively extending the supplied set (and possibly
+    contributing back your changes upstream!), than importing a giant wordlist
+    scored elsewhere.

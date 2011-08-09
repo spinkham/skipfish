@@ -1,3 +1,29 @@
+Version 2.00b:
+--------------
+
+  - Minor bug fix to path parsing to avoid problems with /.$foo/,
+
+  - Improved PHP error detection (courtesy of Niels Heinen),
+
+  - Improved dictionary logic (courtesy of Niels Heinen) and new
+    documentation of the same,
+
+  - Improved support for file.ext keywords in the dictionary,
+
+  - Fixed missing content_checks() in unknown_check_callback()
+    (courtesy of Niels Heinen),
+
+  - Improved an oversight in dictionary case sensitivity,
+
+  - Improved pivots.txt data,
+
+  - Support for supplementary read-only dictionaries (-W +dict),
+
+  - Change to directory detection to work around a certain sneaky
+    server behavior.
+
+  - TODO: Revise dictionaries!!!
+
 Version 1.94b:
 --------------
 
@@ -9,7 +35,7 @@ Version 1.94b:
 Version 1.93b:
 --------------
 
-  - Major fix to URL XSS detection logic.
+  - Major fix to URL XSS detection logic (courtesy of Niels Heinen).
 
 Version 1.92b:
 --------------

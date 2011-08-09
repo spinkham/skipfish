@@ -57,11 +57,17 @@ u32 max_depth       = MAX_DEPTH,
 
 u8  dont_add_words;                     /* No auto dictionary building     */
 
+#define KW_SPECIFIC 0
+#define KW_GENERIC  1
+#define KW_GEN_AUTO 2
+
 struct kw_entry {
   u8* word;                             /* Keyword itself                  */
   u32 hit_cnt;                          /* Number of confirmed sightings   */
   u8  is_ext;                           /* Is an extension?                */
   u8  hit_already;                      /* Had its hit count bumped up?    */
+  u8  read_only;                        /* Read-only dictionary?           */
+  u8  class;                            /* KW_*                            */
   u32 total_age;                        /* Total age (in scan cycles)      */
   u32 last_age;                         /* Age since last hit              */
 };
@@ -71,11 +77,19 @@ static struct kw_entry*
 
 static u32 keyword_cnt[WORD_HASH];      /* Per-bucket keyword counts       */
 
-static u8 **extension,                  /* Extension list                  */
-          **guess;                      /* Keyword candidate list          */
+struct ext_entry {
+  u32 bucket;
+  u32 index;
+};
+
+static struct ext_entry *extension,     /* Extension list                  */
+                        *sp_extension;
+
+static u8 **guess;                      /* Keyword candidate list          */
 
 u32 guess_cnt,                          /* Number of keyword candidates    */
     extension_cnt,                      /* Number of extensions            */
+    sp_extension_cnt,                   /* Number of specific extensions   */
     keyword_total_cnt,                  /* Current keyword count           */
     keyword_orig_cnt;                   /* At-boot keyword count           */
 
@@ -818,7 +832,7 @@ static inline u32 hash_word(u8* str) {
 
 
 /* Adds a new keyword candidate to the global "guess" list. This
-   list is always case-insensitive. */
+   list is case-sensitive. */
 
 void wordlist_add_guess(u8* text) {
   u32 target, i, kh;
@@ -830,7 +844,7 @@ void wordlist_add_guess(u8* text) {
   if (!text || !text[0] || strlen((char*)text) > MAX_WORD) return;
 
   for (i=0;i<guess_cnt;i++)
-    if (!strcasecmp((char*)text, (char*)guess[i])) return;
+    if (!strcmp((char*)text, (char*)guess[i])) return;
 
   kh = hash_word(text);
 
@@ -853,10 +867,10 @@ void wordlist_add_guess(u8* text) {
 
 
 /* Adds a single, sanitized keyword to the list, or increases its hit count.
-   Keyword list is case-insensitive - first capitalization wins. */
+   Keyword list is case-sensitive. */
 
-static void wordlist_confirm_single(u8* text, u8 is_ext, u32 add_hits,
-                                    u32 total_age, u32 last_age) {
+static void wordlist_confirm_single(u8* text, u8 is_ext, u8 class, u8 read_only,
+                                    u32 add_hits, u32 total_age, u32 last_age) {
   u32 kh, i;
 
   if (!text || !text[0] || strlen((char*)text) > MAX_WORD) return;
@@ -866,7 +880,7 @@ static void wordlist_confirm_single(u8* text, u8 is_ext, u32 add_hits,
   kh = hash_word(text);
 
   for (i=0;i<keyword_cnt[kh];i++)
-    if (!strcasecmp((char*)text, (char*)keyword[kh][i].word)) {
+    if (!strcmp((char*)text, (char*)keyword[kh][i].word)) {
 
       /* Known! Increase hit count, and if this is now
          tagged as an extension, add to extension list. */
@@ -875,13 +889,19 @@ static void wordlist_confirm_single(u8* text, u8 is_ext, u32 add_hits,
         keyword[kh][i].hit_cnt    += add_hits;
         keyword[kh][i].hit_already = 1;
         keyword[kh][i].last_age    = 0;
+
+        if (!keyword[kh][i].read_only && read_only)
+          keyword[kh][i].read_only = 1;
+
       }
 
       if (!keyword[kh][i].is_ext && is_ext) {
         keyword[kh][i].is_ext = 1;
 
-        extension = ck_realloc(extension, (extension_cnt + 1) * sizeof(u8*));
-        extension[extension_cnt++] = keyword[kh][i].word;
+        extension = ck_realloc(extension, (extension_cnt + 1) * 
+                    sizeof(struct ext_entry));
+        extension[extension_cnt].bucket = kh;
+        extension[extension_cnt++].index = i;
       }
 
       return;
@@ -896,6 +916,8 @@ static void wordlist_confirm_single(u8* text, u8 is_ext, u32 add_hits,
 
   keyword[kh][i].word      = ck_strdup(text);
   keyword[kh][i].is_ext    = is_ext;
+  keyword[kh][i].class     = class;
+  keyword[kh][i].read_only = read_only;
   keyword[kh][i].hit_cnt   = add_hits;
   keyword[kh][i].total_age = total_age;
   keyword[kh][i].last_age  = last_age;
@@ -906,8 +928,21 @@ static void wordlist_confirm_single(u8* text, u8 is_ext, u32 add_hits,
   if (!total_age) keyword[kh][i].hit_already = 1;
 
   if (is_ext) {
-    extension = ck_realloc(extension, (extension_cnt + 1) * sizeof(u8*));
-    extension[extension_cnt++] = keyword[kh][i].word;
+
+    extension = ck_realloc(extension, (extension_cnt + 1) * 
+                sizeof(struct ext_entry));
+    extension[extension_cnt].bucket = kh;
+    extension[extension_cnt++].index = i;
+
+    if (class == KW_SPECIFIC) {
+
+      sp_extension = ck_realloc(sp_extension, (sp_extension_cnt + 1) * 
+                  sizeof(struct ext_entry));
+      sp_extension[sp_extension_cnt].bucket = kh;
+      sp_extension[sp_extension_cnt++].index = i;
+
+    }
+
   }
 
 }
@@ -946,6 +981,18 @@ void wordlist_confirm_word(u8* text) {
     }
   }
 
+  /* If the format is foo.bar, check if the entire string is a known keyword. 
+     If yes, don't try to look up and add individual components. */
+
+  if (ppos != -1) {
+
+    u32 kh = hash_word(text);
+
+    for (i=0;i<keyword_cnt[kh];i++)
+      if (!strcasecmp((char*)text, (char*)keyword[kh][i].word)) return;
+
+  }
+
   /* Too many dots? Tokenize class paths and domains as individual keywords,
      still. */
 
@@ -972,22 +1019,22 @@ void wordlist_confirm_word(u8* text) {
     if (tlen == 1 || tlen - ppos > 12) return;
 
     if (ppos && ppos != tlen - 1 && !isdigit(text[ppos] + 1)) {
-      wordlist_confirm_single(text + ppos + 1, 1, 1, 0, 0);
+      wordlist_confirm_single(text + ppos + 1, 1, KW_GEN_AUTO, 0, 1, 0, 0);
       text[ppos] = 0;
-      wordlist_confirm_single(text, 0, 1, 0, 0);
+      wordlist_confirm_single(text, 0, KW_GEN_AUTO, 0, 1, 0, 0);
       text[ppos] = '.';
       return;
     }
 
   }
 
-  wordlist_confirm_single(text, 0, 1, 0, 0);
+  wordlist_confirm_single(text, 0, KW_GEN_AUTO, 0, 1, 0, 0);
 }
 
 
 /* Returns wordlist item at a specified offset (NULL if no more available). */
 
-u8* wordlist_get_word(u32 offset) {
+u8* wordlist_get_word(u32 offset, u8* specific) {
   u32 cur_off = 0, kh;
 
   for (kh=0;kh<WORD_HASH;kh++) {
@@ -997,32 +1044,42 @@ u8* wordlist_get_word(u32 offset) {
 
   if (kh == WORD_HASH) return NULL;
 
+  *specific = (keyword[kh][offset - cur_off].is_ext == 0 &&
+               keyword[kh][offset - cur_off].class == KW_SPECIFIC);
+
   return keyword[kh][offset - cur_off].word;
 }
 
 
 /* Returns keyword candidate at a specified offset (or NULL). */
 
-u8* wordlist_get_guess(u32 offset) {
+u8* wordlist_get_guess(u32 offset, u8* specific) {
   if (offset >= guess_cnt) return NULL;
+  *specific = 0;
   return guess[offset];
 }
 
 
 /* Returns extension at a specified offset (or NULL). */
 
-u8* wordlist_get_extension(u32 offset) {
-  if (offset >= extension_cnt) return NULL;
-  return extension[offset];
+u8* wordlist_get_extension(u32 offset, u8 specific) {
+
+  if (!specific) {
+    if (offset >= extension_cnt) return NULL;
+    return keyword[extension[offset].bucket][extension[offset].index].word;
+  }
+
+  if (offset >= sp_extension_cnt) return NULL;
+  return keyword[sp_extension[offset].bucket][sp_extension[offset].index].word;
 }
 
 
 /* Loads keywords from file. */
 
-void load_keywords(u8* fname, u32 purge_age) {
+void load_keywords(u8* fname, u8 read_only, u32 purge_age) {
   FILE* in;
   u32 hits, total_age, last_age, lines = 0;
-  u8 type;
+  u8 type[3];
   s32 fields;
   u8 kword[MAX_WORD + 1];
   char fmt[32];
@@ -1036,19 +1093,28 @@ void load_keywords(u8* fname, u32 purge_age) {
     return;
   }
 
-  sprintf(fmt, "%%c %%u %%u %%u %%%u[^\x01-\x1f]", MAX_WORD);
+  sprintf(fmt, "%%2s %%u %%u %%u %%%u[^\x01-\x1f]", MAX_WORD);
 
-  while ((fields = fscanf(in, fmt, &type, &hits, &total_age, &last_age, kword))
+  while ((fields = fscanf(in, fmt, type, &hits, &total_age, &last_age, kword))
           == 5) {
+
+    u8 class = KW_GEN_AUTO;
+
+    if (type[0] != 'e' && type[0] != 'w')
+      FATAL("Wordlist '%s': bad keyword type in line %u.\n", fname, lines + 1);
+
+    if (type[1] == 's') class = KW_SPECIFIC; else
+    if (type[1] == 'g') class = KW_GENERIC;
+
     if (!purge_age || last_age < purge_age)
-      wordlist_confirm_single(kword, (type == 'e'), hits,
+      wordlist_confirm_single(kword, (type[0] == 'e'), class, read_only, hits,
                               total_age + 1, last_age + 1);
     lines++;
     fgetc(in); /* sink \n */
   }
 
   if (fields != -1 && fields != 5)
-    FATAL("Wordlist '%s': syntax error in line %u.\n", fname, lines + 1);
+    FATAL("Wordlist '%s': syntax error in line %u.\n", fname, lines);
 
   if (!lines)
     WARN("Wordlist '%s' contained no valid entries.", fname);
@@ -1110,10 +1176,20 @@ void save_keywords(u8* fname) {
   }
 
   for (kh=0;kh<WORD_HASH;kh++)
-    for (i=0;i<keyword_cnt[kh];i++)
-      fprintf(out,"%c %u %u %u %s\n", keyword[kh][i].is_ext ? 'e' : 'w',
+    for (i=0;i<keyword_cnt[kh];i++) {
+      u8 class = '?';
+
+      if (keyword[kh][i].read_only) continue;
+
+      if (keyword[kh][i].class == KW_SPECIFIC) class = 's'; else
+      if (keyword[kh][i].class == KW_GENERIC) class = 'g';
+
+      fprintf(out,"%c%c %u %u %u %s\n", keyword[kh][i].is_ext ? 'e' : 'w',
+              class,
               keyword[kh][i].hit_cnt, keyword[kh][i].total_age,
               keyword[kh][i].last_age, keyword[kh][i].word);
+
+    }
 
   SAY(cLGN "[+] " cNOR "Wordlist '%s' updated (%u new words added).\n",
       fname, keyword_total_cnt - keyword_orig_cnt);
@@ -1409,8 +1485,9 @@ void destroy_database() {
     ck_free(keyword[kh]);
   }
 
-  /* Extensions just referenced keyword[][].word entries. */
+  /* Extensions just referenced keyword[][] entries. */
   ck_free(extension);
+  ck_free(sp_extension);
 
   for (i=0;i<guess_cnt;i++) ck_free(guess[i]);
   ck_free(guess);

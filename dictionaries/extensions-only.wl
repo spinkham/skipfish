@@ -16,6 +16,7 @@ e 1 1 1 class
 e 1 1 1 cnf
 e 1 1 1 conf
 e 1 1 1 config
+e 1 1 1 core
 e 1 1 1 cpp
 e 1 1 1 cs
 e 1 1 1 csproj

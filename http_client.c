@@ -565,6 +565,22 @@ void tokenize_path(u8* str, struct http_request* req, u8 add_slash) {
       value = url_decode_token(cur + !first_el, next_seg - !first_el, 0);
     }
 
+    /* If the extracted segment is just '.' or '..', but is followed by
+       something else than '/', skip one separator. */
+
+    if (!name && cur[next_seg] && cur[next_seg] != '/' && 
+        (!strcmp((char*)value, ".") || !strcmp((char*)value, ".."))) {
+
+      next_seg = strcspn((char*)cur + next_seg + 1, "/;,!$?#") + next_seg + 1,
+
+      ck_free(name);
+      ck_free(value);
+
+      value = url_decode_token(cur + !first_el, next_seg - !first_el, 0);
+
+    }
+
+
     switch (first_el ? '/' : *cur) {
 
       case ';': set_value(PARAM_PATH_S, name, value, -1, &req->par); break;

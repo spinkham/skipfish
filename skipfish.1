@@ -83,10 +83,6 @@ do not parse HTML and other documents to find new links
 .B \-o dir
 write output to specified directory (required)
 .TP
-.B \-J
-be less noisy about MIME / charset mismatches on probably
-static content
-.TP
 .B \-M
 log warnings about mixed content or non-SSL password forms
 .TP
@@ -147,6 +143,9 @@ timeout on idle HTTP connections (default: 10 s)
 .TP
 .B \-s s_limit
 response size limit (default: 200000 B)
+.TP
+.B \-e
+do not keep binary responses for reporting
 
 .TP
 .B \-h, \-\-help

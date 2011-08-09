@@ -354,7 +354,7 @@ static void secondary_ext_init(struct pivot_desc* pv, struct http_request* req,
 
   i = 0;
 
-  while ((ex = wordlist_get_extension(i))) {
+  while ((ex = wordlist_get_extension(i, 0))) {
     u8* tmp = ck_alloc(strlen((char*)base_name) + strlen((char*)ex) + 2);
     u32 c;
 
@@ -382,6 +382,7 @@ static void secondary_ext_init(struct pivot_desc* pv, struct http_request* req,
       n->par.v[tpar] = tmp;
 
       n->user_val = 1;
+      n->with_ext = 1;
 
       memcpy(&n->same_sig, &res->sig, sizeof(struct http_sig));
 
@@ -1814,6 +1815,7 @@ static void crawl_par_dict_init(struct pivot_desc* pv) {
   struct http_request* n;
   u8 *kw, *ex;
   u32 i, c;
+  u8 specific;
 
   /* Too many requests still pending, or already done? */
 
@@ -1832,7 +1834,7 @@ restart_dict:
   i = 0;
 
   kw = (pv->pdic_guess ? wordlist_get_guess : wordlist_get_word)
-       (pv->pdic_cur_key);
+       (pv->pdic_cur_key, &specific);
 
   if (!kw) {
 
@@ -1878,10 +1880,11 @@ restart_dict:
 
     /* Schedule probes for all extensions for the current word, but
        only if the original parameter contained '.' somewhere,
-       and only if string is not on the try list. */
+       and only if string is not on the try list. Special handling
+       for specific keywords with '.' inside. */
 
-    if (strchr((char*)TPAR(pv->req), '.'))
-      while (!no_fuzz_ext && (ex = wordlist_get_extension(i))) {
+    if (!no_fuzz_ext && strchr((char*)TPAR(pv->req), '.'))
+      while ((ex = wordlist_get_extension(i, specific))) {
 
         u8* tmp = ck_alloc(strlen((char*)kw) + strlen((char*)ex) + 2);
 
@@ -1901,6 +1904,7 @@ restart_dict:
           ck_free(TPAR(n));
           TPAR(n) = tmp;
           n->callback = par_dict_callback;
+          n->with_ext = 1;
           pv->pdic_pending++;
           in_dict_init = 1;
           async_request(n);
@@ -2333,6 +2337,7 @@ static u8 dir_404_callback(struct http_request* req,
     }
 
     memcpy(&req->pivot->r404[i], &res->sig, sizeof(struct http_sig));
+
     req->pivot->r404_cnt++;
 
     /* Is this a new signature not seen on parent? Notify if so,
@@ -2379,7 +2384,7 @@ schedule_next:
 
     /* Aaand schedule all the remaining probes. */
 
-    while ((nk = wordlist_get_extension(cur_ext++))) {
+    while ((nk = wordlist_get_extension(cur_ext++, 0))) {
       u8* tmp = ck_alloc(strlen(BOGUS_FILE) + strlen((char*)nk) + 2);
 
       n = req_copy(RPREQ(req), req->pivot, 1);
@@ -2388,6 +2393,7 @@ schedule_next:
       replace_slash(n, tmp);
       ck_free(tmp);
       n->callback = dir_404_callback;
+      n->with_ext = 1;
       n->user_val = 1;
 
       /* r404_pending is at least 1 to begin with, so this is safe
@@ -2655,6 +2661,7 @@ static void crawl_dir_dict_init(struct pivot_desc* pv) {
   struct http_request* n;
   u8 *kw, *ex;
   u32 i, c;
+  u8 specific;
 
   /* Too many requests still pending, or already moved on to
      parametric tests? */
@@ -2682,7 +2689,8 @@ static void crawl_dir_dict_init(struct pivot_desc* pv) {
 
 restart_dict:
 
-  kw = (pv->guess ? wordlist_get_guess : wordlist_get_word)(pv->cur_key);
+  kw = (pv->guess ? wordlist_get_guess : wordlist_get_word)
+       (pv->cur_key, &specific);
 
   if (!kw) {
 
@@ -2739,38 +2747,41 @@ restart_dict:
     }
 
     /* Schedule probes for all extensions for the current word,
-       likewise. */
+       likewise. Make an exception for specific keywords that
+       already contain a period. */
 
     i = 0;
 
-    while (!no_fuzz_ext && (ex = wordlist_get_extension(i))) {
+    if (!no_fuzz_ext)
+      while ((ex = wordlist_get_extension(i, specific))) {
 
-      u8* tmp = ck_alloc(strlen((char*)kw) + strlen((char*)ex) + 2);
+        u8* tmp = ck_alloc(strlen((char*)kw) + strlen((char*)ex) + 2);
 
-      sprintf((char*)tmp, "%s.%s", kw, ex);
+        sprintf((char*)tmp, "%s.%s", kw, ex);
 
-      for (c=0;c<pv->child_cnt;c++)
-        if (!((is_c_sens(pv) ? strcmp : strcasecmp)((char*)tmp,
-            (char*)pv->child[c]->name))) break;
+        for (c=0;c<pv->child_cnt;c++)
+          if (!((is_c_sens(pv) ? strcmp : strcasecmp)((char*)tmp,
+              (char*)pv->child[c]->name))) break;
 
-      if (pv->fuzz_par != -1 &&
-          !((is_c_sens(pv) ? strcmp : strcasecmp)((char*)tmp,
-          (char*)pv->req->par.v[pv->fuzz_par]))) c = pv->child_cnt;
+        if (pv->fuzz_par != -1 &&
+            !((is_c_sens(pv) ? strcmp : strcasecmp)((char*)tmp,
+            (char*)pv->req->par.v[pv->fuzz_par]))) c = pv->child_cnt;
 
-      if (c == pv->child_cnt) {
-        n = req_copy(pv->req, pv, 1);
-        replace_slash(n, tmp);
-        n->callback = dir_dict_callback;
-        pv->pending++;
-        in_dict_init = 1;
-        async_request(n);
-        in_dict_init = 0;
+        if (c == pv->child_cnt) {
+          n = req_copy(pv->req, pv, 1);
+          replace_slash(n, tmp);
+          n->callback = dir_dict_callback;
+          n->with_ext = 1;
+          pv->pending++;
+          in_dict_init = 1;
+          async_request(n);
+          in_dict_init = 0;
+        }
+
+        ck_free(tmp);
+
+        i++;
       }
-
-      ck_free(tmp);
-
-      i++;
-    }
 
   }
 
@@ -2917,6 +2928,7 @@ u8 fetch_unknown_callback(struct http_request* req, struct http_response* res) {
   n = req_copy(req, req->pivot, 1);
   set_value(PARAM_PATH, NULL, (u8*)"", -1, &n->par);
   n->callback = unknown_check_callback;
+  n->with_ext = req->with_ext;
   async_request(n);
 
   /* This is the initial callback, keep the response. */
@@ -2974,12 +2986,33 @@ static u8 unknown_check_callback(struct http_request* req,
 
     }
 
-    if (par)
+    if (par) {
       for (i=0;i<par->r404_cnt;i++)
         if (same_page(&res->sig, &par->r404[i])) break;
 
+      /* Do not use extension-originating signatures for settling non-extension
+         cases. */
+
+      if (i && !req->with_ext) i = par->r404_cnt;
+
+    }
+
     if ((!par && res->code == 404) || (par && i != par->r404_cnt) || 
         (RPRES(req)->code < 300 && res->code >= 300 && RPRES(req)->pay_len)) {
+
+DEBUG("REASON X\n");
+if (par) DEBUG("same_404 = %d\n", i != par->r404_cnt);
+DEBUG("par = %p\n", par);
+if (par) DEBUG("par->r404_cnt = %d\n", par->r404_cnt);
+DEBUG("res->code = %d\n", res->code);
+DEBUG("parent code = %d\n", RPRES(req)->code);
+DEBUG("parent len = %d\n", RPRES(req)->pay_len);
+
+// (!par && res->code == 404) || - NIE
+// (par && i != par->r404_cnt) || - TAK
+// (RPRES(req)->code < 300 && res->code >= 300 && RPRES(req)->pay_len))
+
+
 
       req->pivot->type = PIVOT_FILE;
 
@@ -2998,6 +3031,11 @@ assume_dir:
       }
 
       req->pivot->type = PIVOT_DIR;
+
+      /* Perform content checks before discarding the old payload. */
+
+      if (!same_page(&RPRES(req)->sig, &res->sig))
+        content_checks(RPREQ(req), RPRES(req));
 
       /* Replace original request, response with new data. */
 

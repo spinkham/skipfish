@@ -303,7 +303,7 @@ static void compute_counts(struct pivot_desc* pv) {
 /* Helper to JS-escape data. Static buffer, will be destroyed on
    subsequent calls. */
 
-static inline u8* js_escape(u8* str) {
+static inline u8* js_escape(u8* str, u8 sp) {
   u32 len;
   static u8* ret;
   u8* opos;
@@ -316,7 +316,7 @@ static inline u8* js_escape(u8* str) {
   opos = ret = __DFL_ck_alloc(len * 4 + 1);
 
   while (len--) {
-    if (*str > 0x1f && *str < 0x80 && !strchr("<>\\'\"", *str)) {
+    if (*str > (sp ? 0x20 : 0x1f) && *str < 0x80 && !strchr("<>\\'\"", *str)) {
       *(opos++) = *(str++);
     } else {
       sprintf((char*)opos, "\\x%02x", *(str++));
@@ -343,7 +343,7 @@ static void output_scan_info(u64 scan_time, u32 seed) {
   if (!f) PFATAL("Cannot open 'summary.js'");
 
   fprintf(f, "var sf_version = '%s';\n", VERSION);
-  fprintf(f, "var scan_date  = '%s';\n", js_escape(ct));
+  fprintf(f, "var scan_date  = '%s';\n", js_escape(ct, 0));
   fprintf(f, "var scan_seed  = '0x%08x';\n", seed);
   fprintf(f, "var scan_ms    = %llu;\n", (long long)scan_time);
 
@@ -370,12 +370,12 @@ static void describe_res(FILE* f, struct http_response* res) {
     case STATE_OK:
       fprintf(f, "'fetched': true, 'code': %u, 'len': %u, 'decl_mime': '%s', ",
                  res->code, res->pay_len,
-                 js_escape(res->header_mime));
+                 js_escape(res->header_mime, 0));
 
       fprintf(f, "'sniff_mime': '%s', 'cset': '%s'", 
                  res->sniffed_mime ? res->sniffed_mime : (u8*)"[none]",
                  js_escape(res->header_charset ? res->header_charset 
-                 : res->meta_charset));
+                 : res->meta_charset, 0));
       break;
 
     case STATE_DNSERR:
@@ -514,18 +514,18 @@ static void output_crawl_tree(struct pivot_desc* pv) {
 
     fprintf(f, "  { 'dupe': %s, 'type': %u, 'name': '%s%s",
             pv->child[i]->dupe ? "true" : "false",
-            pv->child[i]->type, js_escape(pv->child[i]->name),
+            pv->child[i]->type, js_escape(pv->child[i]->name, 0),
             (pv->child[i]->fuzz_par == -1 || pv->child[i]->type == PIVOT_VALUE)
             ? (u8*)"" : (u8*)"=");
 
     fprintf(f, "%s', 'dir': '%s', 'linked': %d, ",
             (pv->child[i]->fuzz_par == -1 || pv->child[i]->type == PIVOT_VALUE)
             ? (u8*)"" :
-            js_escape(pv->child[i]->req->par.v[pv->child[i]->fuzz_par]),
+            js_escape(pv->child[i]->req->par.v[pv->child[i]->fuzz_par], 0),
             tmp, pv->child[i]->linked);
 
     p = serialize_path(pv->child[i]->req, 1, 1);
-    fprintf(f, "'url': '%s', ", js_escape(p));
+    fprintf(f, "'url': '%s', ", js_escape(p, 0));
     ck_free(p);
 
     describe_res(f, pv->child[i]->res);
@@ -557,7 +557,7 @@ static void output_crawl_tree(struct pivot_desc* pv) {
 
     fprintf(f, "  { 'severity': %u, 'type': %u, 'extra': '%s', ",
             PSEV(pv->issue[i].type) - 1, pv->issue[i].type,
-            pv->issue[i].extra ? js_escape(pv->issue[i].extra) : (u8*)"");
+            pv->issue[i].extra ? js_escape(pv->issue[i].extra, 0) : (u8*)"");
 
     describe_res(f, pv->issue[i].res);
 
@@ -658,7 +658,7 @@ static void output_summary_views() {
       save_req_res(m_samp[i].req[c], m_samp[i].res[c], 0);
       if (chdir("..")) PFATAL("chdir unexpectedly fails!");
       fprintf(f, "    { 'url': '%s', 'dir': '%s/%s', 'linked': %d, 'len': %d"
-              " }%s\n", js_escape(p), tmp, tmp2,
+              " }%s\n", js_escape(p, 0), tmp, tmp2,
               m_samp[i].req[c]->pivot->linked, m_samp[i].res[c]->pay_len,
               (c == use_samp - 1) ? " ]" : ",");
       ck_free(p);
@@ -693,9 +693,9 @@ static void output_summary_views() {
       if (chdir((char*)tmp2)) PFATAL("chdir unexpectedly fails!");
       save_req_res(i_samp[i].i[c]->req, i_samp[i].i[c]->res, 0);
       if (chdir("..")) PFATAL("chdir unexpectedly fails!");
-      fprintf(f, "    { 'url': '%s', ", js_escape(p));
+      fprintf(f, "    { 'url': '%s', ", js_escape(p, 0));
       fprintf(f, "'extra': '%s', 'dir': '%s/%s' }%s\n", 
-              i_samp[i].i[c]->extra ? js_escape(i_samp[i].i[c]->extra) : 
+              i_samp[i].i[c]->extra ? js_escape(i_samp[i].i[c]->extra, 0) : 
               (u8*)"", tmp, tmp2, 
               (c == use_samp - 1) ? " ]" : ",");
       ck_free(p);
@@ -763,9 +763,11 @@ static void save_pivots(FILE* f, struct pivot_desc* cur) {
     u8* url = serialize_path(cur->req, 1, 1);
 
     fprintf(f, "%s %s ", cur->req->method ? cur->req->method : (u8*)"GET",
-           js_escape(url));
+           js_escape(url, 0));
 
     ck_free(url);
+
+    fprintf(f, "name=%s ", js_escape(cur->name, 1));
 
     switch (cur->type) {
       case PIVOT_SERV:     fprintf(f, "type=serv "); break;
@@ -785,7 +787,8 @@ static void save_pivots(FILE* f, struct pivot_desc* cur) {
     }
 
     if (cur->res)
-      fprintf(f, "dup=%u %scode=%u len=%u notes=%u\n", cur->dupe,
+      fprintf(f, "dup=%u %s%scode=%u len=%u notes=%u\n", cur->dupe,
+             cur->bogus_par ? "bogus " : "",
              cur->missing ? "returns_404 " : "",
              cur->res->code, cur->res->pay_len, cur->issue_cnt);
     else

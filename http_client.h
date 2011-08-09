@@ -97,12 +97,12 @@ struct http_request {
   u16 port;                     /* Port number to connect to    */
 
   u8* orig_url;                 /* Copy of the original URL     */
-
   struct param_array par;       /* Parameters, headers, cookies */
 
   struct pivot_desc *pivot;     /* Pivot descriptor             */
 
   u32 user_val;                 /* Can be used freely           */
+  u8 with_ext;                  /* Extension-based probe?       */
 
   u8 (*callback)(struct http_request*, struct http_response*);
                                 /* Callback to invoke when done */

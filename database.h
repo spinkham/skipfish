@@ -375,19 +375,19 @@ void wordlist_confirm_word(u8* text);
 
 /* Returns wordlist item at a specified offset (NULL if no more available). */
 
-u8* wordlist_get_word(u32 offset);
+u8* wordlist_get_word(u32 offset, u8* specific);
 
 /* Returns keyword candidate at a specified offset (or NULL). */
 
-u8* wordlist_get_guess(u32 offset);
+u8* wordlist_get_guess(u32 offset, u8* specific);
 
 /* Returns extension at a specified offset (or NULL). */
 
-u8* wordlist_get_extension(u32 offset);
+u8* wordlist_get_extension(u32 offset, u8 specific);
 
 /* Loads keywords from file. */
 
-void load_keywords(u8* fname, u32 purge_age);
+void load_keywords(u8* fname, u8 read_only, u32 purge_age);
 
 /* Saves all keywords to a file. */
 

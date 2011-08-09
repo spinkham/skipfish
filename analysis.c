@@ -930,7 +930,7 @@ add_link:
 
       i = 0;
 
-      while ((ext = wordlist_get_extension(i++))) {
+      while ((ext = wordlist_get_extension(i++, 0))) {
         u32 ext_len = strlen((char*)ext);
 
         if (clean_len > ext_len + 2 &&
@@ -2280,11 +2280,32 @@ static void check_for_stuff(struct http_request* req,
     return;
   }
 
-  if (strstr((char*)res->payload, "<b>Fatal error</b>:") ||
-      strstr((char*)res->payload, "<b>Parse error</b>:") ||
-      strstr((char*)res->payload, "</b> on line <b>")) {
-    problem(PROB_ERROR_POI, req, res, (u8*)"PHP error", req->pivot, 0);
-    return;
+  if ((tmp = (u8*)strstr((char*)res->payload, " on line "))) {
+    u32 off = 512;
+
+    while (tmp - 1 > res->payload && !strchr("\r\n", tmp[-1])
+           && off--) tmp--;
+
+    if (off && (!prefix(tmp, "Warning: ") || !prefix(tmp, "Notice: ") ||
+        !prefix(tmp, "Fatal error: ")     || !prefix(tmp, "Parse error: ") ||
+        !prefix(tmp, "Deprecated: ")      || 
+        !prefix(tmp, "Strict Standards: ") ||
+        !prefix(tmp, "Catchable fatal error: "))) {
+      problem(PROB_ERROR_POI, req, res, (u8*)"PHP error (text)", req->pivot, 0);
+      return;
+    }
+
+    if (off && !prefix(tmp, "<b>") && (!prefix(tmp + 3, "Warning</b>: ") ||
+        !prefix(tmp + 3, "Notice</b>: ") || 
+        !prefix(tmp + 3, "Fatal error</b>: ") ||
+        !prefix(tmp + 3, "Parse error</b>: ") ||
+        !prefix(tmp + 3, "Deprecated</b>: ")   || 
+        !prefix(tmp + 3, "Strict Standards</b>: ") ||
+        !prefix(tmp + 3, "Catchable fatal error</b>: "))) {
+      problem(PROB_ERROR_POI, req, res, (u8*)"PHP error (HTML)", req->pivot, 0);
+      return;
+    }
+
   }
 
   if (strstr((char*)res->payload, "<b>Warning</b>:  MySQL: ") ||
@@ -2326,12 +2347,26 @@ static void check_for_stuff(struct http_request* req,
   if (strstr((char*)sniffbuf, "<cross-domain-policy>")) {
     problem(PROB_FILE_POI, req, res, (u8*)
             "Flash cross-domain policy", req->pivot, 0);
+
+    /*
+      if (strstr((char*)res->payload, "domain=\"*\""))
+        problem(PROB_CROSS_WILD, req, res, (u8*)
+                "Cross-domain policy with wildcard rules", req->pivot, 0);
+     */
+
     return;
   }
 
   if (strstr((char*)sniffbuf, "<access-policy>")) {
     problem(PROB_FILE_POI, req, res, (u8*)"Silverlight cross-domain policy",
             req->pivot, 0);
+
+    /*
+      if (strstr((char*)res->payload, "uri=\"*\""))
+        problem(PROB_CROSS_WILD, req, res, (u8*)
+                "Cross-domain policy with wildcard rules", req->pivot, 0);
+     */
+
     return;
   }
 

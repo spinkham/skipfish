@@ -239,7 +239,7 @@ int main(int argc, char** argv) {
   u32 loop_cnt = 0, purge_age = 0, seed;
   u8  dont_save_words = 0, show_once = 0, be_quiet = 0, display_mode = 0,
       has_fake = 0;
-  u8 *wordlist = (u8*)DEF_WORDLIST, *output_dir = NULL;
+  u8 *wordlist = NULL, *output_dir = NULL;
 
   struct termios term;
   struct timeval tv;
@@ -421,7 +421,12 @@ int main(int argc, char** argv) {
         break;
 
       case 'W':
-        wordlist = (u8*)optarg;
+        if (optarg[0] == '+') load_keywords((u8*)optarg + 1, 1, 0);
+        else {
+          if (wordlist)
+            FATAL("Only one -W parameter permitted (unless '+' used).");
+          wordlist = (u8*)optarg;
+        }
         break;
 
       case 'b':
@@ -526,7 +531,9 @@ int main(int argc, char** argv) {
   if (max_connections < max_conn_host)
     max_connections = max_conn_host;
 
-  load_keywords((u8*)wordlist, purge_age);
+  if (!wordlist) wordlist = (u8*)DEF_WORDLIST;
+
+  load_keywords(wordlist, 0, purge_age);
 
   /* Schedule all URLs in the command line for scanning. */
 
