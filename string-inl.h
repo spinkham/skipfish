@@ -109,6 +109,36 @@ static inline void* inl_memmem(const void* haystack, u32 h_len,
 }
 
 
+/* Distance-limited strstr. */
+
+static inline u8* inl_findstr(const u8* haystack, const u8* needle, u32 max_len) {
+  register u8 c, sc;
+  register u32 len;
+
+  if (!haystack || !needle) return 0;
+  max_len++;
+
+  if ((c = *needle++)) {
+
+    len = strlen((char*)needle);
+
+    do {
+      do {
+        if (!(sc = *haystack++) || !max_len--) return 0;
+      } while (sc != c);
+    } while (strncmp((char*)haystack, (char*)needle, len));
+
+    haystack--;
+
+  }
+
+  return (u8*)haystack;
+
+}
+
+
+
+
 /* String manipulation macros for operating on a dynamic buffer. */
 
 #define NEW_STR(_buf_ptr, _buf_len) do { \

@@ -102,15 +102,16 @@
 /* Crawler / probe constants: */
 
 #define BOGUS_FILE     "sfi9876"        /* Name that should not exist      */
+#define BOGUS_EXT      "sfish"          /* Nonsensical file extension      */
 #define BOGUS_PARAM    "9876sfi"        /* Meaningless parameter           */
 #define MAX_404        4                /* Maximum number of 404 sigs      */
 #define PAR_MAX_DIGITS 6                /* Max digits in a fuzzable int    */
 #define PAR_INT_FUZZ   100              /* Fuzz by + / - this much         */
 
 #ifdef QUEUE_FILO
-#define DICT_BATCH     200              /* Brute-force queue block         */
+#define DICT_BATCH     100              /* Brute-force queue block         */
 #else
-#define DICT_BATCH     1000             /* Brute-force queue block         */
+#define DICT_BATCH     600              /* Brute-force queue block         */
 #endif /* ^QUEUE_FILO */
 
 /* Single query for IPS detection - Evil Query of Doom (tm). */

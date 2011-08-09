@@ -55,6 +55,7 @@ u8  delete_bin;          /* Don't keep binary responses    */
 #define FETCH_FAIL(_res) ((_res)->state != STATE_OK || (_res)->code == 503 || \
   (_res)->code == 504)
 
+
 /* Dumps request, response (for debugging only). */
 
 u8 show_response(struct http_request* req, struct http_response* res) {
@@ -107,15 +108,17 @@ static void unlock_children(struct pivot_desc* pv) {
   for (i=0;i<pv->child_cnt;i++)
     if (pv->child[i]->state == PSTATE_PENDING) {
 
+      DEBUG_PIVOT("Unlocking", pv->child[i]);
+
       pv->child[i]->state = PSTATE_FETCH;
 
       if (!pv->child[i]->res) async_request(pv->child[i]->req);
       else switch (pv->child[i]->type) {
 
-        case PIVOT_DIR:     fetch_dir_callback(pv->req, pv->res); break;
+        case PIVOT_DIR:     dir_retrieve_check(pv->req, pv->res); break;
         case PIVOT_PARAM:
-        case PIVOT_FILE:    fetch_file_callback(pv->req, pv->res); break;
-        case PIVOT_UNKNOWN: fetch_unknown_callback(pv->req, pv->res); break;
+        case PIVOT_FILE:    file_retrieve_check(pv->req, pv->res); break;
+        case PIVOT_UNKNOWN: unknown_retrieve_check(pv->req, pv->res); break;
         default: FATAL("Unknown pivot type '%u'", pv->type);
 
       }
@@ -149,7 +152,7 @@ static void handle_error(struct http_request* req, struct http_response* res,
 
 
 /* Finds nearest "real" directory parent, so that we can consult it for 404
-   signatures, etc. Return NULL if dir found, but signature-less. */
+   signatures, etc. Return NULL also if dir found, but signature-less. */
 
 static struct pivot_desc* dir_parent(struct pivot_desc* pv) {
   struct pivot_desc* ret;
@@ -170,7 +173,7 @@ static void destroy_misc_data(struct pivot_desc* pv,
                               struct http_request* self) {
   u32 i;
 
-  for (i=0;i<10;i++) {
+  for (i=0;i<MISC_ENTRIES;i++) {
 
     if (pv->misc_req[i] != self) {
 
@@ -201,63 +204,341 @@ static void destroy_misc_data(struct pivot_desc* pv,
 
  */
 
-static u8 dir_404_callback(struct http_request*, struct http_response*);
-static u8 dir_parent_callback(struct http_request*, struct http_response*);
-static u8 dir_ips_callback(struct http_request*, struct http_response*);
-static void inject_init(struct pivot_desc*);
-static void inject_init2(struct pivot_desc*);
-static void crawl_dir_dict_init(struct pivot_desc*);
-static u8 dir_dict_callback(struct http_request*, struct http_response*);
-static u8 inject_put_callback(struct http_request*, struct http_response*);
-static u8 inject_check0_callback(struct http_request*, struct http_response*);
-static u8 inject_check1_callback(struct http_request*, struct http_response*);
-static u8 inject_check2_callback(struct http_request*, struct http_response*);
-static u8 inject_check3_callback(struct http_request*, struct http_response*);
-static u8 inject_check4_callback(struct http_request*, struct http_response*);
-static u8 inject_check5_callback(struct http_request*, struct http_response*);
-static u8 inject_check6_callback(struct http_request*, struct http_response*);
-static u8 inject_check7_callback(struct http_request*, struct http_response*);
-static u8 inject_check8_callback(struct http_request*, struct http_response*);
-static u8 inject_check9_callback(struct http_request*, struct http_response*);
-static void crawl_par_numerical_init(struct pivot_desc*);
-static u8 par_check_callback(struct http_request*, struct http_response*);
-static u8 unknown_check_callback(struct http_request*, struct http_response*);
-static u8 par_numerical_callback(struct http_request*, struct http_response*);
-static u8 par_dict_callback(struct http_request*, struct http_response*);
-static u8 par_trylist_callback(struct http_request*, struct http_response*);
-static void crawl_par_dict_init(struct pivot_desc*);
-static void crawl_parametric_init(struct pivot_desc*);
-static void end_injection_checks(struct pivot_desc*);
-static u8 par_ognl_callback(struct http_request*, struct http_response*);
+static u8 dir_404_check(struct http_request*, struct http_response*);
+static u8 dir_up_behavior_check(struct http_request*, struct http_response*);
+static u8 dir_ips_check(struct http_request*, struct http_response*);
+static void inject_start(struct pivot_desc*);
+static void inject_start2(struct pivot_desc*);
+static void dir_dict_start(struct pivot_desc*);
+static u8 dir_dict_check(struct http_request*, struct http_response*);
+static u8 dir_dict_bogus_check(struct http_request*, struct http_response*);
+static u8 put_upload_check(struct http_request*, struct http_response*);
+static u8 inject_behavior_check(struct http_request*, struct http_response*);
+static u8 inject_dir_listing_check(struct http_request*, struct http_response*);
+static u8 inject_xml_check(struct http_request*, struct http_response*);
+static u8 inject_shell_check(struct http_request*, struct http_response*);
+static u8 inject_xss_check(struct http_request*, struct http_response*);
+static u8 inject_prologue_check(struct http_request*, struct http_response*);
+static u8 inject_redir_check(struct http_request*, struct http_response*);
+static u8 inject_split_check(struct http_request*, struct http_response*);
+static u8 inject_sql_check(struct http_request*, struct http_response*);
+static u8 inject_format_check(struct http_request*, struct http_response*);
+static u8 inject_integer_check(struct http_request*, struct http_response*);
+static void param_numerical_start(struct pivot_desc*);
+static u8 param_behavior_check(struct http_request*, struct http_response*);
+static u8 unknown_retrieve_check2(struct http_request*, struct http_response*);
+static u8 param_numerical_check(struct http_request*, struct http_response*);
+static u8 param_dict_check(struct http_request*, struct http_response*);
+static u8 param_trylist_check(struct http_request*, struct http_response*);
+static void param_dict_start(struct pivot_desc*);
+static void param_start(struct pivot_desc*);
+static void inject_done(struct pivot_desc*);
+static u8 param_ognl_check(struct http_request*, struct http_response*);
+static u8 dir_case_check(struct http_request* req, struct http_response* res);
 
 
 /*
 
-  ********************************
-  **** CASE-SENSITIVITY CHECK ****
-  ********************************
+  ******************************
+  **** ACTUAL STATE MACHINE ****
+  ******************************
+
+  The following is a rough sketch of what's going on here.
+
+  == Pivot creation states ==
+
+  Path elements:
+
+    root       - PSTATE_DONE, no callback
+
+    server     - PSTATE_FETCH, dir_retrieve_check
+
+    dir        - PSTATE_FETCH, dir_retrieve_check
+                 PSTATE_PENDING if parent state <= PSTATE_IPS_CHECK
+
+    last seg   - PSTATE_FETCH, unknown_retrieve_check
+                 PSTATE_PENDING if parent state <= PSTATE_IPS_CHECK
+
+    file       - PSTATE_FETCH, file_retrieve_check
+                 PSTATE_PENDING if parent state <= PSTATE_IPS_CHECK
+
+    If element in name=value format, also add value to pivot's trylist.
+    Call param_trylist_start if pivot already in PSTATE_DONE.
+
+  Query elements:
+
+    PSTATE_FETCH, file_retrieve_check
+    PSTATE_PENDING if parent dir state <= PSTATE_IPS_CHECK
+
+    Add value to pivot's trylist. Call param_trylist_start if pivot already
+    in PSTATE_DONE.
+
+  == Initial fetch actions ==
+
+  unknown_retrieve_check:
+
+    Initial retrieval of an unknown path element.
+
+    File not found: unlock_children, -> param_start
+    Otherwise: -> file_retrieve_check or -> unknown_retrieve_check2
+
+  unknown_retrieve_check2:
+
+    Secondary check to detect dir-like behavior (for unknown_retrieve_check).
+
+    -> dir_retrieve_check or -> file_retrieve_check
+
+  file_retrieve_check:
+
+    Initial retrieval of a file, query parameter, or so.
+
+    -> secondary_ext_start (async)
+    -> dir_case_start (async)
+    unlock_children
+
+    Query value pivot: -> param_start
+    Other pivots: PSTATE_CHILD_INJECT, -> inject_start
+
+  dir_retrieve_check:
+
+    Initial retrival of a directory or PATHINFO resource.
+
+    -> secondary_ext_start (async)
+    PSTATE_404_CHECK, -> dir_404_check
+
+  == Basic directory checks ==
+
+  dir_404_check:
+
+    Performs basic 404 signature detection. Calls itself in a loop.
+
+    -> dir_case_start (async)
+    PSTATE_PARENT_CHECK, -> dir_up_behavior_check
+
+  dir_up_behavior_check:
+
+    Checks if path hierarchy is honored by the server.
+
+    PSTATE_IPS_CHECK, -> dir_ips_check
+
+  dir_ips_check:
+
+    Checks for IPS-like behavior.
+
+    unlock_children
+    PSTATE_CHILD_INJECT, -> inject_start
+
+  dir_case_start:
+
+    Asynchronous handler to check directory case-sensitivity.
+
+    -> dir_case_check
+
+  dir_case_check:
+
+    Case sensitivity callback. No further branching.
+
+  == Parameter behavior (name=val pivots only) ==
+
+  param_start:
+
+    Initial parametric testing entry point.
+
+    Non-fuzzable parameter: PSTATE_DONE
+    Otherwise: PSTATE_PAR_CHECK, -> param_behavior_check
+
+  param_behavior_check:
+
+    Parameter behavior check callback.
+
+    -> param_ognl_check (async)
+    PSTATE_PAR_INJECT, -> inject_start
+
+  param_ognl_check:
+
+    Asynchronous OGNL behavior check. No further branching.
+
+  == Injection attacks ==
+
+  inject_start:
+
+    Injection testing entry point.
+
+    Directory: -> put_upload_check
+    Other cases: -> inject_start2
+
+  put_upload_check:
+
+    Check for PUT upload vulnerabilities (dir only).
+
+    -> inject_start2
+
+  inject_start2:
+
+    Injection testing entry point for non-dir nodes.
+
+    -> inject_behavior_check
+
+  inject_behavior_check:
+
+    Parameter behavior consistency test.
+
+    Bad pivot: -> inject_done
+    OK pivot: -> inject_dir_listing_check
+
+  inject_dir_listing_check:
+
+    Directory listing probe.
+
+    -> inject_xml_check
+
+  inject_xml_check:
+
+    Server-side XML injection probe.
+
+    -> inject_shell_check
+
+  inject_shell_check:
+
+    Shell injection probe.
+
+    -> inject_xss_check
+
+  inject_xss_check:
+
+    Reflected XSS probe.
+
+    -> inject_prologue_check
+
+  inject_prologue_check:
+
+    Attacker-controlled response check.
+
+    -> inject_redir_check
+
+  inject_redir_check:
+
+    Probe for redirection vulnerabilities.
+
+    -> inject_split_check
+
+  inject_split_check:
+
+    Header splitting probe.
+
+    -> inject_sql_check
+
+  inject_sql_check:
+
+    SQL injection probe.
+
+    -> inject_format_check
+
+  inject_format_check:
+ 
+    Format string vulnerability probe.
+
+    -> inject_integer_check
+
+  inject_integer_check:
+
+    Integer overflow probe.
+
+    -> inject_done
+
+  inject_done:
+
+    Injection testing wrap-up.
+
+    Path element: PSTATE_CHILD_DICT, -> dir_dict_start if fuzzable dir
+                  -> param_start if not dir or no 404 sigs
+                  PSTATE_DONE if not allowed or varies randomly
+
+    Other parametric: -> param_numerical_start
+                      PSTATE_DONE if varies randomly
+
+  == Parameter brute-force (name=val only) ==
+
+  param_numerical_start:
+
+    Begin numerical brute-force if applicable.
+
+    Numerical: PSTATE_PAR_NUMBER, -> param_numerical_check
+    Otherwise: PSTATE_PAR_DICT, -> param_dict_start
+
+  param_numerical_check:
+
+    Numerical brute-force callback. May store results as PIVOT_VALUE /
+    PSTATE_DONE nodes.
+
+    -> secondary_ext_start (async)
+    PSTATE_PAR_DICT, -> param_dict_start
+
+  param_dict_start:
+
+    Dictionary brute-force init / resume.
+
+    Out of keywords: -> param_trylist_start
+    Otherwise: -> param_dict_check
+
+  param_dict_check:
+
+    Dictionary brute-force callback. May store results as PIVOT_VALUE /
+    PSTATE_DONE nodes.
+
+    -> secondary_ext_start (async)
+    Loops to -> param_trylist_start if not called via secondary_ext_check
+
+  param_trylist_start:
+
+    Begins trylist fuzzing, or resumes from offset.
+
+    Bad pivot or no more keywords: PSTATE_DONE
+    Otherwise: PSTATE_PAR_TRYLIST, -> param_trylist_check
+
+  param_trylist_check:
+
+  Trylist dictionary callback. May store results as PIVOT_VALUE / PSTATE_DONE
+  nodes.
+
+    -> secondary_ext_start (async)
+    PSTATE_DONE
+
+  == Directory brute-force ==
+
+  dir_dict_start:
+
+    Dictionary brute-force init / resume.
+
+    Bad pivot or no more keywords: -> param_start
+    Otherwise: -> dir_dict_bogus_check
+
+  dir_dict_bogus_check:
+
+    Check for good keyword candidates, proceed with extension fuzzing.
+    -> dir_dict_check
+
+    Loops over to -> dir_dict_start
+
+  dir_dict_check:
+
+    Dictionary brute-force callback.
+ 
+    Loops over to -> dir_dict_start if not called via secondary_ext_start.
+
+  == Secondary extension brute-force ==
+
+  secondary_ext_start:
+
+    Asynchronous secondary extension check
+
+    Query: -> param_dict_check
+    Path: -> dir_dict_check
 
  */
 
-static u8 check_case_callback(struct http_request* req,
-                              struct http_response* res) {
 
-  DEBUG_CALLBACK(req, res);
-
-  if (FETCH_FAIL(res)) {
-    RPAR(req)->c_checked = 0;
-    return 0;
-  }
-
-  if (!same_page(&res->sig, &RPRES(req)->sig))
-    RPAR(req)->csens = 1;
-
-  return 0;
-
-}
-
-
-static void check_case(struct pivot_desc* pv) {
+static void dir_case_start(struct pivot_desc* pv) {
   u32 i, len;
   s32 last = -1;
   struct http_request* n;
@@ -280,7 +561,7 @@ static void check_case(struct pivot_desc* pv) {
   pv->parent->c_checked = 1;
 
   n = req_copy(pv->req, pv, 1);
-  n->callback = check_case_callback;
+  n->callback = dir_case_check;
 
   /* Change case. */
 
@@ -295,25 +576,26 @@ static void check_case(struct pivot_desc* pv) {
 }
 
 
-/*
+static u8 dir_case_check(struct http_request* req,
+                         struct http_response* res) {
 
-  ************************************
-  **** SECONDARY EXTENSION PROBES ****
-  ************************************
+  DEBUG_CALLBACK(req, res);
 
-  For each new entry discovered through brute-force that already bears an
-  extension, we should also try appending a secondary extension. This is to
-  spot things such as foo.php.old, .inc, .gz, etc.
+  if (FETCH_FAIL(res)) {
+    RPAR(req)->c_checked = 0;
+    return 0;
+  }
 
- */
+  if (!same_page(&res->sig, &RPRES(req)->sig))
+    RPAR(req)->csens = 1;
+
+  return 0;
+
+}
 
 
-/* Schedules secondary extension tests, if warranted; is_param set to 1
-   if this is a parametric node, 0 if the last path segment needs to be
-   checked. */
-
-static void secondary_ext_init(struct pivot_desc* pv, struct http_request* req,
-                               struct http_response* res, u8 is_param) {
+static void secondary_ext_start(struct pivot_desc* pv, struct http_request* req,
+                                struct http_response* res, u8 is_param) {
 
   u8 *base_name, *fpos, *lpos, *ex;
   s32 tpar = -1, i = 0, spar = -1;
@@ -358,6 +640,10 @@ static void secondary_ext_init(struct pivot_desc* pv, struct http_request* req,
     u8* tmp = ck_alloc(strlen((char*)base_name) + strlen((char*)ex) + 2);
     u32 c;
 
+    /* Avoid foo.bar.bar. */
+
+    if (!strcasecmp((char*)lpos + 1, (char*)ex)){ i++; ck_free(tmp); continue; }
+
     sprintf((char*)tmp, "%s.%s", base_name, ex);
 
     /* Matching child? If yes, don't bother. */
@@ -382,11 +668,10 @@ static void secondary_ext_init(struct pivot_desc* pv, struct http_request* req,
       n->par.v[tpar] = tmp;
 
       n->user_val = 1;
-      n->with_ext = 1;
 
       memcpy(&n->same_sig, &res->sig, sizeof(struct http_sig));
 
-      n->callback = is_param ? par_dict_callback : dir_dict_callback;
+      n->callback = is_param ? param_dict_check : dir_dict_check;
       /* Both handlers recognize user_val == 1 as a special indicator. */
       async_request(n);
 
@@ -397,16 +682,6 @@ static void secondary_ext_init(struct pivot_desc* pv, struct http_request* req,
 
 }
 
-
-/*
-
-  ************************************
-  **** SECURITY INJECTION TESTING ****
-  ************************************
-
-  Generic attack vector injection tests for directories, parameters, etc.
-
- */
 
 /* Internal helper macros: */
 
@@ -433,9 +708,7 @@ static void secondary_ext_init(struct pivot_desc* pv, struct http_request* req,
   } while (0)
 
 
-/* Common initialization of security injection attacks. */
-
-static void inject_init(struct pivot_desc* pv) {
+static void inject_start(struct pivot_desc* pv) {
 
   DEBUG_HELPER(pv);
 
@@ -446,22 +719,18 @@ static void inject_init(struct pivot_desc* pv) {
     n = req_copy(pv->req, pv, 1);
     if (n->method) ck_free(n->method);
     n->method   = ck_strdup((u8*)"PUT");
-    n->callback = inject_put_callback;
+    n->callback = put_upload_check;
     replace_slash(n, (u8*)("PUT-" BOGUS_FILE));
     async_request(n);
   } else {
-    inject_init2(pv);
+    inject_start2(pv);
   }
 
 }
 
 
-/* CALLBACK FOR PUT CHECK: Examines if PUT succeeded. In general,
-   a 2xx code and response body different from the pivot is 
-   the best we can do. */
-
-static u8 inject_put_callback(struct http_request* req,
-                              struct http_response* res) {
+static u8 put_upload_check(struct http_request* req,
+                           struct http_response* res) {
 
   DEBUG_CALLBACK(req, res);
 
@@ -474,39 +743,31 @@ static u8 inject_put_callback(struct http_request* req,
     }
   }
 
-  inject_init2(req->pivot);
+  inject_start2(req->pivot);
   return 0;
 
 }
 
 
-/* Starts injection attacks proper. */
-
-static void inject_init2(struct pivot_desc* pv) {
+static void inject_start2(struct pivot_desc* pv) {
   struct http_request* n;
   u32 i;
 
   DEBUG_HELPER(pv);
 
-  /* CHECK 0: See if the response is stable. If it fluctuates
-     randomly, we probably need to skip injection tests. */
-
   pv->misc_cnt = BH_CHECKS;
 
   for (i=0;i<BH_CHECKS;i++) {
     n = req_copy(pv->req, pv, 1);
-    n->callback = inject_check0_callback;
+    n->callback = inject_behavior_check;
     n->user_val = i;
     async_request(n);
   }
 }
 
 
-/* CALLBACK FOR CHECK 0: Confirms that the location is behaving
-   reasonably. */
-
-static u8 inject_check0_callback(struct http_request* req,
-                                 struct http_response* res) {
+static u8 inject_behavior_check(struct http_request* req,
+                                struct http_response* res) {
   struct http_request* n;
   u32 orig_state = req->pivot->state;
   u8* tmp = NULL;
@@ -530,11 +791,11 @@ static u8 inject_check0_callback(struct http_request* req,
   /* If response fluctuates, do not perform any injection checks at all. */
 
   if (req->pivot->res_varies) {
-    end_injection_checks(req->pivot);
+    inject_done(req->pivot);
     return 0;
   }
 
-  /* CHECK 1: Directory listing - 4 requests. The logic here is a bit
+  /* Directory listing - 4 requests. The logic here is a bit
      different for parametric targets (which are easy to examine with 
      a ./ trick) and directories (which require a more complex 
      comparison). */
@@ -554,7 +815,7 @@ static u8 inject_check0_callback(struct http_request* req,
     req->pivot->i_skip_add = 6;
   }
 
-  n->callback = inject_check1_callback;
+  n->callback = inject_dir_listing_check;
   n->user_val = 0;
   async_request(n);
 
@@ -568,7 +829,7 @@ static u8 inject_check0_callback(struct http_request* req,
     TPAR(n) = ck_strdup(tmp + 2);
   }
 
-  n->callback = inject_check1_callback;
+  n->callback = inject_dir_listing_check;
   n->user_val = 1;
   async_request(n);
 
@@ -582,7 +843,7 @@ static u8 inject_check0_callback(struct http_request* req,
     TPAR(n) = ck_strdup(tmp);
   }
 
-  n->callback = inject_check1_callback;
+  n->callback = inject_dir_listing_check;
   n->user_val = 2;
   async_request(n);
 
@@ -596,20 +857,40 @@ static u8 inject_check0_callback(struct http_request* req,
     ck_free(tmp);
   }
 
-  n->callback = inject_check1_callback;
+  n->callback = inject_dir_listing_check;
   n->user_val = 3;
   async_request(n);
+
+  if (orig_state != PSTATE_CHILD_INJECT) {
+
+    n = req_copy(req->pivot->req, req->pivot, 1);
+
+    ck_free(TPAR(n));
+    TPAR(n) = ck_strdup((u8*)"../../../../../../../../etc/hosts");
+
+    n->callback = inject_dir_listing_check;
+    n->user_val = 4;
+    async_request(n);
+
+    n = req_copy(req->pivot->req, req->pivot, 1);
+
+    ck_free(TPAR(n));
+    TPAR(n) = ck_strdup((u8*)"..\\..\\..\\..\\..\\..\\..\\..\\boot.ini");
+
+    n->callback = inject_dir_listing_check;
+    n->user_val = 5;
+    async_request(n);
+
+  }
+
 
   return 0;
 
 }
 
 
-/* CALLBACK FOR CHECK 1: Sees if we managed to list a directory, or find
-   a traversal vector. Called four times, parallelized. */
-
-static u8 inject_check1_callback(struct http_request* req,
-                                 struct http_response* res) {
+static u8 inject_dir_listing_check(struct http_request* req,
+                                   struct http_response* res) {
   struct http_request* n;
   u32 orig_state = req->pivot->state;
 
@@ -625,7 +906,12 @@ static u8 inject_check1_callback(struct http_request* req,
 
   req->pivot->misc_req[req->user_val] = req;
   req->pivot->misc_res[req->user_val] = res;
-  if ((++req->pivot->misc_cnt) != 4) return 1;
+
+  if (req->pivot->i_skip_add) {
+    if ((++req->pivot->misc_cnt) != 6) return 1;
+  } else {
+    if ((++req->pivot->misc_cnt) != 4) return 1;
+  }
 
   /* Got all responses. For directories, this is:
 
@@ -645,9 +931,12 @@ static u8 inject_check1_callback(struct http_request* req,
        misc[1] = ./known_val
        misc[2] = ...\known_val
        misc[3] = .\known_val
+       misc[4] = ../../../../../../../../etc/hosts
+       misc[5] = ..\..\..\..\..\..\..\..\boot.ini
 
      Here, the test is simpler: if misc[1] != misc[0], or misc[3] !=
-     misc[2], we probably have a bug.
+     misc[2], we probably have a bug. The same if misc[4] or misc[5]
+     contain magic strings, but misc[0] doesn't.
 
  */
 
@@ -691,23 +980,35 @@ static u8 inject_check1_callback(struct http_request* req,
       RESP_CHECKS(MREQ(2), MRES(2));
     }
 
+    if (inl_findstr(MRES(4)->payload, (u8*)"127.0.0.1", 512) &&
+        !inl_findstr(MRES(0)->payload, (u8*)"127.0.0.1", 512)) {
+      problem(PROB_DIR_TRAVERSAL, MREQ(4), MRES(4),
+        (u8*)"response resembles /etc/hosts", req->pivot, 0);
+    }
+
+    if (inl_findstr(MRES(5)->payload, (u8*)"[boot loader]", 512) &&
+        !inl_findstr(MRES(0)->payload, (u8*)"[boot loader]", 512)) {
+      problem(PROB_DIR_TRAVERSAL, MREQ(5), MRES(5),
+        (u8*)"response resembles c:\\boot.ini", req->pivot, 0);
+    }
+
   }
 
 schedule_next:
 
   destroy_misc_data(req->pivot, req);
 
-  /* CHECK 2: Backend XML injection - 2 requests. */
+  /* Backend XML injection - 2 requests. */
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   SET_VECTOR(orig_state, n, "sfish>'>\"><sfish></sfish>");
-  n->callback = inject_check2_callback;
+  n->callback = inject_xml_check;
   n->user_val = 0;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   SET_VECTOR(orig_state, n, "sfish>'>\"></sfish><sfish>");
-  n->callback = inject_check2_callback;
+  n->callback = inject_xml_check;
   n->user_val = 1;
   async_request(n);
 
@@ -716,11 +1017,8 @@ schedule_next:
 }
 
 
-/* CALLBACK FOR CHECK 2: Examines the response for XML injection. Called twice,
-   parallelized. */
-
-static u8 inject_check2_callback(struct http_request* req,
-                                 struct http_response* res) {
+static u8 inject_xml_check(struct http_request* req,
+                           struct http_response* res) {
   struct http_request* n;
   u32 orig_state = req->pivot->state;
 
@@ -756,59 +1054,59 @@ schedule_next:
 
   destroy_misc_data(req->pivot, req);
 
-  /* CHECK 3: Shell command injection - 9 requests. */
+  /* Shell command injection - 9 requests. */
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   APPEND_VECTOR(orig_state, n, "`true`");
-  n->callback = inject_check3_callback;
+  n->callback = inject_shell_check;
   n->user_val = 0;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   APPEND_VECTOR(orig_state, n, "`false`");
-  n->callback = inject_check3_callback;
+  n->callback = inject_shell_check;
   n->user_val = 1;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   APPEND_VECTOR(orig_state, n, "`uname`");
-  n->callback = inject_check3_callback;
+  n->callback = inject_shell_check;
   n->user_val = 2;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   APPEND_VECTOR(orig_state, n, "\"`true`\"");
-  n->callback = inject_check3_callback;
+  n->callback = inject_shell_check;
   n->user_val = 3;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   APPEND_VECTOR(orig_state, n, "\"`false`\"");
-  n->callback = inject_check3_callback;
+  n->callback = inject_shell_check;
   n->user_val = 4;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   APPEND_VECTOR(orig_state, n, "\"`uname`\"");
-  n->callback = inject_check3_callback;
+  n->callback = inject_shell_check;
   n->user_val = 5;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   APPEND_VECTOR(orig_state, n, "'`true`'");
-  n->callback = inject_check3_callback;
+  n->callback = inject_shell_check;
   n->user_val = 6;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   APPEND_VECTOR(orig_state, n, "'`false`'");
-  n->callback = inject_check3_callback;
+  n->callback = inject_shell_check;
   n->user_val = 7;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   APPEND_VECTOR(orig_state, n, "'`uname`'");
-  n->callback = inject_check3_callback;
+  n->callback = inject_shell_check;
   n->user_val = 8;
   async_request(n);
 
@@ -817,11 +1115,8 @@ schedule_next:
 }
 
 
-/* CALLBACK FOR CHECK 3: Looks for shell injection patterns. Called several
-   times, parallelized. */
-
-static u8 inject_check3_callback(struct http_request* req,
-                                 struct http_response* res) {
+static u8 inject_shell_check(struct http_request* req,
+                             struct http_response* res) {
   struct http_request* n;
   u32 orig_state = req->pivot->state;
 
@@ -883,21 +1178,21 @@ schedule_next:
 
   destroy_misc_data(req->pivot, req);
 
-  /* CHECK 4: Cross-site scripting - two requests (also test common
+  /* Cross-site scripting - two requests (also test common
      "special" error pages). */
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   APPEND_VECTOR(orig_state, n, new_xss_tag(NULL));
   set_value(PARAM_HEADER, (u8*)"Referer", new_xss_tag(NULL), 0, &n->par);
   register_xss_tag(n);
-  n->callback = inject_check4_callback;
+  n->callback = inject_xss_check;
   n->user_val = 0;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   SET_VECTOR(orig_state, n, new_xss_tag((u8*)".htaccess.aspx"));
   register_xss_tag(n);
-  n->callback = inject_check4_callback;
+  n->callback = inject_xss_check;
   n->user_val = 1;
   async_request(n);
 
@@ -906,10 +1201,8 @@ schedule_next:
 }
 
 
-/* CALLBACK FOR CHECK 4: Checks for XSS. Called twice. */
-
-static u8 inject_check4_callback(struct http_request* req,
-                                 struct http_response* res) {
+static u8 inject_xss_check(struct http_request* req,
+                           struct http_response* res) {
   struct http_request* n;
   u32 orig_state = req->pivot->state;
 
@@ -928,27 +1221,59 @@ static u8 inject_check4_callback(struct http_request* req,
 
   content_checks(req, res);
 
-  /* CHECK 5: URL redirection - 3 requests */
+  /* Attacker-controlled response start - 1 request */
 
 schedule_next:
 
   if (req->user_val) return 0;
 
   n = req_copy(RPREQ(req), req->pivot, 1);
+  SET_VECTOR(orig_state, n, (u8*)"SKIPFISH~STRING");
+  n->callback = inject_prologue_check;
+  async_request(n);
+
+  return 0;
+
+}
+
+
+static u8 inject_prologue_check(struct http_request* req,
+                                struct http_response* res) {
+  struct http_request* n;
+  u32 orig_state = req->pivot->state;
+
+  DEBUG_CALLBACK(req, res);
+
+  /* Likewise, 503 / 504 is OK here. */
+
+  if (res->state != STATE_OK) {
+    handle_error(req, res, (u8*)"during response prologue attacks", 0);
+    goto schedule_next;
+  }
+
+  if (res->pay_len && !prefix(res->payload, (u8*)"SKIPFISH~STRING") &&
+      !GET_HDR((u8*)"Content-Disposition", &res->hdr))
+    problem(PROB_PROLOGUE, req, res, NULL, req->pivot, 0);
+
+schedule_next:
+
+  /* XSS checks - 3 requests */
+
+  n = req_copy(RPREQ(req), req->pivot, 1);
   SET_VECTOR(orig_state, n, "http://skipfish.invalid/;?");
-  n->callback = inject_check5_callback;
+  n->callback = inject_redir_check;
   n->user_val = 0;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   SET_VECTOR(orig_state, n, "//skipfish.invalid/;?");
-  n->callback = inject_check5_callback;
+  n->callback = inject_redir_check;
   n->user_val = 1;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   SET_VECTOR(orig_state, n, "skipfish://invalid/;?");
-  n->callback = inject_check5_callback;
+  n->callback = inject_redir_check;
   n->user_val = 2;
   async_request(n);
 
@@ -957,11 +1282,8 @@ schedule_next:
 }
 
 
-/* CALLBACK FOR CHECK 5: Checks for URL redirection or XSS problems. Called
-   several times, paralallelized, can work on individual responses. */
-
-static u8 inject_check5_callback(struct http_request* req,
-                                 struct http_response* res) {
+static u8 inject_redir_check(struct http_request* req,
+                             struct http_response* res) {
   struct http_request* n;
   u8* val;
   u32 orig_state = req->pivot->state;
@@ -1023,17 +1345,17 @@ schedule_next:
 
   if (req->user_val != 2) return 0;
 
-  /* CHECK 6: header splitting - 2 requests */
+  /* Header splitting - 2 requests */
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   APPEND_VECTOR(orig_state, n, "bogus\nSkipfish-Inject:bogus");
-  n->callback = inject_check6_callback;
+  n->callback = inject_split_check;
   n->user_val = 0;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   APPEND_VECTOR(orig_state, n, "bogus\rSkipfish-Inject:bogus");
-  n->callback = inject_check6_callback;
+  n->callback = inject_split_check;
   n->user_val = 1;
   async_request(n);
 
@@ -1042,11 +1364,8 @@ schedule_next:
 }
 
 
-/* CALLBACK FOR CHECK 6: A simple test for request splitting. Called
-   twice, parallelized, can work on individual responses. */
-
-static u8 inject_check6_callback(struct http_request* req,
-                                 struct http_response* res) {
+static u8 inject_split_check(struct http_request* req,
+                             struct http_response* res) {
   u8 is_num = 0;
   struct http_request* n;
   u32 orig_state = req->pivot->state;
@@ -1071,7 +1390,7 @@ schedule_next:
 
   if (req->user_val != 1) return 0;
 
-  /* CHECK 7: SQL injection - 8 requests */
+  /* SQL injection - 10 requests */
 
   if (orig_state != PSTATE_CHILD_INJECT) {
     u8* pstr = TPAR(RPREQ(req));
@@ -1082,21 +1401,21 @@ schedule_next:
   n = req_copy(RPREQ(req), req->pivot, 1);
   if (!is_num) SET_VECTOR(orig_state, n, "9-8");
   else APPEND_VECTOR(orig_state, n, "-0");
-  n->callback = inject_check7_callback;
+  n->callback = inject_sql_check;
   n->user_val = 0;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   if (!is_num) SET_VECTOR(orig_state, n, "8-7");
   else APPEND_VECTOR(orig_state, n, "-0-0");
-  n->callback = inject_check7_callback;
+  n->callback = inject_sql_check;
   n->user_val = 1;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   if (!is_num) SET_VECTOR(orig_state, n, "9-1");
   else APPEND_VECTOR(orig_state, n, "-0-9");
-  n->callback = inject_check7_callback;
+  n->callback = inject_sql_check;
   n->user_val = 2;
   async_request(n);
 
@@ -1106,7 +1425,7 @@ schedule_next:
   set_value(PARAM_HEADER, (u8*)"Referer", (u8*)"sfish\\\'\\\"", 0, &n->par);
   set_value(PARAM_HEADER, (u8*)"Accept-Language", (u8*)"sfish\\\'\\\",en", 0,
             &n->par);
-  n->callback = inject_check7_callback;
+  n->callback = inject_sql_check;
   n->user_val = 3;
   async_request(n);
 
@@ -1116,7 +1435,7 @@ schedule_next:
   set_value(PARAM_HEADER, (u8*)"Referer", (u8*)"sfish\'\"", 0, &n->par);
   set_value(PARAM_HEADER, (u8*)"Accept-Language", (u8*)"sfish\'\",en", 0,
             &n->par);
-  n->callback = inject_check7_callback;
+  n->callback = inject_sql_check;
   n->user_val = 4;
   async_request(n);
 
@@ -1126,7 +1445,7 @@ schedule_next:
   set_value(PARAM_HEADER, (u8*)"Referer", (u8*)"sfish\\\\\'\\\\\"", 0, &n->par);
   set_value(PARAM_HEADER, (u8*)"Accept-Language", (u8*)"sfish\\\\\'\\\\\",en", 0,
             &n->par);
-  n->callback = inject_check7_callback;
+  n->callback = inject_sql_check;
   n->user_val = 5;
   async_request(n);
 
@@ -1135,28 +1454,51 @@ schedule_next:
   n = req_copy(RPREQ(req), req->pivot, 1);
   if (!is_num) SET_VECTOR(orig_state, n, "9 - 1");
   else APPEND_VECTOR(orig_state, n, " - 0 - 0");
-  n->callback = inject_check7_callback;
+  n->callback = inject_sql_check;
   n->user_val = 6;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   if (!is_num) SET_VECTOR(orig_state, n, "9 1 -");
   else APPEND_VECTOR(orig_state, n, " 0 0 - -");
-  n->callback = inject_check7_callback;
+  n->callback = inject_sql_check;
   n->user_val = 7;
   async_request(n);
 
-  /* TODO: We should probably also attempt cookie injection here. */
+  /* Another round of SQL injection checks for a different escaping style. */
+
+  n = req_copy(RPREQ(req), req->pivot, 1);
+  APPEND_VECTOR(orig_state, n, "''''\"\"\"\"");
+  set_value(PARAM_HEADER, (u8*)"User-Agent", (u8*)"sfish''''\"\"\"\"", 0, 
+            &n->par);
+  set_value(PARAM_HEADER, (u8*)"Referer", (u8*)"sfish''''\"\"\"\"", 0, &n->par);
+  set_value(PARAM_HEADER, (u8*)"Accept-Language", (u8*)"sfish''''\"\"\"\",en",
+            0, &n->par);
+  n->callback = inject_sql_check;
+  n->user_val = 8;
+  async_request(n);
+
+  n = req_copy(RPREQ(req), req->pivot, 1);
+  APPEND_VECTOR(orig_state, n, "'\"'\"'\"'\"");
+  set_value(PARAM_HEADER, (u8*)"User-Agent", (u8*)"sfish'\"'\"'\"'\"", 0,
+            &n->par);
+  set_value(PARAM_HEADER, (u8*)"Referer", (u8*)"sfish'\"'\"'\"'\"", 0,
+            &n->par);
+  set_value(PARAM_HEADER, (u8*)"Accept-Language", 
+            (u8*)"sfish'\"'\"'\"'\",en", 0, &n->par);
+  n->callback = inject_sql_check;
+  n->user_val = 9;
+  async_request(n);
+
+  /* TODO: We should probably also attempt cookie vectors here. */
 
   return 0;
 
 }
 
 
-/* CALLBACK FOR CHECK 7: See if we have any indication of SQL injection. */
-
-static u8 inject_check7_callback(struct http_request* req,
-                                 struct http_response* res) {
+static u8 inject_sql_check(struct http_request* req,
+                           struct http_response* res) {
   struct http_request* n;
   u32 orig_state = req->pivot->state;
   DEBUG_CALLBACK(req, res);
@@ -1171,7 +1513,7 @@ static u8 inject_check7_callback(struct http_request* req,
 
   req->pivot->misc_req[req->user_val] = req;
   req->pivot->misc_res[req->user_val] = res;
-  if ((++req->pivot->misc_cnt) != 8) return 1;
+  if ((++req->pivot->misc_cnt) != 10) return 1;
 
   /* Got all data:
 
@@ -1184,10 +1526,16 @@ static u8 inject_check7_callback(struct http_request* req,
        misc[6] = 9 - 1 (or orig - 0 - 0)
        misc[7] = 9 1 - (or orig 0 0 - -)
 
+       misc[8] == [orig]''''""""
+       misc[9] == [orig]'"'"'"'"
+
      If misc[0] == misc[1], but misc[0] != misc[2], probable (numeric) SQL
      injection. Ditto for misc[1] == misc[6], but misc[6] != misc[7]. 
 
      If misc[3] != misc[4] and misc[3] != misc[5], probable text SQL 
+     injection.
+
+     If misc[4] == misc[9], and misc[8] != misc[9], probable text SQL
      injection.
 
    */
@@ -1218,21 +1566,29 @@ static u8 inject_check7_callback(struct http_request* req,
     RESP_CHECKS(MREQ(4), MRES(4));
   }
 
+  if (same_page(&MRES(4)->sig, &MRES(9)->sig) && 
+      !same_page(&MRES(8)->sig, &MRES(9)->sig)) {
+    problem(PROB_SQL_INJECT, MREQ(4), MRES(4), 
+      (u8*)"response to ''''\"\"\"\" different than to '\"'\"'\"'\"", req->pivot, 0);
+    RESP_CHECKS(MREQ(8), MRES(8));
+    RESP_CHECKS(MREQ(9), MRES(9));
+  }
+
 schedule_next:
 
   destroy_misc_data(req->pivot, req);
 
-  /* CHECK 8: format string attacks - 2 requests. */
+  /* Format string attacks - 2 requests. */
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   SET_VECTOR(orig_state, n, "sfish%dn%dn%dn%dn%dn%dn%dn%dn");
-  n->callback = inject_check8_callback;
+  n->callback = inject_format_check;
   n->user_val = 0;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   SET_VECTOR(orig_state, n, "sfish%nd%nd%nd%nd%nd%nd%nd%nd");
-  n->callback = inject_check8_callback;
+  n->callback = inject_format_check;
   n->user_val = 1;
   async_request(n);
 
@@ -1240,10 +1596,8 @@ schedule_next:
 }
 
 
-/* Check for format string bugs. */
-
-static u8 inject_check8_callback(struct http_request* req,
-                                 struct http_response* res) {
+static u8 inject_format_check(struct http_request* req,
+                              struct http_response* res) {
   struct http_request* n;
   u32 orig_state = req->pivot->state;
   DEBUG_CALLBACK(req, res);
@@ -1280,59 +1634,59 @@ schedule_next:
 
   destroy_misc_data(req->pivot, req);
 
-  /* CHECK 9: integer overflow bugs - 9 requests. */
+  /* Integer overflow bugs - 9 requests. */
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   SET_VECTOR(orig_state, n, "-0000012345");
-  n->callback = inject_check9_callback;
+  n->callback = inject_integer_check;
   n->user_val = 0;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   SET_VECTOR(orig_state, n, "-2147483649");
-  n->callback = inject_check9_callback;
+  n->callback = inject_integer_check;
   n->user_val = 1;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   SET_VECTOR(orig_state, n, "-2147483648");
-  n->callback = inject_check9_callback;
+  n->callback = inject_integer_check;
   n->user_val = 2;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   SET_VECTOR(orig_state, n, "0000012345");
-  n->callback = inject_check9_callback;
+  n->callback = inject_integer_check;
   n->user_val = 3;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   SET_VECTOR(orig_state, n, "2147483647");
-  n->callback = inject_check9_callback;
+  n->callback = inject_integer_check;
   n->user_val = 4;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   SET_VECTOR(orig_state, n, "2147483648");
-  n->callback = inject_check9_callback;
+  n->callback = inject_integer_check;
   n->user_val = 5;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   SET_VECTOR(orig_state, n, "4294967295");
-  n->callback = inject_check9_callback;
+  n->callback = inject_integer_check;
   n->user_val = 6;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   SET_VECTOR(orig_state, n, "4294967296");
-  n->callback = inject_check9_callback;
+  n->callback = inject_integer_check;
   n->user_val = 7;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   SET_VECTOR(orig_state, n, "0000023456");
-  n->callback = inject_check9_callback;
+  n->callback = inject_integer_check;
   n->user_val = 8;
   async_request(n);
 
@@ -1340,11 +1694,8 @@ schedule_next:
 }
 
 
-/* Check for format string bugs, then wrap up the injection
-   phase.. */
-
-static u8 inject_check9_callback(struct http_request* req,
-                                 struct http_response* res) {
+static u8 inject_integer_check(struct http_request* req,
+                               struct http_response* res) {
 
   DEBUG_CALLBACK(req, res);
 
@@ -1428,16 +1779,14 @@ static u8 inject_check9_callback(struct http_request* req,
 schedule_next:
 
   destroy_misc_data(req->pivot, req);
-  end_injection_checks(req->pivot);
+  inject_done(req->pivot);
 
   return 0;
 
 }
 
 
-/* Ends injection checks, proceeds with brute-force attacks, etc. */
-
-static void end_injection_checks(struct pivot_desc* pv) {
+static void inject_done(struct pivot_desc* pv) {
 
   if (pv->state == PSTATE_CHILD_INJECT) {
 
@@ -1447,9 +1796,9 @@ static void end_injection_checks(struct pivot_desc* pv) {
           && pv->r404_cnt && !pv->bad_parent) {
         pv->state   = PSTATE_CHILD_DICT;
         pv->cur_key = 0;
-        crawl_dir_dict_init(pv);
+        dir_dict_start(pv);
       } else {
-        crawl_parametric_init(pv);
+        param_start(pv);
       }
 
     } else {
@@ -1466,7 +1815,7 @@ static void end_injection_checks(struct pivot_desc* pv) {
       pv->state = PSTATE_DONE;
       if (delete_bin) maybe_delete_payload(pv);
     } else {
-      crawl_par_numerical_init(pv);
+      param_numerical_start(pv);
     }
 
   }
@@ -1474,23 +1823,7 @@ static void end_injection_checks(struct pivot_desc* pv) {
 }
 
 
-
-/*
-
-  *****************************
-  * GENERIC PARAMETRIC CHECKS *
-  *****************************
-
-  Tests specific to parametric nodes, such as foo=bar (query and
-  POST parameters, directories, etc).
-
- */
-
-/* Initializes initial parametric testing probe. It may get called on
-   pivots with no specific parameters to fuzz, in which case, we want to
-   proceed to PSTATE_DONE. */
-
-static void crawl_parametric_init(struct pivot_desc* pv) {
+static void param_start(struct pivot_desc* pv) {
   struct http_request* n;
   u32 i;
 
@@ -1504,7 +1837,7 @@ static void crawl_parametric_init(struct pivot_desc* pv) {
 
   pv->state = PSTATE_PAR_CHECK;
 
-  /* TEST 1: parameter behavior. */
+  /* Parameter behavior. */
 
   pv->ck_pending += BH_CHECKS;
 
@@ -1512,7 +1845,7 @@ static void crawl_parametric_init(struct pivot_desc* pv) {
     n = req_copy(pv->req, pv, 1);
     ck_free(TPAR(n));
     TPAR(n) = ck_strdup((u8*)BOGUS_PARAM);
-    n->callback = par_check_callback;
+    n->callback = param_behavior_check;
     n->user_val = i;
     async_request(n);
   }
@@ -1520,12 +1853,8 @@ static void crawl_parametric_init(struct pivot_desc* pv) {
 }
 
 
-/* CALLBACK FOR TEST 1: Checks if the parameter causes a significant
-   change on the resulting page (suggesting it should be brute-forced,
-   not just injection-tested). */
-
-static u8 par_check_callback(struct http_request* req,
-                             struct http_response* res) {
+static u8 param_behavior_check(struct http_request* req,
+                               struct http_response* res) {
 
   struct http_request* n;
   u8* tmp;
@@ -1592,14 +1921,14 @@ schedule_next:
     sprintf((char*)tmp, "[0]['%s']", n->par.n[req->pivot->fuzz_par]);
     ck_free(n->par.n[req->pivot->fuzz_par]);
     n->par.n[req->pivot->fuzz_par] = tmp;
-    n->callback = par_ognl_callback;
+    n->callback = param_ognl_check;
     n->user_val = 0;
     async_request(n);
 
     n = req_copy(req->pivot->req, req->pivot, 1);
     ck_free(n->par.n[req->pivot->fuzz_par]);
     n->par.n[req->pivot->fuzz_par] = ck_strdup((u8*)"[0]['sfish']");
-    n->callback = par_ognl_callback;
+    n->callback = param_ognl_check;
     n->user_val = 1;
     async_request(n);
 
@@ -1610,17 +1939,15 @@ schedule_next:
      to dictionary fuzzing if bogus_par or res_varies is set. */
 
   req->pivot->state = PSTATE_PAR_INJECT;
-  inject_init(req->pivot);
+  inject_start(req->pivot);
 
   return 0;
 
 }
 
 
-/* Said OGNL check... */
-
-static u8 par_ognl_callback(struct http_request* req,
-                            struct http_response* res) {
+static u8 param_ognl_check(struct http_request* req,
+                           struct http_response* res) {
 
   DEBUG_CALLBACK(req, res);
 
@@ -1650,10 +1977,7 @@ static u8 par_ognl_callback(struct http_request* req,
 }
 
 
-/* STAGE 2: Tries numerical brute-force (if any reasonably sized
-   integer is actually found in the name). */
-
-static void crawl_par_numerical_init(struct pivot_desc* pv) {
+static void param_numerical_start(struct pivot_desc* pv) {
   u8 *val = TPAR(pv->req), *out, fmt[16];
   u32 i, dig, tail;
   s32 val_i, range_st, range_en;
@@ -1698,13 +2022,14 @@ static void crawl_par_numerical_init(struct pivot_desc* pv) {
   for (i=range_st;i<=range_en;i++) {
     struct http_request* n;
 
-    if (i == val_i) continue;
+    if (i == val_i) { pv->num_pending--; continue; }
+
     sprintf((char*)out, (char*)fmt, val, i, val + tail);
 
     n = req_copy(pv->req, pv, 1);
     ck_free(TPAR(n));
     TPAR(n) = ck_strdup((u8*)out);
-    n->callback = par_numerical_callback;
+    n->callback = param_numerical_check;
     async_request(n);
 
   }
@@ -1717,19 +2042,15 @@ static void crawl_par_numerical_init(struct pivot_desc* pv) {
 schedule_next:
 
   pv->state = PSTATE_PAR_DICT;
-  crawl_par_dict_init(pv);
+  param_dict_start(pv);
 
   /* Pew pew! */
 
 }
 
 
-/* CALLBACK FOR STAGE 2: Examines the output of numerical brute-force,
-   creates PIVOT_VALUE nodes if the response looks different from pivot,
-   nearby 404 sigs. */
-
-static u8 par_numerical_callback(struct http_request* req,
-                                 struct http_response* res) {
+static u8 param_numerical_check(struct http_request* req,
+                                struct http_response* res) {
   struct pivot_desc *par, *n = NULL, *orig_pv = req->pivot;
   u32 i;
 
@@ -1790,7 +2111,7 @@ static u8 par_numerical_callback(struct http_request* req,
 
   RESP_CHECKS(req, res);
 
-  secondary_ext_init(orig_pv, req, res, 1);
+  secondary_ext_start(orig_pv, req, res, 1);
 
   if (delete_bin) maybe_delete_payload(n);
 
@@ -1798,7 +2119,7 @@ schedule_next:
 
   if (!(--(orig_pv->num_pending))) {
     orig_pv->state = PSTATE_PAR_DICT;
-    crawl_par_dict_init(orig_pv);
+    param_dict_start(orig_pv);
   }
 
   /* Copied over to pivot. */
@@ -1807,10 +2128,7 @@ schedule_next:
 }
 
 
-/* STAGE 3: Tries dictionary brute-force. This is fairly similar to the
-   directory dictionary version, but with additional try_list logic, etc. */
-
-static void crawl_par_dict_init(struct pivot_desc* pv) {
+static void param_dict_start(struct pivot_desc* pv) {
   static u8 in_dict_init;
   struct http_request* n;
   u8 *kw, *ex;
@@ -1827,7 +2145,7 @@ static void crawl_par_dict_init(struct pivot_desc* pv) {
 restart_dict:
 
   if (!descendants_ok(pv)) {
-    crawl_par_trylist_init(pv);
+    param_trylist_start(pv);
     return;
   }
 
@@ -1841,7 +2159,7 @@ restart_dict:
     /* No more keywords. Move to guesswords if not there already, or
        advance to try list otherwise. */
 
-    if (pv->pdic_guess) { crawl_par_trylist_init(pv); return; }
+    if (pv->pdic_guess) { param_trylist_start(pv); return; }
 
     pv->pdic_guess   = 1;
     pv->pdic_cur_key = 0;
@@ -1871,7 +2189,8 @@ restart_dict:
       n = req_copy(pv->req, pv, 1);
       ck_free(TPAR(n));
       TPAR(n) = ck_strdup(kw);
-      n->callback = par_dict_callback;
+      n->callback = param_dict_check;
+      n->user_val = 0;
       pv->pdic_pending++;
       in_dict_init = 1;
       async_request(n);
@@ -1903,8 +2222,8 @@ restart_dict:
           n = req_copy(pv->req, pv, 1);
           ck_free(TPAR(n));
           TPAR(n) = tmp;
-          n->callback = par_dict_callback;
-          n->with_ext = 1;
+          n->user_val = 0;
+          n->callback = param_dict_check;
           pv->pdic_pending++;
           in_dict_init = 1;
           async_request(n);
@@ -1923,10 +2242,8 @@ restart_dict:
 }
 
 
-/* CALLBACK FOR STAGE 3: Examines the output of directory brute-force. */
-
-static u8 par_dict_callback(struct http_request* req,
-                            struct http_response* res) {
+static u8 param_dict_check(struct http_request* req,
+                           struct http_response* res) {
   struct pivot_desc *par, *n = NULL, *orig_pv = req->pivot;
   u8 keep = 0;
   u32 i;
@@ -1987,24 +2304,21 @@ static u8 par_dict_callback(struct http_request* req,
   RESP_CHECKS(req, res);
 
   if (!req->user_val)
-    secondary_ext_init(orig_pv, req, res, 1);
+    secondary_ext_start(orig_pv, req, res, 1);
 
   if (delete_bin) maybe_delete_payload(n);
 
 schedule_next:
 
   if (!req->user_val) 
-    crawl_par_dict_init(orig_pv);
+    param_dict_start(orig_pv);
 
   return keep;
 
 }
 
 
-/* STAGE 4: Handles try list (this may be called again after request is
-   completed, when new entries are added to the try list). */
-
-void crawl_par_trylist_init(struct pivot_desc* pv) {
+void param_trylist_start(struct pivot_desc* pv) {
   u32 i;
 
   /* If the parameter does not seem to be doing anything, there is
@@ -2047,7 +2361,7 @@ void crawl_par_trylist_init(struct pivot_desc* pv) {
         n = req_copy(pv->req, pv, 1);
         ck_free(TPAR(n));
         TPAR(n) = ck_strdup(pv->try_list[i]);
-        n->callback = par_trylist_callback;
+        n->callback = param_trylist_check;
         async_request(n);
       }
 
@@ -2068,10 +2382,8 @@ void crawl_par_trylist_init(struct pivot_desc* pv) {
 }
 
 
-/* CALLBACK FOR STAGE 4: Examines the output of try list fetches. */
-
-static u8 par_trylist_callback(struct http_request* req,
-                               struct http_response* res) {
+static u8 param_trylist_check(struct http_request* req,
+                              struct http_response* res) {
   struct pivot_desc *par, *n = NULL;
   struct pivot_desc* orig_pv = req->pivot;
   u32 i;
@@ -2126,7 +2438,7 @@ static u8 par_trylist_callback(struct http_request* req,
 
   RESP_CHECKS(req, res);
 
-  secondary_ext_init(orig_pv, req, res, 1);
+  secondary_ext_start(orig_pv, req, res, 1);
 
   if (delete_bin) maybe_delete_payload(n);
 
@@ -2143,20 +2455,7 @@ schedule_next:
 }
 
 
-/*
-
-  ***************************
-  **** PIVOT_FILE CHECKS ****
-  ***************************
-
-  Used on confirmed file or parameter type pivots.
-
- */
-
-/* Initial callback for content fetch. Nothing interesting here, spare for
-   basic sanity checks. */
-
-u8 fetch_file_callback(struct http_request* req, struct http_response* res) {
+u8 file_retrieve_check(struct http_request* req, struct http_response* res) {
   u32 i = 0;
   struct pivot_desc* par;
 
@@ -2194,11 +2493,11 @@ u8 fetch_file_callback(struct http_request* req, struct http_response* res) {
     if (!RPAR(req)->res || !same_page(&res->sig, &RPAR(req)->res->sig)) {
       RESP_CHECKS(req, res);
       if (par && req->pivot->type != PIVOT_PARAM) 
-        secondary_ext_init(par, req, res, 0);
+        secondary_ext_start(par, req, res, 0);
     }
 
     if (req->pivot->type == PIVOT_FILE)
-      check_case(req->pivot);
+      dir_case_start(req->pivot);
 
   }
 
@@ -2209,10 +2508,10 @@ u8 fetch_file_callback(struct http_request* req, struct http_response* res) {
   unlock_children(req->pivot);
 
   if (req->pivot->type == PIVOT_PARAM) {
-    crawl_parametric_init(req->pivot);
+    param_start(req->pivot);
   } else {
     req->pivot->state = PSTATE_CHILD_INJECT;
-    inject_init(req->pivot);
+    inject_start(req->pivot);
   }
 
 
@@ -2222,21 +2521,7 @@ u8 fetch_file_callback(struct http_request* req, struct http_response* res) {
 }
 
 
-/*
-
-  ********************
-  * PIVOT_DIR CHECKS *
-  ********************
-
-  These checks are called on all pivot points determined to correspond to
-  real directories.
-
- */
-
-
-/* STAGE 1: Handles initial fetch of a directory. Called once. */
-
-u8 fetch_dir_callback(struct http_request* req, struct http_response* res) {
+u8 dir_retrieve_check(struct http_request* req, struct http_response* res) {
   struct http_request* n;
   struct pivot_desc* par;
   RPRES(req) = res;
@@ -2264,26 +2549,22 @@ u8 fetch_dir_callback(struct http_request* req, struct http_response* res) {
   replace_slash(n, (u8*)BOGUS_FILE);
 
   n->user_val = 0;
-  n->callback = dir_404_callback;
+  n->callback = dir_404_check;
+
   req->pivot->r404_pending++;
 
   async_request(n);
 
   par = dir_parent(req->pivot);
-  if (par) secondary_ext_init(par, req, res, 0);
+  if (par) secondary_ext_start(par, req, res, 0);
 
   /* Header, response belong to pivot - keep. */
   return 1;
 }
 
 
-/* STAGE 2: Called on 404 checks, sequentially for each response. First
-   called once, with user_val = 0, for no extension; when called
-   multiple times to gather signatures. If not enough or too many
-   signatures found, the directory is deemed to be fubar. */
-
-static u8 dir_404_callback(struct http_request* req,
-                           struct http_response* res) {
+static u8 dir_404_check(struct http_request* req,
+                        struct http_response* res) {
 
   struct http_request* n;
   u32 i;
@@ -2380,27 +2661,32 @@ schedule_next:
        meaningful. */
 
     PIVOT_CHECKS(req->pivot->req, req->pivot->res);
-    check_case(req->pivot);
+    dir_case_start(req->pivot);
 
-    /* Aaand schedule all the remaining probes. */
+    /* Aaand schedule all the remaining probes. Repeat BH_CHECKS
+       times to also catch random variations. */
 
     while ((nk = wordlist_get_extension(cur_ext++, 0))) {
       u8* tmp = ck_alloc(strlen(BOGUS_FILE) + strlen((char*)nk) + 2);
 
-      n = req_copy(RPREQ(req), req->pivot, 1);
-
       sprintf((char*)tmp, "%s.%s", BOGUS_FILE, nk);
-      replace_slash(n, tmp);
+
+      for (i=0;i<BH_CHECKS;i++) {
+
+        n = req_copy(RPREQ(req), req->pivot, 1);
+        replace_slash(n, tmp);
+        n->callback = dir_404_check;
+        n->user_val   = 1;
+
+        /* r404_pending is at least 1 to begin with, so this is safe
+           even if async_request() has a synchronous effect. */
+
+        req->pivot->r404_pending++;
+        async_request(n);
+ 
+      }
+
       ck_free(tmp);
-      n->callback = dir_404_callback;
-      n->with_ext = 1;
-      n->user_val = 1;
-
-      /* r404_pending is at least 1 to begin with, so this is safe
-         even if async_request() has a synchronous effect. */
-
-      req->pivot->r404_pending++;
-      async_request(n);
 
     }
 
@@ -2409,7 +2695,7 @@ schedule_next:
 
     n = req_copy(RPREQ(req), req->pivot, 1);
     replace_slash(n, (u8*)"lpt9");
-    n->callback = dir_404_callback;
+    n->callback = dir_404_check;
     n->user_val = 1;
     req->pivot->r404_pending++;
     async_request(n);
@@ -2418,7 +2704,7 @@ schedule_next:
 
     n = req_copy(RPREQ(req), req->pivot, 1);
     replace_slash(n, (u8*)"~" BOGUS_FILE);
-    n->callback = dir_404_callback;
+    n->callback = dir_404_check;
     n->user_val = 1;
     req->pivot->r404_pending++;
     async_request(n);
@@ -2428,7 +2714,7 @@ schedule_next:
     n = req_copy(RPREQ(req), req->pivot, 1);
     replace_slash(n, (u8*)BOGUS_FILE);
     set_value(PARAM_PATH, 0, (u8*)"", -1, &n->par);
-    n->callback = dir_404_callback;
+    n->callback = dir_404_check;
     n->user_val = 1;
     req->pivot->r404_pending++;
     async_request(n);
@@ -2460,7 +2746,7 @@ bad_404:
       if (RPRES(req)->code == 401)
         problem(PROB_AUTH_REQ, RPREQ(req), RPRES(req), NULL, req->pivot, 0);
       else if (RPRES(req)->code >= 500)
-       problem(PROB_SERV_ERR, RPREQ(req), RPRES(req), NULL, req->pivot, 0);
+        problem(PROB_SERV_ERR, RPREQ(req), RPRES(req), NULL, req->pivot, 0);
 
     } else {
 
@@ -2500,7 +2786,7 @@ bad_404:
 
     }  
 
-  } else DEBUG("* 404 detection successful.\n");
+  } else DEBUG("* 404 detection successful: %u signatures.\n", req->pivot->r404_cnt);
 
   /* Note that per-extension 404 probes coupled with a limit on the number of
      404 signatures largely eliminates the need for BH_COUNT identical probes
@@ -2513,7 +2799,7 @@ bad_404:
   req->pivot->state = PSTATE_PARENT_CHECK;
 
   n = req_copy(RPREQ(req), req->pivot, 1);
-  n->callback = dir_parent_callback;
+  n->callback = dir_up_behavior_check;
   n->user_val = 0;
 
   /* Last path element is /; previous path element is current dir name; 
@@ -2536,10 +2822,10 @@ bad_404:
   } else {
 
     /* Top-level dir - nothing to replace. Do a dummy call to 
-       dir_parent_callback() to proceed directly to IPS checks. */
+       dir_up_behavior_check() to proceed directly to IPS checks. */
 
     n->user_val = 1;
-    dir_parent_callback(n, res);
+    dir_up_behavior_check(n, res);
     destroy_request(n);
 
   }
@@ -2549,10 +2835,8 @@ bad_404:
 }
 
 
-/* STAGE 3: Called to verify that changing parent path element has an effect, once. */
-
-static u8 dir_parent_callback(struct http_request* req,
-                              struct http_response* res) {
+static u8 dir_up_behavior_check(struct http_request* req,
+                                struct http_response* res) {
 
   struct http_request* n;
 
@@ -2586,13 +2870,13 @@ schedule_next:
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   tokenize_path((u8*)IPS_TEST, n, 0);
-  n->callback = dir_ips_callback;
+  n->callback = dir_ips_check;
   n->user_val = 0;
   async_request(n);
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   tokenize_path((u8*)IPS_SAFE, n, 0);
-  n->callback = dir_ips_callback;
+  n->callback = dir_ips_check;
   n->user_val = 1;
   async_request(n);
 
@@ -2601,10 +2885,8 @@ schedule_next:
 }
 
 
-/* STAGE 4: Called on IPS check, twice. */
-
-static u8 dir_ips_callback(struct http_request* req,
-                           struct http_response* res) {
+static u8 dir_ips_check(struct http_request* req,
+                        struct http_response* res) {
   struct pivot_desc* par;
 
   DEBUG_CALLBACK(req, res);
@@ -2648,19 +2930,16 @@ schedule_next:
   unlock_children(req->pivot);
 
   req->pivot->state = PSTATE_CHILD_INJECT;
-  inject_init(req->pivot);
+  inject_start(req->pivot);
 
   return 0;
 }
 
 
-/* STAGE 5: Start / update directory brute-force. */
-
-static void crawl_dir_dict_init(struct pivot_desc* pv) {
+static void dir_dict_start(struct pivot_desc* pv) {
   static u8 in_dict_init;
   struct http_request* n;
-  u8 *kw, *ex;
-  u32 i, c;
+  u8 *kw;
   u8 specific;
 
   /* Too many requests still pending, or already moved on to
@@ -2670,7 +2949,7 @@ static void crawl_dir_dict_init(struct pivot_desc* pv) {
     return;
 
   if (!descendants_ok(pv)) {
-    crawl_parametric_init(pv);
+    param_start(pv);
     return;
   }
 
@@ -2681,7 +2960,7 @@ static void crawl_dir_dict_init(struct pivot_desc* pv) {
     else
       problem(PROB_LIMITS, pv->req, pv->res, 
               (u8*)"Directory out of scope, not fuzzing", pv, 0);
-    crawl_parametric_init(pv);
+    param_start(pv);
     return;
   }
 
@@ -2697,7 +2976,7 @@ restart_dict:
     /* No more keywords. Move to guesswords if not there already, or
        advance to parametric tests otherwise. */
 
-    if (pv->guess) { crawl_parametric_init(pv); return; }
+    if (pv->guess) { param_start(pv); return; }
 
     pv->guess   = 1;
     pv->cur_key = 0;
@@ -2709,99 +2988,166 @@ restart_dict:
 
   if (R(100) < crawl_prob) {
 
-    /* Schedule extension-less probe, unless the name is already
-       on child list. */
+    /* First, schedule a request for /foo.bogus to see if extension
+       fuzzing is advisable. */
 
-    for (c=0;c<pv->child_cnt;c++)
-      if (!((is_c_sens(pv) ? strcmp : strcasecmp)((char*)kw,
-          (char*)pv->child[c]->name))) break;
+    u8* tmp = ck_alloc(strlen((char*)kw) + strlen((char*)BOGUS_EXT) + 2);
 
-    /* Matching current node? */
+    sprintf((char*)tmp, "%s.%s", kw, BOGUS_EXT);
 
-    if (pv->fuzz_par != -1 &&
-        !((is_c_sens(pv) ? strcmp : strcasecmp)((char*)kw,
-        (char*)pv->req->par.v[pv->fuzz_par]))) c = ~pv->child_cnt;
+    n = req_copy(pv->req, pv, 1);
+    replace_slash(n, tmp);
+    n->callback = dir_dict_bogus_check;
+    n->trying_key = kw;
+    n->trying_spec = specific;
+    pv->pending++;
+    in_dict_init = 1;
+    async_request(n);
+    in_dict_init = 0;
 
-    if (c == pv->child_cnt) {
-      n = req_copy(pv->req, pv, 1);
-      replace_slash(n, kw);
-      n->callback = dir_dict_callback;
-      pv->pending++;
-      in_dict_init = 1;
-      async_request(n);
-      in_dict_init = 0;
-
-      /* Some web frameworks respond with 404 to /foo, but
-         something else to /foo/. Let's try to account for these, too,
-         to the extend possible. */
-
-      n = req_copy(pv->req, pv, 1);
-      replace_slash(n, kw);
-      set_value(PARAM_PATH, NULL, (u8*)"", -1, &n->par);
-      n->callback = dir_dict_callback;
-      pv->pending++;
-      in_dict_init = 1;
-      async_request(n);
-      in_dict_init = 0;
-
-    }
-
-    /* Schedule probes for all extensions for the current word,
-       likewise. Make an exception for specific keywords that
-       already contain a period. */
-
-    i = 0;
-
-    if (!no_fuzz_ext)
-      while ((ex = wordlist_get_extension(i, specific))) {
-
-        u8* tmp = ck_alloc(strlen((char*)kw) + strlen((char*)ex) + 2);
-
-        sprintf((char*)tmp, "%s.%s", kw, ex);
-
-        for (c=0;c<pv->child_cnt;c++)
-          if (!((is_c_sens(pv) ? strcmp : strcasecmp)((char*)tmp,
-              (char*)pv->child[c]->name))) break;
-
-        if (pv->fuzz_par != -1 &&
-            !((is_c_sens(pv) ? strcmp : strcasecmp)((char*)tmp,
-            (char*)pv->req->par.v[pv->fuzz_par]))) c = pv->child_cnt;
-
-        if (c == pv->child_cnt) {
-          n = req_copy(pv->req, pv, 1);
-          replace_slash(n, tmp);
-          n->callback = dir_dict_callback;
-          n->with_ext = 1;
-          pv->pending++;
-          in_dict_init = 1;
-          async_request(n);
-          in_dict_init = 0;
-        }
-
-        ck_free(tmp);
-
-        i++;
-      }
+    ck_free(tmp);
 
   }
 
   pv->cur_key++;
 
-  /* This scheduled extension_cnt + 1 requests - which, depending on
-     settings, may be anywhere from 1 to 200 or so. Grab more keywords
-     until we have a decent number scheduled, to improve parallelism. */
+  /* Grab more keywords until we have a reasonable number of parallel requests
+     scheduled. */
 
   if (pv->pending < DICT_BATCH) goto restart_dict;
 
 }
 
 
-/* CALLBACK FOR STAGE 5: Checks for a hit, schedules some more. */
+static u8 dir_dict_bogus_check(struct http_request* req,
+                               struct http_response* res) {
 
-static u8 dir_dict_callback(struct http_request* req,
-                            struct http_response* res) {
+  struct http_request* n;
+  u32 i, c;
+
+  DEBUG_CALLBACK(req, res);
+
+  if (FETCH_FAIL(res)) {
+
+    handle_error(req, res, (u8*)"during path-based dictionary probes", 0);
+    i = ~req->pivot->r404_cnt;
+
+  } else {
+
+    if (!req->pivot->r404_cnt)
+      DEBUG("Bad pivot with no sigs! Pivot name = '%s'\n",
+            req->pivot->name);
+
+    for (i=0;i<req->pivot->r404_cnt;i++)
+      if (same_page(&res->sig, &req->pivot->r404[i])) break;
+
+  }
+
+  /* Do not schedule probes for .ht* files if default Apache config spotted. */
+
+  if (i == req->pivot->r404_cnt && res->code == 403 &&
+      prefix(req->trying_key, ".ht")) goto schedule_next;
+
+  /* New file? Add pivot for the extension. */
+
+  if (i == req->pivot->r404_cnt) maybe_add_pivot(req, res, 0);
+
+  /* Schedule extension probes only if bogus extension resulted in known 404. */
+
+  if (i != req->pivot->r404_cnt && !no_fuzz_ext) {
+    u8* ex;
+
+    i = 0;
+
+    while ((ex = wordlist_get_extension(i, req->trying_spec))) {
+
+      u8* tmp = ck_alloc(strlen((char*)req->trying_key) +
+                strlen((char*)ex) + 2);
+
+      sprintf((char*)tmp, "%s.%s", req->trying_key, ex);
+
+      /* See if that file is already known... */
+
+      for (c=0;c<req->pivot->child_cnt;c++)
+        if (!((is_c_sens(req->pivot) ? strcmp : strcasecmp)((char*)tmp,
+            (char*)req->pivot->child[c]->name))) break;
+
+      /* When dealing with name=value pairs, also compare to
+         currently fuzzed value string. */
+
+      if (req->pivot->fuzz_par != -1 &&
+          !((is_c_sens(req->pivot) ? strcmp : strcasecmp)((char*)tmp,
+            (char*)req->pivot->req->par.v[req->pivot->fuzz_par]))) 
+        c = ~req->pivot->child_cnt;
+
+      /* Not found - schedule a probe. */
+
+      if (c == req->pivot->child_cnt) {
+        n = req_copy(req->pivot->req, req->pivot, 1);
+        replace_slash(n, tmp);
+        n->callback = dir_dict_check;
+        n->user_val = 0;
+        req->pivot->pending++;
+        async_request(n);
+      }
+
+      ck_free(tmp);
+
+      i++;
+    }
+
+  }
+
+  /* Regardless of this, also schedule requests for /$name and /$name/. */
+
+  for (c=0;c<req->pivot->child_cnt;c++)
+    if (!((is_c_sens(req->pivot) ? strcmp : strcasecmp)((char*)req->trying_key,
+      (char*)req->pivot->child[c]->name))) break;
+
+  if (req->pivot->fuzz_par != -1 &&
+      !((is_c_sens(req->pivot) ? strcmp : strcasecmp)((char*)req->trying_key,
+         (char*)req->pivot->req->par.v[req->pivot->fuzz_par]))) 
+    c = ~req->pivot->child_cnt;
+
+  if (c == req->pivot->child_cnt) {
+    n = req_copy(req->pivot->req, req->pivot, 1);
+    replace_slash(n, req->trying_key);
+    n->callback = dir_dict_check;
+    n->user_val = 0;
+    req->pivot->pending++;
+    async_request(n);
+
+    if (prefix(req->trying_key, (u8*)".ht")) {
+
+      n = req_copy(req->pivot->req, req->pivot, 1);
+      replace_slash(n, req->trying_key);
+      set_value(PARAM_PATH, NULL, (u8*)"", -1, &n->par);
+      n->user_val = 0;
+      n->callback = dir_dict_check;
+      req->pivot->pending++;
+      async_request(n);
+
+    }
+
+  }
+
+schedule_next:
+
+  /* Calling dir_dict_start() ensures that, if no new requests were scheduled
+     earlier on and nothing else is pending, that we will still advance to
+     parametric checks. */
+
+  req->pivot->pending--;
+  dir_dict_start(req->pivot);
+
+  return 0;
+
+}
+
+
+static u8 dir_dict_check(struct http_request* req,
+                         struct http_response* res) {
   u32 i;
-  u8* lp = NULL;
 
   DEBUG_CALLBACK(req, res);
 
@@ -2809,16 +3155,7 @@ static u8 dir_dict_callback(struct http_request* req,
     handle_error(req, res, (u8*)"during path-based dictionary probes", 0);
   } else {
 
-    /* Check if 404 */
-
-    if (!req->pivot->r404_cnt)
-      DEBUG("Bad pivot with no sigs! Pivot name = '%s'\n",
-            req->pivot->name);
-
-    if (res->code == 403)
-      for (i=0;i<req->par.c;i++)
-        if (req->par.t[i] == PARAM_PATH && req->par.v[i][0])
-          lp = req->par.v[i];
+    /* Check if 404... */
 
     for (i=0;i<req->pivot->r404_cnt;i++)
       if (same_page(&res->sig, &req->pivot->r404[i])) break;
@@ -2827,12 +3164,6 @@ static u8 dir_dict_callback(struct http_request* req,
        extensions that seemingly return the same document. */
 
     if (req->user_val && same_page(&res->sig, &req->same_sig))
-      i = ~req->pivot->r404_cnt;
-
-    /* Do not add 403 responses to .ht* requests - workaround for
-       Apache filtering to keep reports clean. */
-
-    if (lp && !prefix(lp, ".ht"))
       i = ~req->pivot->r404_cnt;
 
     /* If not 404, do response, and does not look like
@@ -2846,7 +3177,7 @@ static u8 dir_dict_callback(struct http_request* req,
 
   if (!req->user_val) {
     req->pivot->pending--;
-    crawl_dir_dict_init(req->pivot);
+    dir_dict_start(req->pivot);
   }
 
   return 0;
@@ -2854,23 +3185,11 @@ static u8 dir_dict_callback(struct http_request* req,
 }
 
 
-/*
-
-  ************************
-  * PIVOT_UNKNOWN CHECKS *
-  ************************
-
-  Callbacks used on resources of unknown type. Proceed to parametric checks
-  if something goes wrong, or file / dir checks if detection successful.
-
- */
-
-/* STAGE 1: callback on the original request. */
-
-u8 fetch_unknown_callback(struct http_request* req, struct http_response* res) {
+u8 unknown_retrieve_check(struct http_request* req, struct http_response* res) {
   u32 i = 0 /* bad gcc */;
   struct pivot_desc *par;
   struct http_request* n;
+  u8* name = NULL;
 
   RPRES(req) = res;
   DEBUG_CALLBACK(req, res);
@@ -2894,7 +3213,7 @@ u8 fetch_unknown_callback(struct http_request* req, struct http_response* res) {
 
     req->pivot->missing = 1;
     unlock_children(req->pivot);
-    crawl_parametric_init(req->pivot);
+    param_start(req->pivot);
     return 1;
 
   }
@@ -2907,7 +3226,7 @@ u8 fetch_unknown_callback(struct http_request* req, struct http_response* res) {
       same_page(&par->unk_sig, &res->sig)) {
 
     req->pivot->type = PIVOT_FILE;
-    return fetch_file_callback(req, res);
+    return file_retrieve_check(req, res);
 
   }
 
@@ -2919,7 +3238,24 @@ u8 fetch_unknown_callback(struct http_request* req, struct http_response* res) {
       same_page(&par->res->sig, &res->sig)) {
 
     req->pivot->type = PIVOT_FILE;
-    return fetch_file_callback(req, res);
+    return file_retrieve_check(req, res);
+
+  }
+
+  /* Special handling for .ht* */
+
+  if (req->pivot->type < PIVOT_PARAM) {
+    u32 i;
+
+    /* Find last path segment. */
+
+    for (i=0;i<req->par.c;i++)
+      if (PATH_SUBTYPE(req->par.t[i])) name = req->par.v[i];
+
+    if (name && !prefix(name, (u8*)".ht")) {
+      req->pivot->type = PIVOT_FILE;
+      return file_retrieve_check(req, res);
+    }
 
   }
 
@@ -2927,8 +3263,14 @@ u8 fetch_unknown_callback(struct http_request* req, struct http_response* res) {
 
   n = req_copy(req, req->pivot, 1);
   set_value(PARAM_PATH, NULL, (u8*)"", -1, &n->par);
-  n->callback = unknown_check_callback;
-  n->with_ext = req->with_ext;
+  n->callback = unknown_retrieve_check2;
+  n->user_val = 0;
+
+  if (name) {
+    u8* ppos = (u8*) strrchr((char*)name, '.');
+    if (!ppos || ppos == name) n->user_val = 1;
+  }
+
   async_request(n);
 
   /* This is the initial callback, keep the response. */
@@ -2938,10 +3280,8 @@ u8 fetch_unknown_callback(struct http_request* req, struct http_response* res) {
 }
 
 
-/* CALLBACK FOR STAGE 1: Tries to figure out if this is a directory. */
-
-static u8 unknown_check_callback(struct http_request* req,
-                                 struct http_response* res) {
+static u8 unknown_retrieve_check2(struct http_request* req,
+                                  struct http_response* res) {
   u8 keep = 0;
 
   DEBUG_CALLBACK(req, res);
@@ -2993,26 +3333,12 @@ static u8 unknown_check_callback(struct http_request* req,
       /* Do not use extension-originating signatures for settling non-extension
          cases. */
 
-      if (i && !req->with_ext) i = par->r404_cnt;
+      if (i && req->user_val) i = par->r404_cnt;
 
     }
 
     if ((!par && res->code == 404) || (par && i != par->r404_cnt) || 
         (RPRES(req)->code < 300 && res->code >= 300 && RPRES(req)->pay_len)) {
-
-DEBUG("REASON X\n");
-if (par) DEBUG("same_404 = %d\n", i != par->r404_cnt);
-DEBUG("par = %p\n", par);
-if (par) DEBUG("par->r404_cnt = %d\n", par->r404_cnt);
-DEBUG("res->code = %d\n", res->code);
-DEBUG("parent code = %d\n", RPRES(req)->code);
-DEBUG("parent len = %d\n", RPRES(req)->pay_len);
-
-// (!par && res->code == 404) || - NIE
-// (par && i != par->r404_cnt) || - TAK
-// (RPRES(req)->code < 300 && res->code >= 300 && RPRES(req)->pay_len))
-
-
 
       req->pivot->type = PIVOT_FILE;
 
@@ -3060,8 +3386,8 @@ schedule_next:
   /* Well, we need to do something. */
 
   if (req->pivot->type == PIVOT_DIR || req->pivot->type == PIVOT_SERV)
-    fetch_dir_callback(RPREQ(req), RPRES(req));
-  else fetch_file_callback(RPREQ(req), RPRES(req));
+    dir_retrieve_check(RPREQ(req), RPRES(req));
+  else file_retrieve_check(RPREQ(req), RPRES(req));
 
   return keep;
 }

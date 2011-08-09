@@ -133,8 +133,10 @@ struct pivot_desc {
 
   /* Injection attack logic scratchpad: */
 
-  struct http_request*  misc_req[10];           /* Saved requests            */
-  struct http_response* misc_res[10];           /* Saved responses           */
+#define MISC_ENTRIES 10
+
+  struct http_request*  misc_req[MISC_ENTRIES]; /* Saved requests            */
+  struct http_response* misc_res[MISC_ENTRIES]; /* Saved responses           */
   u8 misc_cnt;                                  /* Request / response count  */
 
   u8 i_skip[15];                                /* Injection step skip flags */
@@ -262,6 +264,7 @@ u8 is_c_sens(struct pivot_desc* pv);
 
 #define PROB_CACHE_LOW          30701           /* Cache nit-picking         */
 
+#define PROB_PROLOGUE           30801           /* User-supplied prologue    */
 
 /* - Moderate severity issues (data compromise): */
 

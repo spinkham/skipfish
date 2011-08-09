@@ -1,3 +1,19 @@
+Version 2.01b:
+--------------
+
+  - Substantial improvement to SQL injection checks.
+
+  - Improvements to directory traversal checks (courtesy of Niels Heinen).
+
+  - Fix to numerical brute-force logic.
+
+  - Major improvement to directory brute force: much better
+    duplicate elimination in some webserver configurations.
+
+  - Added a check for attacker-controlled prefixes on inline responses.
+    This currently leads to UTF-7 BOM XSS, Flash, Java attacks (thanks to
+    Niels Heinen).
+
 Version 2.00b:
 --------------
 

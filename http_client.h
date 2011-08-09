@@ -102,12 +102,16 @@ struct http_request {
   struct pivot_desc *pivot;     /* Pivot descriptor             */
 
   u32 user_val;                 /* Can be used freely           */
-  u8 with_ext;                  /* Extension-based probe?       */
 
   u8 (*callback)(struct http_request*, struct http_response*);
                                 /* Callback to invoke when done */
 
   struct http_sig same_sig;     /* Used by secondary ext fuzz.  */
+
+  /* Used by directory brute-force: */
+
+  u8* trying_key;               /* Current keyword ptr          */
+  u8  trying_spec;              /* Keyword specificity info     */
 
 };
 

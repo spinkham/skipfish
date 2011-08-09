@@ -424,6 +424,13 @@ w 1 1 1 ca
 w 1 1 1 cache
 w 1 1 1 cal
 w 1 1 1 calendar
+w 1 1 1 call
+w 1 1 1 callback
+w 1 1 1 callee
+w 1 1 1 caller
+w 1 1 1 callin
+w 1 1 1 calling
+w 1 1 1 callout
 w 1 1 1 camel
 w 1 1 1 car
 w 1 1 1 card

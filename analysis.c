@@ -1553,14 +1553,14 @@ void content_checks(struct http_request* req, struct http_response* res) {
 
   if (is_javascript(res) && !res->json_safe &&
       (!req->method || !strcmp((char*)req->method, "GET")) &&
-      !strstr((char*)res->payload, "if (") &&
-      !strstr((char*)res->payload, "if(") &&
-      !strstr((char*)res->payload, "for (") &&
-      !strstr((char*)res->payload, "for(") &&
-      !strstr((char*)res->payload, "while (") &&
-      !strstr((char*)res->payload, "while(") &&
-      !strstr((char*)res->payload, "function ") &&
-      !strstr((char*)res->payload, "function("))
+      !inl_findstr(res->payload, (u8*)"if (", 1024) &&
+      !inl_findstr(res->payload, (u8*)"if(", 1024) &&
+      !inl_findstr(res->payload, (u8*)"for (", 1024) &&
+      !inl_findstr(res->payload, (u8*)"for(", 1024) &&
+      !inl_findstr(res->payload, (u8*)"while (", 1024) &&
+      !inl_findstr(res->payload, (u8*)"while(", 1024) &&
+      !inl_findstr(res->payload, (u8*)"function ", 1024) &&
+      !inl_findstr(res->payload, (u8*)"function(", 1024))
     problem(PROB_JS_XSSI, req, res, NULL, req->pivot, 0);
 
   tmp = res->payload;

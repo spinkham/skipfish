@@ -41,22 +41,22 @@ u8 show_response(struct http_request* req, struct http_response* res);
 /* Asynchronous request callback for the initial PSTATE_FETCH request of
    PIVOT_UNKNOWN resources. */
 
-u8 fetch_unknown_callback(struct http_request* req, struct http_response* res);
+u8 unknown_retrieve_check(struct http_request* req, struct http_response* res);
 
 /* Asynchronous request callback for the initial PSTATE_FETCH request of
    PIVOT_FILE resources. */
 
-u8 fetch_file_callback(struct http_request* req, struct http_response* res);
+u8 file_retrieve_check(struct http_request* req, struct http_response* res);
 
 /* Asynchronous request callback for the initial PSTATE_FETCH request of
    PIVOT_DIR resources. */
 
-u8 fetch_dir_callback(struct http_request* req, struct http_response* res);
+u8 dir_retrieve_check(struct http_request* req, struct http_response* res);
 
 /* Initializes the crawl of try_list items for a pivot point (if any still
    not crawled). */
 
-void crawl_par_trylist_init(struct pivot_desc* pv);
+void param_trylist_start(struct pivot_desc* pv);
 
 /* Adds new name=value to form hints list. */
 
@@ -81,6 +81,12 @@ void add_form_hint(u8* name, u8* value);
     ck_free(_url); \
   } while (0)
 
+#define DEBUG_PIVOT(_text, _pv) do { \
+    u8* _url = serialize_path((_pv)->req, 1, 1); \
+    DEBUG("* %s: %s\n", _text, _url); \
+    ck_free(_url); \
+  } while (0)
+
 #define DEBUG_HELPER(_pv) do { \
     u8* _url = serialize_path((_pv)->req, 1, 1); \
     DEBUG("* %s: URL %s (%u, len %u)\n", __FUNCTION__, _url, (_pv)->res ? \
@@ -92,6 +98,7 @@ void add_form_hint(u8* name, u8* value);
 
 #define DEBUG_CALLBACK(_req, _res)
 #define DEBUG_HELPER(_pv)
+#define DEBUG_PIVOT(_text, _pv)
 
 #endif /* ^LOG_STDERR */
 

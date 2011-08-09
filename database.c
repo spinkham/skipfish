@@ -220,13 +220,13 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
     cur->req = req_copy(req, cur, 0);
     set_value(PARAM_PATH, NULL, (u8*)"", -1, &cur->req->par);
     cur->name = serialize_path(cur->req, 1, 0);
-    cur->req->callback = fetch_dir_callback;
+    cur->req->callback = dir_retrieve_check;
 
     /* If matching response not provided, schedule request. */
 
     if (res && !par_cnt && path_cnt == 1) {
       cur->res = res_copy(res);
-      fetch_dir_callback(req, cur->res);
+      dir_retrieve_check(req, cur->res);
     } else async_request(cur->req);
 
     wordlist_confirm_word(req->host);
@@ -334,7 +334,7 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
 
         set_value(PARAM_PATH, NULL, (u8*)"", -1, &n->req->par);
         n->type = PIVOT_DIR;
-        n->req->callback = fetch_dir_callback;
+        n->req->callback = dir_retrieve_check;
 
         if (!url_allowed(n->req)) n->no_fuzz = 2;
 
@@ -352,7 +352,7 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
           if (i == path_cnt - 2 && ends_with_slash && res) {
 
             n->res   = res_copy(res);
-            fetch_dir_callback(n->req, n->res);
+            dir_retrieve_check(n->req, n->res);
 
           } else async_request(n->req);
 
@@ -369,7 +369,7 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
 
           n->type  = PIVOT_UNKNOWN;
           n->res   = res_copy(res);
-          n->req->callback = fetch_unknown_callback;
+          n->req->callback = unknown_retrieve_check;
 
           if (cur->state > PSTATE_IPS_CHECK) {
 
@@ -381,7 +381,7 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
             if (!res) {
               n->state = PSTATE_FETCH;
               async_request(n->req);
-            } else fetch_unknown_callback(n->req, n->res);
+            } else unknown_retrieve_check(n->req, n->res);
 
           } else n->state = PSTATE_PENDING;
 
@@ -390,7 +390,7 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
           /* Parameters found. Assume file, schedule a fetch. */
 
           n->type = PIVOT_FILE;
-          n->req->callback = fetch_file_callback;
+          n->req->callback = file_retrieve_check;
 
           if (cur->state > PSTATE_IPS_CHECK) {
             n->state = PSTATE_FETCH;
@@ -424,7 +424,7 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
         cur->try_list[cur->try_cnt++] = ck_strdup(req->par.v[pno]);
 
         if (cur->state == PSTATE_DONE)
-          crawl_par_trylist_init(cur);
+          param_trylist_start(cur);
 
       }
 
@@ -499,11 +499,11 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
 
       /* File fetcher does everything we need. */
 
-      n->req->callback = fetch_file_callback;
+      n->req->callback = file_retrieve_check;
 
       if (cur->state > PSTATE_IPS_CHECK) {
         n->state = PSTATE_FETCH;
-        if (res) fetch_file_callback(n->req, n->res);
+        if (res) file_retrieve_check(n->req, n->res);
         else async_request(n->req);
       } else n->state = PSTATE_PENDING;
 
@@ -527,7 +527,7 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
       cur->try_list[cur->try_cnt++] = ck_strdup(req->par.v[pno]);
 
       if (cur->state == PSTATE_DONE)
-        crawl_par_trylist_init(cur);
+        param_trylist_start(cur);
 
     }
 
