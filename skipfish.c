@@ -4,7 +4,7 @@
 
    Author: Michal Zalewski <lcamtuf@google.com>
 
-   Copyright 2009, 2010 by Google Inc. All Rights Reserved.
+   Copyright 2009, 2010, 2011 by Google Inc. All Rights Reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -179,6 +179,54 @@ void splash_screen(void) {
   
 }
 #endif /* SHOW_SPLASH */
+
+
+/* Load URLs from file. */
+
+static void read_urls(u8* fn) {
+  FILE* f = fopen((char*)fn, "r");
+  u8    tmp[MAX_URL_LEN];
+  u32   loaded = 0;
+
+  if (!f) FATAL("Unable to open '%s'.", fn);
+
+  while (fgets((char*)tmp, MAX_URL_LEN, f)) {
+    struct http_request *req;
+    u8* url = tmp;
+    u32 l;
+
+    while (isspace(*url)) url++;
+
+    l = strlen((char*)url);
+    while (l && isspace(url[l-1])) l--;
+    url[l] = 0;
+
+    if (*url == '#' || !*url) continue;
+ 
+    req = ck_alloc(sizeof(struct http_request));
+
+    if (parse_url(url, req, NULL))
+      FATAL("Scan target '%s' in file '%s' is not a valid absolute URL.", url, fn);
+
+    if (!url_allowed_host(req))
+      APPEND_FILTER(allow_domains, num_allow_domains,
+                    __DFL_ck_strdup(req->host));
+
+    if (!url_allowed(req))
+      FATAL("URL '%s' in file '%s' explicitly excluded by -I / -X rules.",
+            url, fn);
+
+    maybe_add_pivot(req, NULL, 2);
+    destroy_request(req);
+    loaded++;
+
+  }
+
+  fclose(f);
+
+  if (!loaded) FATAL("No valid URLs found in '%s'.", fn);
+
+}
 
 
 /* Main entry point */
@@ -458,14 +506,23 @@ int main(int argc, char** argv) {
 
   load_keywords((u8*)wordlist, purge_age);
 
-  /* Schedule all URLs in the command line for scanning */
+  /* Schedule all URLs in the command line for scanning. */
 
   while (optind < argc) {
 
-    struct http_request *req = ck_alloc(sizeof(struct http_request));
+    struct http_request *req;
+
+    /* Support @ notation for reading URL lists from files. */
+
+    if (argv[optind][0] == '@') {
+      read_urls((u8*)argv[optind++] + 1);
+      continue;
+    }
+
+    req = ck_alloc(sizeof(struct http_request));
 
     if (parse_url((u8*)argv[optind], req, NULL))
-      FATAL("One of specified scan targets is not a valid absolute URL.");
+      FATAL("Scan target '%s' is not a valid absolute URL.", argv[optind]);
 
     if (!url_allowed_host(req))
       APPEND_FILTER(allow_domains, num_allow_domains,

@@ -4,7 +4,7 @@
 #
 # Author: Michal Zalewski <lcamtuf@google.com>
 #
-# Copyright 2009, 2010 by Google Inc. All Rights Reserved.
+# Copyright 2009, 2010, 2011 by Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 #
 
 PROGNAME   = skipfish
-VERSION    = 1.91b
+VERSION    = 1.92b
 
 OBJFILES   = http_client.c database.c crawler.c analysis.c report.c
 INCFILES   = alloc-inl.h string-inl.h debug.h types.h http_client.h \
@@ -28,7 +28,7 @@ INCFILES   = alloc-inl.h string-inl.h debug.h types.h http_client.h \
 
 CFLAGS_GEN = -Wall -funsigned-char -g -ggdb -I/usr/local/include/ \
              -I/opt/local/include/ $(CFLAGS) -DVERSION=\"$(VERSION)\"
-CFLAGS_DBG = -DLOG_STDERR=1 -DDEBUG_ALLOCATOR=1 $(CFLAGS_GEN) 
+CFLAGS_DBG = -DLOG_STDERR=1 -DDEBUG_ALLOCATOR=1 $(CFLAGS_GEN)
 CFLAGS_OPT = -O3 -Wno-format $(CFLAGS_GEN)
 
 LDFLAGS   += -L/usr/local/lib/ -L/opt/local/lib

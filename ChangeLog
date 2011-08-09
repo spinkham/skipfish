@@ -1,3 +1,8 @@
+Version 1.92b:
+--------------
+
+  - Reading starting URLs from file is now supported (@ prefix).
+
 Version 1.90b / 1.91b:
 ----------------------
 

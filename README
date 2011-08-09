@@ -5,7 +5,7 @@ skipfish - web application security scanner
   http://code.google.com/p/skipfish/
 
   * Written and maintained by Michal Zalewski <lcamtuf@google.com>.
-  * Copyright 2009, 2010 Google Inc, rights reserved.
+  * Copyright 2009, 2010, 2011 Google Inc, rights reserved.
   * Released under terms and conditions of the Apache License, version 2.0.
 
 --------------------
@@ -237,8 +237,11 @@ Once you have the dictionary selected, you can try:
 
 $ ./skipfish -o output_dir http://www.example.com/some/starting/path.txt
 
-Note that you can provide more than one starting URL if so desired; all of 
-them will be crawled.
+Note that you can provide more than one starting URL if so desired; all of
+them will be crawled. It is also possible to read URLs from file, using
+the following syntax:
+
+$ ./skipfish -o output_dir @../path/to/url_list.txt
 
 The tool will display some helpful stats while the scan is in progress. You 
 can also switch to a list of in-flight HTTP requests by pressing return.
