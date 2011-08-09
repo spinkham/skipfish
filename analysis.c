@@ -122,10 +122,10 @@ static void test_add_link(u8* str, struct http_request* ref,
 
   /* Don't add injected links. */
 
-  if (!strncasecmp((char*)str, "skipfish:", 10) ||
-      !strncasecmp((char*)str, "//skipfish.invalid/", 20) ||
+  if (!strncasecmp((char*)str, "skipfish:", 9) ||
+      !strncasecmp((char*)str, "//skipfish.invalid/", 19) ||
       inl_strcasestr(str, (u8*) "/" BOGUS_FILE) ||
-      !strncasecmp((char*)str, "http://skipfish.invalid/", 25)) return;
+      !strncasecmp((char*)str, "http://skipfish.invalid/", 24)) return;
 
   /* Don't add links that look like they came from JS code with fragmented HTML
      snippets, etc. */
@@ -1275,9 +1275,9 @@ static void check_js_xss(struct http_request* req, struct http_response* res,
           !strncmp((char*)last_word, "url", 3) ||
           !strncmp((char*)last_word, "href", 4) ||
           !strncmp((char*)last_word, "write", 5)) &&
-          (!strncasecmp((char*)text + 1,"//skipfish.invalid/", 20) ||
-          !strncasecmp((char*)text + 1,"http://skipfish.invalid/", 25) ||
-          !strncasecmp((char*)text + 1,"skipfish:", 10)))
+          (!strncasecmp((char*)text + 1,"//skipfish.invalid/", 19) ||
+          !strncasecmp((char*)text + 1,"http://skipfish.invalid/", 24) ||
+          !strncasecmp((char*)text + 1,"skipfish:", 9)))
         problem(PROB_URL_XSS, req, res,
           (u8*)"injected URL in JS/CSS code", req->pivot, 0);
 
@@ -1644,7 +1644,7 @@ void content_checks(struct http_request* req, struct http_response* res) {
              strcasecmp((char*)tag_name, "input")) ||
             !strcasecmp((char*)param_name, "codebase")) && clean_val) {
 
-          if (!strncasecmp((char*)clean_val, "skipfish://", 12))
+          if (!strncasecmp((char*)clean_val, "skipfish://", 11))
             problem(PROB_URL_XSS, req, res, tag_name, req->pivot, 0);
 
           /* A bit hairy, but in essence, links to attacker-supplied
@@ -1652,8 +1652,8 @@ void content_checks(struct http_request* req, struct http_response* res) {
              are sorta noteworthy, depending on context; and A links
              are usually of little relevance. */
 
-          if (!strncasecmp((char*)clean_val, "http://skipfish.invalid/", 25) ||
-              !strncasecmp((char*)clean_val, "//skipfish.invalid/", 20)) {
+          if (!strncasecmp((char*)clean_val, "http://skipfish.invalid/", 24) ||
+              !strncasecmp((char*)clean_val, "//skipfish.invalid/", 19)) {
 
             if (!strcasecmp((char*)tag_name, "script") ||
                 !strcasecmp((char*)tag_name, "link"))
@@ -1679,14 +1679,14 @@ void content_checks(struct http_request* req, struct http_response* res) {
             url += 4;
             if (*url == '\'' || *url == '"') { url++; semi_safe = 1; }
 
-            if (!strncasecmp((char*)url, "http://skipfish.invalid/", 25) ||
-                !strncasecmp((char*)url, "//skipfish.invalid/", 20))
+            if (!strncasecmp((char*)url, "http://skipfish.invalid/", 24) ||
+                !strncasecmp((char*)url, "//skipfish.invalid/", 19))
               problem(PROB_URL_REDIR, req, res, (u8*)"injected URL in META refresh",
                       req->pivot, 0);
 
             /* Unescaped semicolon in Refresh headers is unsafe with MSIE6. */
 
-           if (!strncasecmp((char*)url, "skipfish://", 12) ||
+           if (!strncasecmp((char*)url, "skipfish://", 11) ||
                (!semi_safe && strchr((char*)url, ';')))
              problem(PROB_URL_XSS, req, res, (u8*)"injected URL in META refresh",
                      req->pivot, 0);

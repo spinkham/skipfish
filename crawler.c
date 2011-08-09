@@ -980,12 +980,12 @@ static u8 inject_check5_callback(struct http_request* req,
 
   if (val) {
 
-    if (!strncasecmp((char*)val, "http://skipfish.invalid/", 25) ||
-        !strncasecmp((char*)val, "//skipfish.invalid/", 21))
+    if (!strncasecmp((char*)val, "http://skipfish.invalid/", 24) ||
+        !strncasecmp((char*)val, "//skipfish.invalid/", 19))
       problem(PROB_URL_REDIR, req, res, (u8*)"injected URL in 'Location' header",
               req->pivot, 0);
 
-    if (!strncasecmp((char*)val, "skipfish://", 12))
+    if (!strncasecmp((char*)val, "skipfish://", 11))
       problem(PROB_URL_XSS, req, res, (u8*)"injected URL in 'Location' header",
               req->pivot, 0);
 
@@ -998,14 +998,14 @@ static u8 inject_check5_callback(struct http_request* req,
 
     if (*val == '\'' || *val == '"') { val++; semi_safe++; }
 
-    if (!strncasecmp((char*)val, "http://skipfish.invalid/", 25) ||
-        !strncasecmp((char*)val, "//skipfish.invalid/", 20))
+    if (!strncasecmp((char*)val, "http://skipfish.invalid/", 24) ||
+        !strncasecmp((char*)val, "//skipfish.invalid/", 19))
       problem(PROB_URL_REDIR, req, res, (u8*)"injected URL in 'Refresh' header",
               req->pivot, 0);
 
     /* Unescaped semicolon in Refresh headers is unsafe with MSIE6. */
 
-    if (!strncasecmp((char*)val, "skipfish://", 12) ||
+    if (!strncasecmp((char*)val, "skipfish://", 11) ||
         (!semi_safe && strchr((char*)val, ';')))
       problem(PROB_URL_XSS, req, res, (u8*)"injected URL in 'Refresh' header",
               req->pivot, 0);

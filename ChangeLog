@@ -1,3 +1,8 @@
+Version 1.93b:
+--------------
+
+  - Major fix to URL XSS detection logic.
+
 Version 1.92b:
 --------------
 
