@@ -768,14 +768,14 @@ static void save_pivots(FILE* f, struct pivot_desc* cur) {
     ck_free(url);
 
     switch (cur->type) {
-      case PIVOT_SERV:     fprintf(f, "type=serv"); break;
-      case PIVOT_DIR:      fprintf(f, "type=dir"); break;
-      case PIVOT_FILE:     fprintf(f, "type=file"); break;
-      case PIVOT_PATHINFO: fprintf(f, "type=pathinfo"); break;
-      case PIVOT_VALUE:    fprintf(f, "type=value"); break;
-      case PIVOT_UNKNOWN:  fprintf(f, "type=unknown"); break;
-      case PIVOT_PARAM:    fprintf(f, "type=param"); break;
-      default:             fprintf(f, "type=???");
+      case PIVOT_SERV:     fprintf(f, "type=serv "); break;
+      case PIVOT_DIR:      fprintf(f, "type=dir "); break;
+      case PIVOT_FILE:     fprintf(f, "type=file "); break;
+      case PIVOT_PATHINFO: fprintf(f, "type=pathinfo "); break;
+      case PIVOT_VALUE:    fprintf(f, "type=value "); break;
+      case PIVOT_UNKNOWN:  fprintf(f, "type=unknown "); break;
+      case PIVOT_PARAM:    fprintf(f, "type=param "); break;
+      default:             fprintf(f, "type=??? ");
     }
 
     switch (cur->linked) {
@@ -785,11 +785,11 @@ static void save_pivots(FILE* f, struct pivot_desc* cur) {
     }
 
     if (cur->res)
-      fprintf(f, " dup=%u %scode=%u len=%u notes=%u\n", cur->dupe,
+      fprintf(f, "dup=%u %scode=%u len=%u notes=%u\n", cur->dupe,
              cur->missing ? "returns_404 " : "",
              cur->res->code, cur->res->pay_len, cur->issue_cnt);
     else
-      fprintf(f, " not_fetched\n");
+      fprintf(f, "not_fetched\n");
 
   }
 
