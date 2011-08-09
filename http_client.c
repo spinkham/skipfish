@@ -958,7 +958,7 @@ u8* build_request_data(struct http_request* req) {
 
     lpb64 = b64_encode(lp, strlen((char*)lp));
 
-    ASD("Authorization: basic ");
+    ASD("Authorization: Basic ");
     ASD(lpb64);
     ASD("\r\n");
 
@@ -2482,7 +2482,7 @@ void http_stats(u64 st_time) {
   en_time = tv.tv_sec * 1000LL + tv.tv_usec / 1000;
 
   SAY(cLBL "Scan statistics:\n\n"
-      cGRA "      Scan time : " cNOR "%u:%02u:%02u.%04u\n"
+      cGRA "      Scan time : " cNOR "%u:%02u:%02u.%03u\n"
       cGRA "  HTTP requests : " cNOR "%u (%.01f/s), %llu kB in, "
                                       "%llu kB out (%.01f kB/s)  \n"
       cGRA "    Compression : " cNOR "%llu kB in, %llu kB out "

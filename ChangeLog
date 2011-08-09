@@ -1,3 +1,11 @@
+Version 1.86b:
+--------------
+
+  - HTTP auth header value changed from "basic" to "Basic" to
+    compensate for picky web frameworks.
+
+  - Minor fix to time display code.
+
 Version 1.85b:
 --------------
 
