@@ -779,9 +779,9 @@ static void save_pivots(FILE* f, struct pivot_desc* cur) {
     }
 
     switch (cur->linked) {
-      case 0:  fprintf(f, "linked=no"); break;
-      case 1:  fprintf(f, "linked=maybe"); break;
-      default: fprintf(f, "linked=yes");
+      case 0:  fprintf(f, "linked=no "); break;
+      case 1:  fprintf(f, "linked=maybe "); break;
+      default: fprintf(f, "linked=yes ");
     }
 
     if (cur->res)
