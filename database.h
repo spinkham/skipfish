@@ -133,7 +133,7 @@ struct pivot_desc {
 
   /* Injection attack logic scratchpad: */
 
-#define MISC_ENTRIES 10
+#define MISC_ENTRIES 15
 
   struct http_request*  misc_req[MISC_ENTRIES]; /* Saved requests            */
   struct http_response* misc_res[MISC_ENTRIES]; /* Saved responses           */
@@ -258,6 +258,7 @@ u8 is_c_sens(struct pivot_desc* pv);
 
 #define PROB_EXT_OBJ            30501           /* External obj standalone   */
 #define PROB_MIXED_OBJ          30502           /* Mixed content standalone  */
+#define PROB_MIXED_FORM         30503           /* HTTPS -> HTTP form        */
 
 #define PROB_VULN_FORM          30601           /* Form w/o anti-XSRF token  */
 #define PROB_JS_XSSI            30602           /* Script with no XSSI prot  */
@@ -265,6 +266,8 @@ u8 is_c_sens(struct pivot_desc* pv);
 #define PROB_CACHE_LOW          30701           /* Cache nit-picking         */
 
 #define PROB_PROLOGUE           30801           /* User-supplied prologue    */
+
+#define PROB_HEADER_INJECT      30901           /* Injected string in header */
 
 /* - Moderate severity issues (data compromise): */
 
@@ -297,6 +300,8 @@ u8 is_c_sens(struct pivot_desc* pv);
 #define PROB_SQL_INJECT         50103           /* SQL injection             */
 #define PROB_FMT_STRING         50104           /* Format string attack      */
 #define PROB_INT_OVER           50105           /* Integer overflow attack   */
+#define PROB_FI_LOCAL           50106           /* Local file inclusion      */
+#define PROB_FI_REMOTE          50107           /* Local remote inclusion    */
 
 #define PROB_SQL_PARAM          50201           /* SQL-like parameter        */
 
@@ -353,7 +358,7 @@ extern u32 max_depth,
            max_guesses;
 
 extern u32 guess_cnt,
-           extension_cnt,
+           wg_extension_cnt,
            keyword_total_cnt,
            keyword_orig_cnt;
 

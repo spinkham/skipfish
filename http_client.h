@@ -266,10 +266,13 @@ void set_value(u8 type, u8* name, u8* val, s32 offset, struct param_array* par);
 
 /* Simplified macros for value table access: */
 
-#define GET_HDR(_name, _p)       get_value(PARAM_HEADER, _name, 0, _p)
-#define SET_HDR(_name, _val, _p) set_value(PARAM_HEADER, _name, _val, -1, _p)
-#define GET_CK(_name, _p)        get_value(PARAM_COOKIE, _name, 0, _p)
-#define SET_CK(_name, _val, _p)  set_value(PARAM_COOKIE, _name, _val, 0, _p)
+#define GET_CK(_name, _p)         get_value(PARAM_COOKIE, _name, 0, _p)
+#define SET_CK(_name, _val, _p)   set_value(PARAM_COOKIE, _name, _val, 0, _p)
+#define GET_PAR(_name, _p)        get_value(PARAM_QUERY, _name, 0, _p)
+#define SET_PAR(_name, _val, _p)  set_value(PARAM_QUERY, _name, _val, -1, _p)
+#define GET_HDR(_name, _p)        get_value(PARAM_HEADER, _name, 0, _p)
+#define SET_HDR(_name, _val, _p)  set_value(PARAM_HEADER, _name, _val, -1, _p)
+#define GET_HDR_OFF(_name, _p, _o) get_value(PARAM_HEADER, _name, _o, _p)
 
 void tokenize_path(u8* str, struct http_request* req, u8 add_slash);
 
@@ -383,12 +386,17 @@ extern u32 max_connections,
            conn_failed,
            queue_cur;
 
+extern float req_sec,
+             max_requests_sec;
+
 extern u64 bytes_sent,
            bytes_recv,
            bytes_deflated,
-           bytes_inflated;
+           bytes_inflated,
+           iterations_cnt;
 
-extern u8  ignore_cookies;
+extern u8  ignore_cookies,
+           idle;
 
 /* Flags for browser type: */
 

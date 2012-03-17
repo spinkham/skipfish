@@ -111,7 +111,7 @@ void pivot_header_checks(struct http_request* req,
 /* Helper for scrape_response(). Tries to add a previously extracted link,
    also checks for cross-site and mixed content issues and similar woes.
    Subres is: 1 - redirect; 2 - IMG; 3 - IFRAME, EMBED, OBJECT, APPLET;
-   4 - SCRIPT, LINK REL=STYLESHEET; 0 - everything else. */
+   4 - SCRIPT, LINK REL=STYLESHEET; 5 - form; 0 - everything else. */
 
 static void test_add_link(u8* str, struct http_request* ref,
                           struct http_response* res, u8 subres, u8 sure) {
@@ -187,8 +187,11 @@ static void test_add_link(u8* str, struct http_request* ref,
 
     if (ref->proto == PROTO_HTTPS && n->proto == PROTO_HTTP &&
         subres > 2 && warn_mixed)
-      problem((subres == 4) ? PROB_MIXED_SUB : PROB_MIXED_OBJ,
-              ref, res, str, ref->pivot, 0);
+      switch (subres) {
+        case 4: problem(PROB_MIXED_SUB, ref, res, str, ref->pivot, 0); break;
+        case 5: problem(PROB_MIXED_FORM, ref, res, str, ref->pivot, 0); break;
+        default: problem(PROB_MIXED_OBJ, ref, res, str, ref->pivot, 0);
+      }
 
   } else if (!ref->proto) {
 
@@ -829,7 +832,7 @@ void scrape_response(struct http_request* req, struct http_response* res) {
         if (!parse_url(clean_url, n, base ? base : req) && url_allowed(n) &&
             R(100) < crawl_prob && !no_forms) {
           collect_form_data(n, req, res, tag_end + 1, (parse_form == 2));
-          maybe_add_pivot(n, NULL, 2);
+          maybe_add_pivot(n, NULL, 5);
         }
 
         destroy_request(n);
@@ -1279,6 +1282,16 @@ static void check_js_xss(struct http_request* req, struct http_response* res,
         problem(PROB_URL_XSS, req, res,
           (u8*)"injected URL in JS/CSS code", req->pivot, 0);
 
+      u8* end_quote = text;
+      while(*end_quote && end_quote++ && *end_quote != in_quot)
+        if(*end_quote == '\\') end_quote++;
+
+      /* Injected string is 'skip'''"fish""" */
+      if(end_quote && !case_prefix(end_quote + 1,"skip'''"))
+        problem(PROB_URL_XSS, req, res, (u8*)"injected string in JS/CSS code (single quote not escaped)", req->pivot, 0);
+      if(end_quote && !case_prefix(end_quote + 1,"fish\"\"\""))
+        problem(PROB_URL_XSS, req, res, (u8*)"injected string in JS/CSS code (double quote not escaped)", req->pivot, 0);
+
     } else if (in_quot && *text == in_quot) in_quot = 0;
 
     else if (!in_quot && !case_prefix(text, "sfi") &&
@@ -1414,8 +1427,9 @@ next_elem:
 
 void content_checks(struct http_request* req, struct http_response* res) {
   u8* tmp;
-  u32 tag_id, scan_id;
+  u32 off, tag_id, scan_id;
   u8  high_risk = 0;
+  struct http_request* n;
 
   DEBUG_CALLBACK(req, res);
 
@@ -1459,6 +1473,24 @@ void content_checks(struct http_request* req, struct http_response* res) {
         problem(res->cookies_set ? PROB_CACHE_HI : PROB_CACHE_LOW, req, res, 
                 (u8*)"conflicting 'Expires' and 'Pragma'", req->pivot, 0);
       h10c = 1;
+    }
+
+    /* Check if injection strings ended up in one of our cookie name or
+       values and complain */
+
+    u32 i = 0;
+
+    while(injection_headers[i]) {
+      off = 0;
+
+      do {
+        tmp = GET_HDR_OFF((u8*)injection_headers[i], &res->hdr,off++);
+        if(tmp && strstr((char*)tmp, "skipfish://invalid/;"))
+          problem(PROB_HEADER_INJECT,req, res,
+                 (u8*)injection_headers[i], req->pivot, 0);
+
+      } while(tmp);
+      i++;
     }
 
     /* Check HTTP/1.1 intent next. Detect conflicting keywords. */
@@ -1562,6 +1594,18 @@ void content_checks(struct http_request* req, struct http_response* res) {
       !inl_findstr(res->payload, (u8*)"function ", 1024) &&
       !inl_findstr(res->payload, (u8*)"function(", 1024))
     problem(PROB_JS_XSSI, req, res, NULL, req->pivot, 0);
+
+
+  /* If the response resembles javascript and a callback parameter does
+     not exist, we'll add this parameter in an attempt to catch JSONP
+     issues */
+
+  if(is_javascript(res) && !GET_PAR((u8*)"callback", &req->par)) {
+    n = req_copy(RPREQ(req), req->pivot, 1);
+    SET_PAR((u8*)"callback",(u8*)"hello",&n->par);
+    maybe_add_pivot(n, NULL, 2);
+    destroy_request(n);
+  }
 
   tmp = res->payload;
 
@@ -1884,6 +1928,7 @@ binary_checks:
 
 static void detect_mime(struct http_request* req, struct http_response* res) {
   u8 sniffbuf[SNIFF_LEN];
+  s32 fuzzy_match = -1;
 
   if (res->sniff_mime_id) return;
 
@@ -1900,7 +1945,7 @@ static void detect_mime(struct http_request* req, struct http_response* res) {
       while (mime_map[i][j]) {
         if (mime_map[i][j][0] == '?') {
           if (!strncasecmp((char*)mime_map[i][j] + 1, (char*)res->header_mime,
-               strlen((char*)mime_map[i][j] + 1))) break;
+               strlen((char*)mime_map[i][j] + 1))) fuzzy_match = i;
         } else {
           if (!strcasecmp((char*)mime_map[i][j], (char*)res->header_mime))
             break;
@@ -1912,8 +1957,11 @@ static void detect_mime(struct http_request* req, struct http_response* res) {
 
     }
 
-    if (i != MIME_COUNT) res->decl_mime_id = i;
-
+    if (i != MIME_COUNT) {
+      res->decl_mime_id = i;
+    } else if (fuzzy_match != -1) {
+      res->decl_mime_id = fuzzy_match;
+    }
   }
 
   /* Next, work out the actual MIME that should be set. Mostly

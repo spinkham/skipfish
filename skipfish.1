@@ -4,7 +4,7 @@
 skipfish \- active web application security reconnaissance tool
 .SH SYNOPSIS
 .B skipfish
-.RI [ options ] " -o output-directory start-url [start-url2 ...]"
+.RI [ options ] " -W wordlist -o output-directory start-url [start-url2 ...]"
 .br
 .SH DESCRIPTION
 .PP
@@ -100,14 +100,14 @@ be quiet, do not display realtime scan statistics
 
 .SS Dictionary management options:
 .TP
+.B \-S wordlist
+load a specified read-only wordlist for brute-force tests
+.TP
 .B \-W wordlist
-load an alternative wordlist (skipfish.wl)
+load a specified read-write wordlist for any site-specific learned words. This option is required but the specified file can be empty, to store the newly learned words and alternatively, you can use -W- to discard new words.
 .TP
 .B \-L
 do not auto-learn new keywords for the site
-.TP
-.B \-V
-do not update wordlist based on scan results
 .TP
 .B \-Y
 do not fuzz extensions during most directory brute-force steps
@@ -122,6 +122,9 @@ add new form auto-fill rule
 maximum number of keyword guesses to keep in the jar (default: 256)
 
 .SS Performance settings:
+.TP
+.B \-l max_req
+max requests per second (0 = unlimited)
 .TP
 .B \-g max_conn
 maximum simultaneous TCP connections, global (default: 50)
@@ -147,11 +150,15 @@ response size limit (default: 200000 B)
 .B \-e
 do not keep binary responses for reporting
 
+.SS Performance settings:
 .TP
-.B \-h, \-\-help
-Show summary of options.
+.B \-k duration
+stop scanning after the given duration (format: h:m:s)
+
 .SH AUTHOR
-skipfish was written by Michal Zalewski <lcamtuf@google.com>.
+skipfish was written by Michal Zalewski <lcamtuf@google.com>,
+with contributions from Niels Heinen <heinenn@google.com>,
+Sebastian Roschke <s.roschke@googlemail.com>, and other parties.
 .PP
 This manual page was written by Thorsten Schifferdecker <tsd@debian.systs.org>,
 for the Debian project (and may be used by others).

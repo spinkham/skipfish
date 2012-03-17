@@ -26,6 +26,25 @@
 #include "http_client.h"
 #include "database.h"
 
+#ifdef _VIA_CRAWLER_C
+
+/* Strings for traversal and file disclosure tests. The order should
+   not be changed  */
+
+static const char* disclosure_tests[] = {
+  "../../../../../../../../etc/hosts",
+  "../../../../../../../../etc/passwd",
+  "..\\..\\..\\..\\..\\..\\..\\..\\boot.ini",
+  "../../../../../../../../WEB-INF/web.xml",
+  "file:///etc/hosts",
+  "file:///etc/passwd",
+  "file:///boot.ini",
+  0
+};
+
+#endif
+
+
 extern u32 crawl_prob;          /* Crawl probability (1-100%)  */
 extern u8  no_parse,            /* Disable HTML link detection */
            warn_mixed,          /* Warn on mixed content?      */
@@ -64,11 +83,12 @@ void add_form_hint(u8* name, u8* value);
 
 /* Macros to access various useful pivot points: */
 
-#define MREQ(_x) (req->pivot->misc_req[_x])
-#define MRES(_x) (req->pivot->misc_res[_x])
 #define RPAR(_req) ((_req)->pivot->parent)
 #define RPREQ(_req) ((_req)->pivot->req)
 #define RPRES(_req) ((_req)->pivot->res)
+#define MREQ(_x) (req->pivot->misc_req[_x])
+#define MRES(_x) (req->pivot->misc_res[_x])
+
 
 /* Debugging instrumentation for callbacks and callback helpers: */
 

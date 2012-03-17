@@ -48,21 +48,25 @@
 
 /* Assorted exported settings: */
 
-u32 max_connections = MAX_CONNECTIONS,
-    max_conn_host   = MAX_CONN_HOST,
-    max_requests    = MAX_REQUESTS,
-    max_fail        = MAX_FAIL,
-    idle_tmout      = IDLE_TMOUT,
-    resp_tmout      = RESP_TMOUT,
-    rw_tmout        = RW_TMOUT,
-    size_limit      = SIZE_LIMIT;
+u32 max_connections  = MAX_CONNECTIONS,
+    max_conn_host    = MAX_CONN_HOST,
+    max_requests     = MAX_REQUESTS,
+    max_fail         = MAX_FAIL,
+    idle_tmout       = IDLE_TMOUT,
+    resp_tmout       = RESP_TMOUT,
+    rw_tmout         = RW_TMOUT,
+    size_limit       = SIZE_LIMIT;
 
-u8 browser_type     = BROWSER_FAST;
-u8 auth_type        = AUTH_NONE;
+u8 browser_type      = BROWSER_FAST;
+u8 auth_type         = AUTH_NONE;
+
+float max_requests_sec = MAX_REQUESTS_SEC;
 
 struct param_array global_http_par;
 
 /* Counters: */
+
+float req_sec;
 
 u32 req_errors_net,
     req_errors_http,
@@ -81,10 +85,12 @@ u32 req_errors_net,
 u64 bytes_sent,
     bytes_recv,
     bytes_deflated,
-    bytes_inflated;
+    bytes_inflated,
+    iterations_cnt = 0;
 
 u8 *auth_user,
    *auth_pass;
+
 
 #ifdef PROXY_SUPPORT
 u8* use_proxy;
@@ -92,7 +98,8 @@ u32 use_proxy_addr;
 u16 use_proxy_port;
 #endif /* PROXY_SUPPORT */
 
-u8  ignore_cookies;
+u8  ignore_cookies,
+    idle;
 
 /* Internal globals for queue management: */
 
@@ -126,7 +133,6 @@ u8* get_value(u8 type, u8* name, u32 offset,
   return NULL;
 
 }
-
 
 /* Inserts or overwrites parameter value in param_array. If offset
    == -1, will append parameter to list. Duplicates strings,
@@ -1483,6 +1489,7 @@ u8 parse_response(struct http_request* req, struct http_response* res,
     *val = 0;
     while (isspace(*(++val)));
 
+    SET_HDR(cur_line, val, &res->hdr);
     if (!strcasecmp((char*)cur_line, "Set-Cookie") ||
         !strcasecmp((char*)cur_line, "Set-Cookie2")) {
 
@@ -1516,6 +1523,7 @@ u8 parse_response(struct http_request* req, struct http_response* res,
              strncmp((char*)cval, (char*)orig_val, 3))) {
            res->cookies_set = 1;
            problem(PROB_NEW_COOKIE, req, res, val, req->pivot, 0);
+
          }
 
          /* Set cookie globally, but ignore obvious attempts to delete
@@ -1525,8 +1533,7 @@ u8 parse_response(struct http_request* req, struct http_response* res,
            SET_CK(val, cval, &global_http_par);
 
       }
-
-    } else SET_HDR(cur_line, val, &res->hdr);
+    }
 
     /* Content-Type is worth mining for MIME, charset data at this point. */
 
@@ -2289,8 +2296,21 @@ SSL_read_more:
     struct queue_entry *q = queue;
 
     while (q) {
-      struct queue_entry* next = q->next;
       u32 to_host = 0;
+
+      // enforce the max requests per seconds requirement
+      if (max_requests_sec && req_sec > max_requests_sec) {
+        u32 diff = req_sec - max_requests_sec;
+
+        DEBUG("req_sec=%f max=%f diff=%u\n", req_sec, max_requests_sec, diff);
+        if ((iterations_cnt++)%(diff + 1) != 0) {
+            idle = 1;
+            return queue_cur;
+        }
+      }
+      idle = 0;
+
+      struct queue_entry* next = q->next;
 
       if (!q->c) {
 
@@ -2456,7 +2476,6 @@ struct http_response* res_copy(struct http_response* res) {
   return ret;
 
 }
-
 
 /* Dumps HTTP request data, for diagnostic purposes: */
 

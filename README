@@ -4,8 +4,14 @@ skipfish - web application security scanner
 
   http://code.google.com/p/skipfish/
 
-  * Written and maintained by Michal Zalewski <lcamtuf@google.com>.
-  * Copyright 2009, 2010, 2011 Google Inc, rights reserved.
+  * Written and maintained by:
+
+      Michal Zalewski <lcamtuf@google.com>
+      Niels Heinen <heinenn@google.com>
+      Sebastian Roschke <s.roschke@googlemail.com>
+
+  * Copyright 2009 - 2012 Google Inc, rights reserved.
+
   * Released under terms and conditions of the Apache License, version 2.0.
 
 --------------------
@@ -111,7 +117,7 @@ A rough list of the security checks offered by the tool is outlined below.
     * Stored and reflected XSS vectors in document body (minimal JS XSS support).
     * Stored and reflected XSS vectors via HTTP redirects.
     * Stored and reflected XSS vectors via HTTP header splitting.
-    * Directory traversal / RFI (including constrained vectors).
+    * Directory traversal / LFI / RFI (including constrained vectors).
     * Assorted file POIs (server-side sources, configs, etc).
     * Attacker-supplied script and CSS inclusion vectors (stored and reflected).
     * External untrusted script and CSS inclusion vectors.
@@ -130,6 +136,7 @@ A rough list of the security checks offered by the tool is outlined below.
     * Attacker-supplied embedded content (stored and reflected).
     * External untrusted embedded content.
     * Mixed content on non-scriptable subresources (optional).
+    * HTTPS -> HTTP submission of HTML forms (optional).
     * HTTP credentials in URLs.
     * Expired or not-yet-valid SSL certificates.
     * HTML forms with no XSRF protection.
@@ -228,20 +235,25 @@ behavior there.
 To compile it, simply unpack the archive and try make. Chances are, you will
 need to install libidn first.
 
-Next, you need to copy the desired dictionary file from dictionaries/ to
-skipfish.wl. Please read dictionaries/README-FIRST carefully to make the
-right choice. This step has a profound impact on the quality of scan results
-later on.
+Next, you need to read the instructions provided in dictionaries/README-FIRST
+to select the right dictionary file and configure it correctly. This step has a 
+profound impact on the quality of scan results later on, so don't skip it.
 
-Once you have the dictionary selected, you can try:
+Once you have the dictionary selected, you can use -S to load that dictionary,
+and -W to specify an initially empty file for any newly learned site-specific
+keywords (which will come handy in future assessments):
 
-$ ./skipfish -o output_dir http://www.example.com/some/starting/path.txt
+$ touch new_dict.wl
+$ ./skipfish -o output_dir -S existing_dictionary.wl -W new_dict.wl \
+  http://www.example.com/some/starting/path.txt
+
+You can use -W- if you don't want to store auto-learned keywords anywhere.
 
 Note that you can provide more than one starting URL if so desired; all of
 them will be crawled. It is also possible to read URLs from file, using
 the following syntax:
 
-$ ./skipfish -o output_dir @../path/to/url_list.txt
+$ ./skipfish [...other options...] @../path/to/url_list.txt
 
 The tool will display some helpful stats while the scan is in progress. You
 can also switch to a list of in-flight HTTP requests by pressing return.
@@ -373,6 +385,18 @@ restricted on HTTP/1.1 level, but no explicit HTTP/1.0 caching directive is
 given on specifying -E in the command-line causes skipfish to log all such
 cases carefully.
 
+In some occasions, you want to limit the requests per second to limit
+the load on the targets server (or possibly bypass DoS protection). The
+-l flag can be used to set this limit and the value given is the maximum
+amount of requests per second you want skipfish to perform.
+
+Scans typically should not take weeks. In many cases, you probably
+want to limit the scan duration so that it fits within a certain time
+window. This can be done with the -k flag, which allows the amount of
+hours, minutes and seconds to be specified in a H:M:S format. Use of
+this flag can affect the scan coverage if the scan timeout occurs before
+testing all pages.
+
 Lastly, in some assessments that involve self-contained sites without
 extensive user content, the auditor may care about any external e-mails or
 HTTP links seen, even if they have no immediate security impact. Use the -U
@@ -380,10 +404,10 @@ option to have these logged.
 
 Dictionary management is a special topic, and - as mentioned - is covered in
 more detail in dictionaries/README-FIRST. Please read that file before
-proceeding. Some of the relevant options include -W to specify a custom
-wordlist, -L to suppress auto-learning, -V to suppress dictionary updates, -G
-to limit the keyword guess jar size, -R to drop old dictionary entries, and
--Y to inhibit expensive $keyword.$extension fuzzing.
+proceeding. Some of the relevant options include -S and -W (covered earlier),
+-L to suppress auto-learning, -G to limit the keyword guess jar size, -R to
+drop old dictionary entries, and -Y to inhibit expensive $keyword.$extension
+fuzzing.
 
 Skipfish also features a form auto-completion mechanism in order to maximize
 scan coverage. The values should be non-malicious, as they are not meant to
@@ -423,21 +447,25 @@ Oh, and real-time scan statistics can be suppressed with -u.
 
 A standard, authenticated scan of a well-designed and self-contained site
 (warns about all external links, e-mails, mixed content, and caching header
-issues):
+issues), including gentle brute-force:
 
-$ ./skipfish -MEU -C "AuthCookie=value" -X /logout.aspx -o output_dir \
+$ touch new_dict.wl
+$ ./skipfish -MEU -S dictionaries/minimal.wl -W new_dict.wl \
+  -C "AuthCookie=value" -X /logout.aspx -o output_dir \
   http://www.example.com/
 
 Five-connection crawl, but no brute-force; pretending to be MSIE and and
 trusting example.com content:
 
-$ ./skipfish -m 5 -LV -W /dev/null -o output_dir -b ie -B example.com \
+$ ./skipfish -m 5 -L -W- -o output_dir -b ie -B example.com \
   http://www.example.com/
 
-Brute force only (no HTML link extraction), limited to a single directory and
-timing out after 5 seconds:
+Heavy brute force only (no HTML link extraction), limited to a single
+directory and timing out after 5 seconds:
 
-$ ./skipfish -P -I http://www.example.com/dir1/ -o output_dir -t 5 -I \
+$ touch new_dict.wl
+$ ./skipfish -S dictionaries/complete.wl -W new_dict.wl \
+   -P -I http://www.example.com/dir1/ -o output_dir -t 5 -I \
   http://www.example.com/dir1/
 
 For a short list of all command-line options, try ./skipfish -h.
@@ -516,8 +544,6 @@ know:
 
   * Scheduling and management web UI.
 
-  * QPS throttling and maximum scan time limit.
-
   * A database for banner / version checks or other configurable rules?
 
 -------------------------------------
@@ -560,4 +586,4 @@ Skipfish is made possible thanks to the contributions of, and valuable
 feedback from, Google's information security engineering team.
 
 If you have any bug reports, questions, suggestions, or concerns regarding
-the application, the author can be reached at lcamtuf@google.com.
+the application, the primary author can be reached at lcamtuf@google.com.

@@ -68,7 +68,7 @@ static void resize_handler(int sig) {
 /* Usage info. */
 
 static void usage(char* argv0) {
-  SAY("Usage: %s [ options ... ] -o output_dir start_url [ start_url2 ... ]\n\n"
+  SAY("Usage: %s [ options ... ] -W wordlist -o output_dir start_url [ start_url2 ... ]\n\n"
 
       "Authentication and access options:\n\n"
 
@@ -110,9 +110,9 @@ static void usage(char* argv0) {
 
       "Dictionary management options:\n\n"
 
-      "  -W wordlist    - load an alternative wordlist (%s)\n"
+      "  -W wordlist    - use a specified read-write wordlist (required)\n"
+      "  -S wordlist    - load a supplemental read-only wordlist\n"
       "  -L             - do not auto-learn new keywords for the site\n"
-      "  -V             - do not update wordlist based on scan results\n"
       "  -Y             - do not fuzz extensions in directory brute-force\n"
       "  -R age         - purge words hit more than 'age' scans ago\n"
       "  -T name=val    - add new form auto-fill rule\n"
@@ -120,6 +120,7 @@ static void usage(char* argv0) {
 
       "Performance settings:\n\n"
 
+      "  -l max_req     - max requests per second (%f)\n"
       "  -g max_conn    - max simultaneous TCP connections, global (%u)\n"
       "  -m host_conn   - max simultaneous connections, per target IP (%u)\n"
       "  -f max_fail    - max number of consecutive HTTP errors (%u)\n"
@@ -129,10 +130,14 @@ static void usage(char* argv0) {
       "  -s s_limit     - response size limit (%u B)\n"
       "  -e             - do not keep binary responses for reporting\n\n"
 
+      "Safety settings:\n\n"
+
+      "  -k duration    - stop scanning after the given duration h:m:s\n\n"
+
       "Send comments and complaints to <lcamtuf@google.com>.\n", argv0,
-      max_depth, max_children, max_descendants, max_requests, DEF_WORDLIST,
-      MAX_GUESSES, max_connections, max_conn_host, max_fail, resp_tmout,
-      rw_tmout, idle_tmout, size_limit);
+      max_depth, max_children, max_descendants, max_requests,
+      MAX_GUESSES, max_requests_sec, max_connections, max_conn_host,
+      max_fail, resp_tmout, rw_tmout, idle_tmout, size_limit);
 
   exit(1);
 }
@@ -164,14 +169,14 @@ void splash_screen(void) {
 
       "More info: " cYEL "http://code.google.com/p/skipfish/wiki/KnownIssues\n\n" cBRI);
 
-  if (!no_fuzz_ext && (keyword_orig_cnt * extension_cnt) > 1000) {
+  if (!no_fuzz_ext && (keyword_orig_cnt * wg_extension_cnt) > 1000) {
 
     SAY(cLRD 
 
         "NOTE: The scanner is currently configured for directory brute-force attacks,\n"
         "and will make about " cBRI "%u" cLRD " requests per every fuzzable location. If this is\n"
         "not what you wanted, stop now and consult the documentation.\n\n",
-        keyword_orig_cnt * extension_cnt);
+        keyword_orig_cnt * wg_extension_cnt);
 
   }
 
@@ -237,9 +242,10 @@ static void read_urls(u8* fn) {
 int main(int argc, char** argv) {
   s32 opt;
   u32 loop_cnt = 0, purge_age = 0, seed;
-  u8  dont_save_words = 0, show_once = 0, be_quiet = 0, display_mode = 0,
-      has_fake = 0;
+  u8  show_once = 0, be_quiet = 0, display_mode = 0, has_fake = 0;
   u8 *wordlist = NULL, *output_dir = NULL;
+  u8* gtimeout_str = NULL;
+  u32 gtimeout = 0;
 
   struct termios term;
   struct timeval tv;
@@ -258,7 +264,8 @@ int main(int argc, char** argv) {
   SAY("skipfish version " VERSION " by <lcamtuf@google.com>\n");
 
   while ((opt = getopt(argc, argv,
-          "+A:F:C:H:b:Nd:c:x:r:p:I:X:D:POYQMZUEK:W:LVT:J:G:R:B:q:g:m:f:t:w:i:s:o:hue")) > 0)
+          "+A:B:C:D:EF:G:H:I:J:K:LMNOPQR:S:T:UW:X:YZ"
+          "b:c:d:ef:g:hi:k:l:m:o:p:q:r:s:t:uw:x:")) > 0)
 
     switch (opt) {
 
@@ -371,10 +378,6 @@ int main(int argc, char** argv) {
         no_parse = 1;
         break;
 
-      case 'V':
-        dont_save_words = 1;
-        break;
-
       case 'M':
         warn_mixed = 1;
         break;
@@ -421,12 +424,16 @@ int main(int argc, char** argv) {
         break;
 
       case 'W':
-        if (optarg[0] == '+') load_keywords((u8*)optarg + 1, 1, 0);
-        else {
-          if (wordlist)
-            FATAL("Only one -W parameter permitted (unless '+' used).");
-          wordlist = (u8*)optarg;
-        }
+        if (wordlist)
+          FATAL("Only one -W parameter permitted (use -S to load supplemental dictionaries).");
+
+        if (!strcmp(optarg, "-")) wordlist = (u8*)"/dev/null";
+        else wordlist = (u8*)optarg;
+
+        break;
+
+      case 'S':
+        load_keywords((u8*)optarg, 1, 0);
         break;
 
       case 'b':
@@ -454,6 +461,11 @@ int main(int argc, char** argv) {
       case 'r':
         max_requests = atoi(optarg);
         if (!max_requests) FATAL("Invalid value '%s'.", optarg);
+        break;
+
+      case 'l':
+        max_requests_sec = atof(optarg);
+        if (!max_requests_sec) FATAL("Invalid value '%s'.", optarg);
         break;
 
       case 'f':
@@ -500,6 +512,11 @@ int main(int argc, char** argv) {
         delete_bin = 1;
         break;
 
+      case 'k':
+        if (gtimeout_str) FATAL("Multiple -k options not allowed.");
+        gtimeout_str = (u8*)optarg;
+        break;
+
       case 'Z':
         no_500_dir = 1;
         break;
@@ -531,7 +548,27 @@ int main(int argc, char** argv) {
   if (max_connections < max_conn_host)
     max_connections = max_conn_host;
 
-  if (!wordlist) wordlist = (u8*)DEF_WORDLIST;
+  /* Parse the timeout string - format h:m:s */
+  if (gtimeout_str) {
+    int i = 0;
+    int m[3] = { 1, 60, 3600 };
+
+    u8* tok = (u8*)strtok((char*)gtimeout_str, ":");
+
+    while(tok && i <= 2) {
+      gtimeout += atoi((char*)tok) * m[i];
+      tok = (u8*)strtok(NULL, ":");
+      i++;
+    }
+
+    if(!gtimeout)
+      FATAL("Wrong timeout format, please use h:m:s (hours, minutes, seconds)");
+    DEBUG("* Scan timeout is set to %d seconds\n", gtimeout);
+  }
+
+
+  if (!wordlist)
+    FATAL("Wordlist not specified (try -h for help; see dictionaries/README-FIRST).");
 
   load_keywords(wordlist, 0, purge_age);
 
@@ -587,7 +624,23 @@ int main(int argc, char** argv) {
 
     u8 keybuf[8];
 
-    if (be_quiet || ((loop_cnt++ % 100) && !show_once)) continue;
+    u64 end_time;
+    u64 run_time;
+    struct timeval tv_tmp;
+
+    gettimeofday(&tv_tmp, NULL);
+    end_time = tv_tmp.tv_sec * 1000LL + tv_tmp.tv_usec / 1000;
+
+    run_time = end_time - st_time;
+    if (gtimeout > 0 && run_time && run_time/1000 > gtimeout) {
+      DEBUG("* Stopping scan due to timeout\n");
+      stop_soon = 1;
+    }
+
+    req_sec = (req_count - queue_cur / 1.15) * 1000 / (run_time + 1);
+
+    if (be_quiet || ((loop_cnt++ % 100) && !show_once && idle == 0))
+      continue;
 
     if (clear_screen) {
       SAY("\x1b[H\x1b[2J");
@@ -629,7 +682,7 @@ int main(int argc, char** argv) {
   tcsetattr(0, TCSANOW, &term);
   fcntl(0, F_SETFL, O_SYNC);
 
-  if (!dont_save_words) save_keywords((u8*)wordlist);
+  save_keywords((u8*)wordlist);
 
   write_report(output_dir, en_time - st_time, seed);
 

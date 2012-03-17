@@ -1,3 +1,35 @@
+Version 2.04b:
+--------------
+
+  - Option -V eliminated in favor of -W / -S.
+
+  - Option -l added to limit the maximum requests per second (contributed by Sebastian Roschke)
+
+  - Option -k added to limit the maximum duration of a scan (contributed by Sebastian Roschke)
+
+  - Support for #ro, -W-; related documentation changes.
+
+  - HTTPS -> HTTP form detection.
+
+  - Added more diverse traversal and file disclosure tests (including file:// scheme tests)
+
+  - Improved injection detection in <script> sections, where a ' or "
+    is all we need to inject js code.
+
+  - Added check to see if our injection strings end up server Set-Cookie,
+    Set-Cookie2 and Content-Type reponse headers
+
+  - URLs that give us a Javascript response are now tested with a
+    "callback=" parameter to find JSONP issues.
+
+  - Fixed "response varies" bug in 404 detection where a stable page would be marked unstable.
+
+  - Bugfix to es / eg handling in dictionaries.
+
+  - Added the "complete-fast.wl" wordlist which is an es / eg optimized
+    version of "complete.wl" (resulting in 20-30% fewer requests).
+
+
 Version 2.03b:
 --------------
 

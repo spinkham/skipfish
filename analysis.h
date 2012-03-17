@@ -25,7 +25,6 @@
 #include "types.h"
 #include "http_client.h"
 #include "database.h"
-#include "crawler.h"
 
 extern u8  no_parse,            /* Disable HTML link detection */
            warn_mixed,          /* Warn on mixed content       */
@@ -200,6 +199,17 @@ static char* mime_map[MIME_COUNT][8] = {
 /* MIME_BIN_GENERIC     */ { "application/binary", "application/octet-stream",
                              0 }
 
+};
+
+/* A set of headers that we check to see if our injection string ended
+   up in their value. This list should only contain headers where control
+   over the value could potentially be exploited. */
+
+static const char* injection_headers[] = {
+  "Set-Cookie",
+  "Set-Cookie2",
+  "Content-Type",
+  0,
 };
 
 #endif /* _VIA_ANALYSIS_C */

@@ -421,7 +421,7 @@ static void save_req_res(struct http_request* req, struct http_response* res, u8
     ck_free(rd);
   }
 
-  if (res && res->state == STATE_OK) {
+  if (res && req && res->state == STATE_OK) {
     u32 i;
     f = fopen("response.dat", "w");
     if (!f) PFATAL("Cannot create 'response.dat'");
@@ -430,8 +430,6 @@ static void save_req_res(struct http_request* req, struct http_response* res, u8
     for (i=0;i<res->hdr.c;i++)
       if (res->hdr.t[i] == PARAM_HEADER)
         fprintf(f, "%s: %s\n", res->hdr.n[i], res->hdr.v[i]);
-      else
-        fprintf(f, "Set-Cookie: %s=%s\n", res->hdr.n[i], res->hdr.v[i]);
 
     fprintf(f, "\n");
     fwrite(res->payload, res->pay_len, 1, f);

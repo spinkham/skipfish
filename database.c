@@ -82,14 +82,14 @@ struct ext_entry {
   u32 index;
 };
 
-static struct ext_entry *extension,     /* Extension list                  */
-                        *sp_extension;
+static struct ext_entry *wg_extension,     /* Extension list */
+                        *ws_extension;
 
 static u8 **guess;                      /* Keyword candidate list          */
 
 u32 guess_cnt,                          /* Number of keyword candidates    */
-    extension_cnt,                      /* Number of extensions            */
-    sp_extension_cnt,                   /* Number of specific extensions   */
+    ws_extension_cnt,                   /* Number of specific extensions   */
+    wg_extension_cnt,                   /* Number of extensions            */
     keyword_total_cnt,                  /* Current keyword count           */
     keyword_orig_cnt;                   /* At-boot keyword count           */
 
@@ -165,8 +165,9 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
 
     if (PATH_SUBTYPE(req->par.t[i])) {
 
-      if (req->par.t[i] == PARAM_PATH && !req->par.n[i] && !req->par.v[i][0])
-        ends_with_slash = 1; 
+      if (req->par.t[i] == PARAM_PATH && !req->par.n[i] &&
+          req->par.v[i] && !req->par.v[i][0])
+        ends_with_slash = 1;
       else
         ends_with_slash = 0;
 
@@ -898,10 +899,10 @@ static void wordlist_confirm_single(u8* text, u8 is_ext, u8 class, u8 read_only,
       if (!keyword[kh][i].is_ext && is_ext) {
         keyword[kh][i].is_ext = 1;
 
-        extension = ck_realloc(extension, (extension_cnt + 1) * 
+        wg_extension = ck_realloc(wg_extension, (wg_extension_cnt + 1) *
                     sizeof(struct ext_entry));
-        extension[extension_cnt].bucket = kh;
-        extension[extension_cnt++].index = i;
+        wg_extension[wg_extension_cnt].bucket = kh;
+        wg_extension[wg_extension_cnt++].index = i;
       }
 
       return;
@@ -929,20 +930,18 @@ static void wordlist_confirm_single(u8* text, u8 is_ext, u8 class, u8 read_only,
 
   if (is_ext) {
 
-    extension = ck_realloc(extension, (extension_cnt + 1) * 
+    wg_extension = ck_realloc(wg_extension, (wg_extension_cnt + 1) * 
                 sizeof(struct ext_entry));
-    extension[extension_cnt].bucket = kh;
-    extension[extension_cnt++].index = i;
+    wg_extension[wg_extension_cnt].bucket = kh;
+    wg_extension[wg_extension_cnt++].index = i;
 
-    if (class == KW_SPECIFIC) {
-
-      sp_extension = ck_realloc(sp_extension, (sp_extension_cnt + 1) * 
-                  sizeof(struct ext_entry));
-      sp_extension[sp_extension_cnt].bucket = kh;
-      sp_extension[sp_extension_cnt++].index = i;
-
+    /* We only add generic extensions to the ws list. */
+    if (class == KW_GENERIC) {
+      ws_extension = ck_realloc(ws_extension, (ws_extension_cnt + 1) * 
+                sizeof(struct ext_entry));
+      ws_extension[ws_extension_cnt].bucket = kh;
+      ws_extension[ws_extension_cnt++].index = i;
     }
-
   }
 
 }
@@ -1065,12 +1064,12 @@ u8* wordlist_get_guess(u32 offset, u8* specific) {
 u8* wordlist_get_extension(u32 offset, u8 specific) {
 
   if (!specific) {
-    if (offset >= extension_cnt) return NULL;
-    return keyword[extension[offset].bucket][extension[offset].index].word;
+    if (offset >= wg_extension_cnt) return NULL;
+    return keyword[wg_extension[offset].bucket][wg_extension[offset].index].word;
   }
 
-  if (offset >= sp_extension_cnt) return NULL;
-  return keyword[sp_extension[offset].bucket][sp_extension[offset].index].word;
+  if (offset >= ws_extension_cnt) return NULL;
+  return keyword[ws_extension[offset].bucket][ws_extension[offset].index].word;
 }
 
 
@@ -1089,11 +1088,15 @@ void load_keywords(u8* fname, u8 read_only, u32 purge_age) {
   in = fopen((char*)fname, "r");
 
   if (!in) {
-    PFATAL("Unable to open wordlist '%s'", fname);
-    return;
+    if (read_only)
+      PFATAL("Unable to open read-only wordlist '%s'.", fname);
+    else
+      PFATAL("Unable to open read-write wordlist '%s' (see dictionaries/README-FIRST).", fname);
   }
 
   sprintf(fmt, "%%2s %%u %%u %%u %%%u[^\x01-\x1f]", MAX_WORD);
+
+wordlist_retry:
 
   while ((fields = fscanf(in, fmt, type, &hits, &total_age, &last_age, kword))
           == 5) {
@@ -1113,11 +1116,23 @@ void load_keywords(u8* fname, u8 read_only, u32 purge_age) {
     fgetc(in); /* sink \n */
   }
 
+  if (fields == 1 && !strcmp((char*)type, "#r")) {
+    printf("Found %s (readonly:%d)\n", type, read_only);
+    if (!read_only)
+      FATAL("Attempt to load read-only wordlist '%s' via -W (use -S instead).\n", fname);
+
+    fgetc(in); /* sink \n */
+    goto wordlist_retry;
+  }
+
   if (fields != -1 && fields != 5)
     FATAL("Wordlist '%s': syntax error in line %u.\n", fname, lines);
 
-  if (!lines)
+  if (!lines && (read_only || !keyword_total_cnt))
     WARN("Wordlist '%s' contained no valid entries.", fname);
+
+  DEBUG("* Read %d lines from dictionary '%s' (read-only = %d).\n", lines,
+        fname, read_only);
 
   keyword_orig_cnt = keyword_total_cnt;
 
@@ -1150,6 +1165,8 @@ void save_keywords(u8* fname) {
 #ifndef O_NOFOLLOW
 #define O_NOFOLLOW 0
 #endif /* !O_NOFOLLOW */
+
+  /* Don't save keywords for /dev/null and other weird files. */
 
   if (stat((char*)fname, &st) || !S_ISREG(st.st_mode)) return;
 
@@ -1281,7 +1298,7 @@ void database_stats() {
       pivot_serv, pivot_dir, pivot_file, pivot_pinfo, pivot_unknown,
       pivot_param, pivot_value, issue_cnt[1], issue_cnt[2], issue_cnt[3],
        issue_cnt[4], issue_cnt[5], keyword_total_cnt, keyword_total_cnt -
-      keyword_orig_cnt, extension_cnt, guess_cnt);
+      keyword_orig_cnt, wg_extension_cnt, guess_cnt);
 
 }
 
@@ -1486,8 +1503,8 @@ void destroy_database() {
   }
 
   /* Extensions just referenced keyword[][] entries. */
-  ck_free(extension);
-  ck_free(sp_extension);
+  ck_free(wg_extension);
+  ck_free(ws_extension);
 
   for (i=0;i<guess_cnt;i++) ck_free(guess[i]);
   ck_free(guess);

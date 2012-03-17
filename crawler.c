@@ -598,7 +598,8 @@ static void secondary_ext_start(struct pivot_desc* pv, struct http_request* req,
                                 struct http_response* res, u8 is_param) {
 
   u8 *base_name, *fpos, *lpos, *ex;
-  s32 tpar = -1, i = 0, spar = -1;
+  s32 tpar = -1, spar = -1;
+  u32 i = 0;
 
   DEBUG_HELPER(req->pivot);
   DEBUG_HELPER(pv);
@@ -720,12 +721,25 @@ static void inject_start(struct pivot_desc* pv) {
 
   if (pv->type == PIVOT_DIR || pv->type == PIVOT_SERV) {
     struct http_request* n;
+
+    /* First a PUT request */
     n = req_copy(pv->req, pv, 1);
     if (n->method) ck_free(n->method);
     n->method   = ck_strdup((u8*)"PUT");
+    n->user_val = 0;
     n->callback = put_upload_check;
     replace_slash(n, (u8*)("PUT-" BOGUS_FILE));
     async_request(n);
+
+    /* Second a FOO for false positives */
+    n = req_copy(pv->req, pv, 1);
+    if (n->method) ck_free(n->method);
+    n->method   = ck_strdup((u8*)"FOO");
+    n->user_val = 1;
+    n->callback = put_upload_check;
+    replace_slash(n, (u8*)("PUT-" BOGUS_FILE));
+    async_request(n);
+
   } else {
     inject_start2(pv);
   }
@@ -740,13 +754,22 @@ static u8 put_upload_check(struct http_request* req,
 
   if (FETCH_FAIL(res)) {
     handle_error(req, res, (u8*)"during PUT checks", 0);
-  } else {
-    if (res->code >= 200 && res->code < 300 &&
-        !same_page(&RPRES(req)->sig, &res->sig)) {
-      problem(PROB_PUT_DIR, req, res, 0, req->pivot, 0);
-    }
+    goto schedule_next;
   }
 
+  req->pivot->misc_req[req->user_val] = req;
+  req->pivot->misc_res[req->user_val] = res;
+  if ((++req->pivot->misc_cnt) != 2) return 1;
+
+  /* If PUT and FOO of the page does not give the same result. And if
+  additionally we get a 2xx code, than we'll mark the issue as detected */
+  if(same_page(&MRES(0)->sig, &MRES(1)->sig) &&
+     MRES(0)->code >= 200 && MRES(1)->code < 300)
+    problem(PROB_PUT_DIR, MREQ(0), MRES(0), 0, req->pivot, 0);
+
+schedule_next:
+
+  destroy_misc_data(req->pivot, req);
   inject_start2(req->pivot);
   return 0;
 
@@ -773,8 +796,9 @@ static void inject_start2(struct pivot_desc* pv) {
 static u8 inject_behavior_check(struct http_request* req,
                                 struct http_response* res) {
   struct http_request* n;
-  u32 orig_state = req->pivot->state;
   u8* tmp = NULL;
+  u32 orig_state = req->pivot->state;
+  u32 i;
 
   /* pv->state may change after async_request() calls in
      insta-fail mode, so we should cache accordingly. */
@@ -867,29 +891,37 @@ static u8 inject_behavior_check(struct http_request* req,
 
   if (orig_state != PSTATE_CHILD_INJECT) {
 
+    /* We combine the traversal and file disclosure attacks here since
+      the checks are almost identical */
+
+    i = 0;
+    while(disclosure_tests[i]) {
+      n = req_copy(req->pivot->req, req->pivot, 1);
+
+      ck_free(TPAR(n));
+      TPAR(n) = ck_strdup((u8*)disclosure_tests[i]);
+
+      n->callback = inject_dir_listing_check;
+      n->user_val = 4 + i;
+      async_request(n);
+      i++;
+    }
+
+#ifdef RFI_SUPPORT
+    /* Optionally try RFI */
     n = req_copy(req->pivot->req, req->pivot, 1);
 
     ck_free(TPAR(n));
-    TPAR(n) = ck_strdup((u8*)"../../../../../../../../etc/hosts");
+    TPAR(n) = ck_strdup((u8*)RFI_HOST);
 
     n->callback = inject_dir_listing_check;
-    n->user_val = 4;
+    n->user_val = 4 + i;
     async_request(n);
-
-    n = req_copy(req->pivot->req, req->pivot, 1);
-
-    ck_free(TPAR(n));
-    TPAR(n) = ck_strdup((u8*)"..\\..\\..\\..\\..\\..\\..\\..\\boot.ini");
-
-    n->callback = inject_dir_listing_check;
-    n->user_val = 5;
-    async_request(n);
+#endif
 
   }
 
-
   return 0;
-
 }
 
 
@@ -912,7 +944,11 @@ static u8 inject_dir_listing_check(struct http_request* req,
   req->pivot->misc_res[req->user_val] = res;
 
   if (req->pivot->i_skip_add) {
-    if ((++req->pivot->misc_cnt) != 6) return 1;
+#ifdef RFI_SUPPORT
+    if ((++req->pivot->misc_cnt) != 12) return 1;
+#else
+    if ((++req->pivot->misc_cnt) != 11) return 1;
+#endif
   } else {
     if ((++req->pivot->misc_cnt) != 4) return 1;
   }
@@ -935,12 +971,21 @@ static u8 inject_dir_listing_check(struct http_request* req,
        misc[1] = ./known_val
        misc[2] = ...\known_val
        misc[3] = .\known_val
-       misc[4] = ../../../../../../../../etc/hosts
-       misc[5] = ..\..\..\..\..\..\..\..\boot.ini
 
      Here, the test is simpler: if misc[1] != misc[0], or misc[3] !=
      misc[2], we probably have a bug. The same if misc[4] or misc[5]
      contain magic strings, but misc[0] doesn't.
+
+     Finally, we perform some directory traveral and file inclusion tests.
+
+       misc[4] = ../../../../../../../../etc/hosts
+       misc[5] = ../../../../../../../../etc/passwd
+       misc[6] = ..\..\..\..\..\..\..\..\boot.ini
+       misc[7] = ../../../../../../../../WEB-INF/web.xml
+       misc[8] = file:///etc/hosts
+       misc[9] = file:///etc/passwd
+       misc[10] = file:///boot.ini
+       misc[11] = RFI (optional)
 
  */
 
@@ -984,17 +1029,55 @@ static u8 inject_dir_listing_check(struct http_request* req,
       RESP_CHECKS(MREQ(2), MRES(2));
     }
 
-    if (inl_findstr(MRES(4)->payload, (u8*)"127.0.0.1", 512) &&
-        !inl_findstr(MRES(0)->payload, (u8*)"127.0.0.1", 512)) {
-      problem(PROB_DIR_TRAVERSAL, MREQ(4), MRES(4),
-        (u8*)"response resembles /etc/hosts", req->pivot, 0);
+    /* Check on the /etc/hosts file disclosure */
+    if(!inl_findstr(MRES(0)->payload, (u8*)"127.0.0.1", 1024)) {
+      if (inl_findstr(MRES(4)->payload, (u8*)"127.0.0.1", 1024)) {
+
+        problem(PROB_FI_LOCAL, MREQ(4), MRES(4),
+                (u8*)"response resembles /etc/hosts (via traversal)", req->pivot, 0);
+      } else if(inl_findstr(MRES(8)->payload, (u8*)"127.0.0.1", 1024)) {
+            problem(PROB_FI_LOCAL, MREQ(8), MRES(8),
+                    (u8*)"response resembles /etc/hosts (via file://)", req->pivot, 0);
+      }
     }
 
-    if (inl_findstr(MRES(5)->payload, (u8*)"[boot loader]", 512) &&
-        !inl_findstr(MRES(0)->payload, (u8*)"[boot loader]", 512)) {
-      problem(PROB_DIR_TRAVERSAL, MREQ(5), MRES(5),
-        (u8*)"response resembles c:\\boot.ini", req->pivot, 0);
+    /* Check on the /etc/passwd file disclosure */
+    if(!inl_findstr(MRES(0)->payload, (u8*)"root:x:0:0:root", 1024)) {
+      if(inl_findstr(MRES(5)->payload, (u8*)"root:x:0:0:root", 1024)) {
+            problem(PROB_FI_LOCAL, MREQ(5), MRES(5),
+                    (u8*)"response resembles /etc/passwd (via traversal)", req->pivot, 0);
+      } else if(inl_findstr(MRES(9)->payload, (u8*)"root:x:0:0:root", 1024)) {
+            problem(PROB_FI_LOCAL, MREQ(9), MRES(9),
+                    (u8*)"response resembles /etc/passwd (via file://)", req->pivot, 0);
+      }
     }
+
+    /* Windows boot.ini disclosure */
+    if(!inl_findstr(MRES(0)->payload, (u8*)"[boot loader]", 1024)) {
+        if (inl_findstr(MRES(6)->payload, (u8*)"[boot loader]", 1024)) {
+            problem(PROB_FI_LOCAL, MREQ(6), MRES(6),
+                    (u8*)"response resembles c:\\boot.ini (via traversal)", req->pivot, 0);
+        } else if (inl_findstr(MRES(10)->payload, (u8*)"[boot loader]", 1024)) {
+            problem(PROB_FI_LOCAL, MREQ(10), MRES(9),
+                    (u8*)"response resembles c:\\boot.ini (via file://)", req->pivot, 0);
+        }
+    }
+
+    /* Check the web.xml disclosure */
+    if(!inl_findstr(MRES(0)->payload, (u8*)"<servlet-mapping>", 1024)) {
+      if (inl_findstr(MRES(7)->payload, (u8*)"<servlet-mapping>", 1024))
+        problem(PROB_FI_LOCAL, MREQ(7), MRES(7),
+                (u8*)"response resembles ./WEB-INF/web.xml (via traversal)", req->pivot, 0);
+    }
+
+
+#ifdef RFI_SUPPORT
+    if (!inl_findstr(MRES(0)->payload, (u8*)RFI_STRING, 1024) && 
+        inl_findstr(MRES(11)->payload, (u8*)RFI_STRING, 1024)) {
+      problem(PROB_FI_REMOTE, MREQ(11), MRES(11),
+        (u8*)"remote file inclusion", req->pivot, 0);
+    }
+#endif
 
   }
 
@@ -1232,7 +1315,7 @@ schedule_next:
   if (req->user_val) return 0;
 
   n = req_copy(RPREQ(req), req->pivot, 1);
-  SET_VECTOR(orig_state, n, (u8*)"SKIPFISH~STRING");
+  SET_VECTOR(orig_state, n, (u8*)"+/skipfish-bom");
   n->callback = inject_prologue_check;
   async_request(n);
 
@@ -1255,13 +1338,13 @@ static u8 inject_prologue_check(struct http_request* req,
     goto schedule_next;
   }
 
-  if (res->pay_len && !prefix(res->payload, (u8*)"SKIPFISH~STRING") &&
+  if (res->pay_len && !prefix(res->payload, (u8*)"+/skipfish-bom") &&
       !GET_HDR((u8*)"Content-Disposition", &res->hdr))
     problem(PROB_PROLOGUE, req, res, NULL, req->pivot, 0);
 
 schedule_next:
 
-  /* XSS checks - 3 requests */
+  /* XSS checks - 4 requests */
 
   n = req_copy(RPREQ(req), req->pivot, 1);
   SET_VECTOR(orig_state, n, "http://skipfish.invalid/;?");
@@ -1281,8 +1364,13 @@ schedule_next:
   n->user_val = 2;
   async_request(n);
 
-  return 0;
+  n = req_copy(RPREQ(req), req->pivot, 1);
+  SET_VECTOR(orig_state, n, "'skip'''\"fish\"\"\"");
+  n->callback = inject_redir_check;
+  n->user_val = 3;
+  async_request(n);
 
+  return 0;
 }
 
 
@@ -2755,9 +2843,14 @@ bad_404:
     } else {
 
       if (req->pivot->type != PIVOT_SERV) {
+        /* todo(niels) improve behavior by adding a new pivot */
+        n = req_copy(RPREQ(req), req->pivot, 1);
+        replace_slash(n, NULL);
+        maybe_add_pivot(n, NULL, 2);
         req->pivot->type = PIVOT_PATHINFO;
-        replace_slash(req->pivot->req, NULL);
-      } else 
+        destroy_request(n);
+
+      } else
         problem(PROB_404_FAIL, RPREQ(req), RPRES(req),
                 (u8*)"no distinctive 404 behavior detected", req->pivot, 0);
     }
@@ -3395,4 +3488,3 @@ schedule_next:
 
   return keep;
 }
-

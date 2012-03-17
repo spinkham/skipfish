@@ -1,32 +1,49 @@
 This directory contains four alternative, hand-picked Skipfish dictionaries.
 
-PLEASE READ THIS FILE CAREFULLY BEFORE PICKING ONE. This is *critical* to
-getting good results in your work.
+PLEASE READ THESE INSTRUCTIONS CAREFULLY BEFORE PICKING ONE. This is *critical*
+to getting decent results in your scans.
 
 ------------------------
 Key command-line options
 ------------------------
 
-The dictionary to be used by the tool can be specified with the -W option,
-and must conform to the format outlined at the end of this document. If you
-omit -W in the command line, 'skipfish.wl' is assumed. This file does not
-exist by default. That part is by design: THE SCANNER WILL MODIFY THE
-SUPPLIED FILE UNLESS SPECIFICALLY INSTRUCTED NOT TO.
+Skipfish automatically builds and maintain dictionaries based on the URLs
+and HTML content encountered while crawling the site. These dictionaries
+are extremely useful for subsequent scans of the same target, or for
+future assessments of other platforms belonging to the same customer. 
 
-That's because the scanner automatically learns new keywords and extensions
-based on any links discovered during the scan, and on random sampling of 
-site contents. The information is consequently stored in the dictionary
-for future reuse, along with other bookkeeping information useful for
-determining which keywords perform well, and which ones don't.
+Exactly one read-write dictionary needs to be specified for every scan. To
+create a blank one and feed it to skipfish, you can use this syntax:
 
-All this means that it is very important to maintain a separate dictionary
-for every separate set of unrelated target sites. Otherwise, undesirable
-interference will occur.
+$ touch new_dict.wl
+$ ./skipfish -W new_dict.wl [...other options...]
+
+In addition, it is almost always beneficial to seed the scanner with any
+number of supplemental, read-only dictionaries with common keywords useful
+for brute-force attacks against any website. Supplemental dictionaries can
+be loaded using the following syntax:
+
+$ ./skipfish -S supplemental_dict1.wl -S supplemental_dict2.wl \
+   -W new_dict.wl [...other options...]
+
+Note that the -W option should be used with care. The target file will be
+modified at the end of the scan. The -S dictionaries, on the other hand, are
+purely read-only. 
+
+If you don't want to create a dictionary and store discovered keywords, you
+can use -W- (an alias for -W /dev/null).
+
+You can and should share read-only dictionaries across unrelated scans, but
+a separate read-write dictionary should be used for scans of unrelated targets.
+Otherwise, undesirable interference may occur.
 
 With this out of the way, let's quickly review the options that may be used
 to fine-tune various aspects of dictionary handling:
 
   -L      - do not automatically learn new keywords based on site content.
+
+            The scanner will still use keywords found in the specified
+            dictionaries, if any; but will not go beyond that set.
 
             This option should not be normally used in most scanning
             modes; if supplied, the scanner will not be able to discover
@@ -42,19 +59,12 @@ to fine-tune various aspects of dictionary handling:
             gradually replaced with new picks, and then discarded at the
             end of the scan. The default jar size is 256.
 
-  -V      - prevent the scanner from updating the dictionary file.
-
-            Normally, the primary read-write dictionary specified with the
-            -W option is updated at the end of the scan to add any newly
-            discovered keywords, and to update keyword usage stats. Using
-            this option eliminates this step.
-
-  -R num  - purge all dictionary entries that had no non-404 hits for
+  -R num  - purge all entries in the read-write that had no non-404 hits for
             the last <num> scans.
 
             This option prevents dictionary creep in repeated assessments,
             but needs to be used with care: it will permanently nuke a
-            part of the dictionary!
+            part of the dictionary.
 
   -Y      - inhibit full ${filename}.${extension} brute-force.
 
@@ -77,7 +87,7 @@ associated request cost):
    scanner will not discover non-linked resources such as /admin,
    /index.php.old, etc:
 
-   ./skipfish -W /dev/null -LV [...other options...]
+   $ ./skipfish -W- -LV [...other options...]
 
    This mode is very fast, but *NOT* recommended for general use because of
    limited coverage. Use only where absolutely necessary.
@@ -86,8 +96,9 @@ associated request cost):
    will not discover resources such as /admin, but will discover cases such as
    /index.php.old (once index.php itself is spotted during an orderly crawl):
 
-   cp dictionaries/extensions-only.wl dictionary.wl
-   ./skipfish -W dictionary.wl -Y [...other options...]
+   $ touch new_dict.wl
+   $ ./skipfish -S dictionaries/extensions-only.wl -W new_dict.wl -Y \
+       [...other options...]
 
    This method is only slightly more request-intensive than #1, and therefore,
    is a marginally better alternative in cases where time is of essence. It's
@@ -98,8 +109,9 @@ associated request cost):
    try fuzzing the file name, or the extension, at any given time - but will
    not try every possible ${filename}.${extension} pair from the dictionary.
 
-   cp dictionaries/complete.wl dictionary.wl
-   ./skipfish -W dictionary.wl -Y [...other options...]
+   $ touch new_dict.wl
+   $ ./skipfish -S dictionaries/complete.wl -W new_dict.wl -Y \
+     [...other options...]
 
    This method has a cost of about 2,000 requests per fuzzed location, and is
    recommended for rapid assessments, especially when working with slow
@@ -109,40 +121,26 @@ associated request cost):
    pair will be attempted. This mode is significantly slower, but offers
    superior coverage, and should be your starting point.
 
-   cp dictionaries/XXX.wl dictionary.wl
-   ./skipfish -W dictionary.wl [...other options...]
+   $ touch new_dict.wl
+   $ ./skipfish -S dictionaries/XXX.wl -W new_dict.wl [...other options...]
 
    Replace XXX with:
 
-     minimal   - recommended starter dictionary, mostly focusing on backup
-                 and source files, about 60,000 requests per fuzzed location.
+     minimal        - recommended starter dictionary, mostly focusing on
+                      backup and source files, about 60,000 requests
+                      per fuzzed location.
 
-     medium    - more thorough dictionary, focusing on common frameworks,
-                 about 140,000 requests.
+     medium         - more thorough dictionary, focusing on common
+                      frameworks, about 140,000 requests.
 
-     complete  - all-inclusive dictionary, over 210,000 requests.
+     complete       - all-inclusive dictionary, over 210,000 requests.
+
+     complete-fast  - An optimized version of the 'complete' dictionary
+                      with 20-30% less requests.
 
    Normal fuzzing mode is recommended when doing thorough assessments of
    reasonably responsive servers; but it may be prohibitively expensive
    when dealing with very large or very slow sites.
-
-----------------------------------
-Using separate master dictionaries
-----------------------------------
-
-A recently introduced feature allows you to load any number of read-only
-supplementary dictionaries in addition to the "main" read-write one (-W
-dictionary.wl).
-
-This is a convenient way to isolate (and be able to continually update) your
-customized top-level wordlist, whilst still acquiring site-specific data in
-a separate file. The following syntax may be used to accomplish this:
-
-./skipfish -W initially_empty_site_specific_dict.wl -W +supplementary_dict1.wl \
-  -W +supplementary_dict2.wl [...other options...]
-
-Only the main dictionary will be modified as a result of the scan, and only
-newly discovered site-specific keywords will be appended there.
 
 ----------------------------
 More about dictionary design
@@ -204,7 +202,7 @@ files such as ${this_word}.php or ${this_word}.class. If not, tag the keyword
 as 'ws'.
 
 Similarly, to decide between 'eg' and 'es', think about the possibility of
-encoutering cgi-bin.${this_ext} or formmail.${this_ext}. If it seems unlikely,
+encountering cgi-bin.${this_ext} or zencart.${this_ext}. If it seems unlikely,
 choose 'es'.
 
 For your convenience, all legacy keywords and extensions, as well as any entries
@@ -221,6 +219,9 @@ Other notes about dictionaries:
     file. Extension keywords must have no leading dot (e.g., 'exe', not '.exe'),
     and all keywords should be NOT url-encoded (e.g., 'Program Files', not
     'Program%20Files'). No keyword should exceed 64 characters.
+
+  - Any valuable dictionary can be tagged with an optional '#ro' line at the
+    beginning. This prevents it from being loaded in read-write mode.
 
   - Tread carefully; poor wordlists are one of the reasons why some web security
     scanners perform worse than expected. You will almost always be better off

@@ -36,13 +36,13 @@
 /* Default paths to runtime files: */
 
 #define ASSETS_DIR              "assets"
-#define DEF_WORDLIST            "skipfish.wl"
 
 /* Various default settings for HTTP client (cmdline override): */
 
 #define MAX_CONNECTIONS         40      /* Simultaneous connection cap     */
 #define MAX_CONN_HOST           10      /* Per-host connction cap          */
 #define MAX_REQUESTS            1e8     /* Total request count cap         */
+#define MAX_REQUESTS_SEC        0.0     /* Max requests per second         */
 #define MAX_FAIL                100     /* Max consecutive failed requests */
 #define RW_TMOUT                10      /* Individual network R/W timeout  */
 #define RESP_TMOUT              20      /* Total request time limit        */
@@ -147,6 +147,17 @@
 #define XSRF_B64_CASE   2               /* ...minimum uppercase count      */
 #define XSRF_B64_NUM2   3               /* ...digit count override         */
 #define XSRF_B64_SLASH  2               /* ...maximum slash count          */
+
+#ifdef _VIA_CRAWLER_C
+
+/* The URL and string we use in the RFI test */
+
+#ifdef RFI_SUPPORT
+#define RFI_HOST   "http://www.google.com/humans.txt#foo="
+#define RFI_STRING "we can shake a stick"
+#endif
+
+#endif /* _VIA_CRAWLER_C */
 
 #ifdef _VIA_DATABASE_C
 
