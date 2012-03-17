@@ -1,3 +1,12 @@
+Version 2.05b:
+--------------
+
+  - Fixed a NULL pointer crash when adding "callback" tests to JavaScript
+    URLs that have a parameter with no value.
+
+  - Bug fix in the redirect callback which expected 2 responses but
+    since 2.04b actually should process 4.
+
 Version 2.04b:
 --------------
 
@@ -25,9 +34,6 @@ Version 2.04b:
   - Fixed "response varies" bug in 404 detection where a stable page would be marked unstable.
 
   - Bugfix to es / eg handling in dictionaries.
-
-  - Added the "complete-fast.wl" wordlist which is an es / eg optimized
-    version of "complete.wl" (resulting in 20-30% fewer requests).
 
 
 Version 2.03b:

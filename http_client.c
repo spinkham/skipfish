@@ -125,7 +125,8 @@ u8* get_value(u8 type, u8* name, u32 offset,
 
   for (i=0;i<par->c;i++) {
     if (type != par->t[i]) continue;
-    if (name && strcasecmp((char*)par->n[i], (char*)name)) continue;
+    if (name && (!par->n[i] || strcasecmp((char*)par->n[i], (char*)name)))
+      continue;
     if (offset != coff) { coff++; continue; }
     return par->v[i];
   }
@@ -2648,4 +2649,3 @@ void http_req_list(void) {
   }
 
 }
-

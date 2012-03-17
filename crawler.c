@@ -1435,7 +1435,7 @@ static u8 inject_redir_check(struct http_request* req,
 
 schedule_next:
 
-  if (req->user_val != 2) return 0;
+  if (req->user_val != 4) return 0;
 
   /* Header splitting - 2 requests */
 
