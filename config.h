@@ -73,6 +73,12 @@
 
 #define MAX_ALLOC       0x50000000      /* Refuse larger allocations.      */
 
+/* Detect use-after-free, at the expense of some performance cost: */
+
+#ifdef DEBUG_ALLOCATOR
+#define CHECK_UAF           1
+#endif /* DEBUG_ALLOCATOR */
+
 /* Configurable settings for crawl database (cmdline override): */
 
 #define MAX_DEPTH       16              /* Maximum crawl tree depth        */

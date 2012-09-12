@@ -454,7 +454,7 @@ $ ./skipfish -MEU -S dictionaries/minimal.wl -W new_dict.wl \
   -C "AuthCookie=value" -X /logout.aspx -o output_dir \
   http://www.example.com/
 
-Five-connection crawl, but no brute-force; pretending to be MSIE and and
+Five-connection crawl, but no brute-force; pretending to be MSIE and
 trusting example.com content:
 
 $ ./skipfish -m 5 -L -W- -o output_dir -b ie -B example.com \

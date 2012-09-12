@@ -35,15 +35,15 @@
 #define PIVOT_NONE              0               /* Invalid                   */
 #define PIVOT_ROOT              1               /* Root pivot                */
 
-#define PIVOT_SERV              10              /* Top-level host pivot      */
-#define PIVOT_DIR               11              /* Directory pivot           */
-#define PIVOT_FILE              12              /* File pivot                */
-#define PIVOT_PATHINFO          13              /* PATH_INFO script          */
+#define PIVOT_SERV              2              /* Top-level host pivot      */
+#define PIVOT_DIR               4              /* Directory pivot           */
+#define PIVOT_FILE              8              /* File pivot                */
+#define PIVOT_PATHINFO          16              /* PATH_INFO script          */
 
-#define PIVOT_UNKNOWN           18              /* (Currently) unknown type  */
+#define PIVOT_UNKNOWN           32              /* (Currently) unknown type  */
 
-#define PIVOT_PARAM             100             /* Parameter fuzzing pivot   */
-#define PIVOT_VALUE             101             /* Parameter value pivot     */
+#define PIVOT_PARAM             64              /* Parameter fuzzing pivot   */
+#define PIVOT_VALUE             128             /* Parameter value pivot     */
 
 /* - Pivot states (initialized to PENDING or FETCH by database.c, then
      advanced by crawler.c): */
@@ -127,6 +127,9 @@ struct pivot_desc {
   u32 r404_pending;                             /* ...for 404 probes         */
   u32 ck_pending;                               /* ...for behavior checks    */
 
+  s32 check_idx;                                /* Current injection test    */
+  u32 check_state;                              /* Current injection test    */
+
   struct http_sig r404[MAX_404];                /* 404 response signatures   */
   u32 r404_cnt;                                 /* Number of sigs collected  */
   struct http_sig unk_sig;                      /* Original "unknown" sig.   */
@@ -139,7 +142,8 @@ struct pivot_desc {
   struct http_response* misc_res[MISC_ENTRIES]; /* Saved responses           */
   u8 misc_cnt;                                  /* Request / response count  */
 
-  u8 i_skip[15];                                /* Injection step skip flags */
+#define MAX_CHECKS 32 
+  u8 i_skip[MAX_CHECKS];                        /* Injection step skip flags */
   u8 i_skip_add;
   u8 r404_skip;
 
@@ -157,6 +161,7 @@ struct pivot_desc {
 };
 
 extern struct pivot_desc root_pivot;
+extern u32 verbosity;
 
 /* Checks child / descendant limits. */
 
@@ -191,7 +196,11 @@ struct pivot_desc* host_pivot(struct pivot_desc* pv);
 
 u8 is_c_sens(struct pivot_desc* pv);
 
-/* Recorded security issues: */
+/* Lookup an issue title */
+
+u8* lookup_issue_title(u32 id);
+
+/* Recorded security issues */
 
 /* - Informational data (non-specific security-relevant notes): */
 
@@ -208,6 +217,7 @@ u8 is_c_sens(struct pivot_desc* pv);
 #define PROB_NO_ACCESS          10401           /* Resource not accessible   */
 #define PROB_AUTH_REQ           10402           /* Authentication requires   */
 #define PROB_SERV_ERR           10403           /* Server error              */
+#define PROB_DIR_LIST           10404           /* Directory listing         */
 
 #define PROB_EXT_LINK           10501           /* External link             */
 #define PROB_EXT_REDIR          10502           /* External redirector       */
@@ -250,8 +260,9 @@ u8 is_c_sens(struct pivot_desc* pv);
 #define PROB_SSL_SELF_CERT      30202           /* Self-signed SSL cert      */
 #define PROB_SSL_BAD_HOST       30203           /* Certificate host mismatch */
 #define PROB_SSL_NO_CERT        30204           /* No certificate data?      */
+#define PROB_SSL_WEAK_CIPHER    30205           /* Weak cipher negotiated    */
 
-#define PROB_DIR_LIST           30301           /* Dir listing bypass        */
+#define PROB_DIR_LIST_BYPASS    30301           /* Dir listing bypass        */
 
 #define PROB_URL_REDIR          30401           /* URL redirection           */
 #define PROB_USER_URL           30402           /* URL content inclusion     */
@@ -306,6 +317,106 @@ u8 is_c_sens(struct pivot_desc* pv);
 #define PROB_SQL_PARAM          50201           /* SQL-like parameter        */
 
 #define PROB_PUT_DIR            50301           /* HTTP PUT accepted         */
+
+
+#ifdef _VIA_DATABASE_C
+
+/* The definitions below are used to make problems, which are displayed
+   during runtime, more informational */
+
+struct pstruct {
+  u32 id;
+  u8* title;
+};
+
+struct pstruct pstructs[] = {
+
+/* - Informational data (non-specific security-relevant notes): */
+ { PROB_SSL_CERT,   (u8*)"SSL certificate issuer information" },
+ { PROB_NEW_COOKIE, (u8*)"New HTTP cookie added" },
+ { PROB_SERVER_CHANGE, (u8*)"New 'Server' header value seen" },
+ { PROB_VIA_CHANGE, (u8*)"New 'Via' header value seen" },
+ { PROB_X_CHANGE, (u8*)"New 'X-*' header value seen" },
+ { PROB_NEW_404,  (u8*)"New 404 signature seen" },
+ { PROB_NO_ACCESS, (u8*)"Resource not directly accessible" },
+ { PROB_AUTH_REQ,  (u8*)"HTTP authentication required" },
+ { PROB_SERV_ERR,  (u8*)"Server error triggered" },
+ { PROB_DIR_LIST,  (u8*)"Directory listing found" },
+ { PROB_EXT_LINK,  (u8*)"All external links" },
+ { PROB_EXT_REDIR, (u8*)"External URL redirector" },
+ { PROB_MAIL_ADDR, (u8*)"All e-mail addresses" },
+ { PROB_UNKNOWN_PROTO, (u8*)"Links to unknown protocols" },
+ { PROB_UNKNOWN_FIELD, (u8*)"Unknown form field (can't autocomplete)" },
+ { PROB_FORM, (u8*)"HTML form (not classified otherwise)" },
+ { PROB_PASS_FORM, (u8*)"Password entry form - consider brute-force" },
+ { PROB_FILE_FORM, (u8*)"File upload form" },
+ { PROB_USER_LINK, (u8*)"User-supplied link rendered on a page" },
+ { PROB_BAD_MIME_STAT, (u8*)"Incorrect or missing MIME type (low risk)" },
+ { PROB_GEN_MIME_STAT, (u8*)"Generic MIME used (low risk)" },
+ { PROB_BAD_CSET_STAT, (u8*)"Incorrect or missing charset (low risk)" },
+ { PROB_CFL_HDRS_STAT, (u8*)"Conflicting MIME / charset info (low risk)" },
+ { PROB_FUZZ_DIGIT, (u8*)"Numerical filename - consider enumerating" },
+ { PROB_OGNL, (u8*)"OGNL-like parameter behavior" },
+/* - Internal warnings (scan failures, etc): */
+ { PROB_FETCH_FAIL, (u8*)"Resource fetch failed" },
+ { PROB_LIMITS,     (u8*)"Limits exceeded, fetch suppressed" },
+ { PROB_404_FAIL,   (u8*)"Directory behavior checks failed (no brute force)" },
+ { PROB_PARENT_FAIL, (u8*)"Parent behavior checks failed (no brute force)" },
+ { PROB_IPS_FILTER,  (u8*)"IPS filtering enabled" },
+ { PROB_IPS_FILTER_OFF, (u8*)"IPS filtering disabled again" },
+ { PROB_VARIES,  (u8*)"Response varies randomly, skipping checks" },
+ { PROB_NOT_DIR, (u8*)"Node should be a directory, detection error?" },
+
+/* - Low severity issues (limited impact or check specificity): */
+ { PROB_URL_AUTH,      (u8*)"HTTP credentials seen in URLs" },
+ { PROB_SSL_CERT_DATE, (u8*)"SSL certificate expired or not yet valid" },
+ { PROB_SSL_SELF_CERT, (u8*)"Self-signed SSL certificate" },
+ { PROB_SSL_BAD_HOST,  (u8*)"SSL certificate host name mismatch" },
+ { PROB_SSL_NO_CERT,   (u8*)"No SSL certificate data found" },
+ { PROB_SSL_WEAK_CIPHER, (u8*)"Weak SSL cipher negotiated" },
+ { PROB_DIR_LIST,  (u8*)"Directory listing restrictions bypassed" },
+ { PROB_URL_REDIR, (u8*)"Redirection to attacker-supplied URLs" },
+ { PROB_USER_URL,  (u8*)"Attacker-supplied URLs in embedded content (lower risk)" },
+ { PROB_EXT_OBJ,   (u8*)"External content embedded on a page (lower risk)" },
+ { PROB_MIXED_OBJ, (u8*)"Mixed content embedded on a page (lower risk)" },
+ { PROB_MIXED_FORM, (u8*)"HTTPS form submitting to a HTTP URL" },
+ { PROB_VULN_FORM,  (u8*)"HTML form with no apparent XSRF protection" },
+ { PROB_JS_XSSI,    (u8*)"JSON response with no apparent XSSI protection" },
+ { PROB_CACHE_LOW,  (u8*)"Incorrect caching directives (lower risk)" },
+ { PROB_PROLOGUE,   (u8*)"User-controlled response prefix (BOM / plugin attacks)" },
+ { PROB_HEADER_INJECT, (u8*)"HTTP header injection vector" },
+
+/* - Moderate severity issues (data compromise): */
+ { PROB_BODY_XSS,     (u8*)"XSS vector in document body" },
+ { PROB_URL_XSS,      (u8*)"XSS vector via arbitrary URLs" },
+ { PROB_HTTP_INJECT,  (u8*)"HTTP response header splitting" },
+ { PROB_USER_URL_ACT, (u8*)"Attacker-supplied URLs in embedded content (higher risk)" },
+ { PROB_EXT_SUB,      (u8*)"External content embedded on a page (higher risk)" },
+ { PROB_MIXED_SUB,    (u8*)"Mixed content embedded on a page (higher risk)" },
+ { PROB_BAD_MIME_DYN, (u8*)"Incorrect or missing MIME type (higher risk)" },
+ { PROB_GEN_MIME_DYN, (u8*)"Generic MIME type (higher risk)" },
+ { PROB_BAD_CSET_DYN, (u8*)"Incorrect or missing charset (higher risk)" },
+ { PROB_CFL_HDRS_DYN, (u8*)"Conflicting MIME / charset info (higher risk)" },
+ { PROB_FILE_POI,     (u8*)"Interesting file" },
+ { PROB_ERROR_POI,    (u8*)"Interesting server message" },
+ { PROB_DIR_TRAVERSAL, (u8*)"Directory traversal / file inclusion possible" },
+ { PROB_CACHE_HI,    (u8*)"Incorrect caching directives (higher risk)" },
+ { PROB_PASS_NOSSL,  (u8*)"Password form submits from or to non-HTTPS page" },
+
+/* - High severity issues (system compromise): */
+
+ { PROB_XML_INJECT, (u8*)"Server-side XML injection vector" },
+ { PROB_SH_INJECT,  (u8*)"Shell injection vector" },
+ { PROB_SQL_INJECT, (u8*)"Query injection vector" },
+ { PROB_FMT_STRING, (u8*)"Format string vector" },
+ { PROB_INT_OVER,   (u8*)"Integer overflow vector" },
+ { PROB_FI_LOCAL,   (u8*)"File inclusion" },
+ { PROB_SQL_PARAM,  (u8*)"SQL query or similar syntax in parameters" },
+ { PROB_PUT_DIR,    (u8*)"PUT request accepted" },
+ { PROB_NONE,       (u8*)"Invalid" }
+};
+
+#endif /* _VIA_DATABASE_C */
 
 /* - Severity macros: */
 
@@ -438,4 +549,3 @@ void dump_signature(struct http_sig* sig);
 void debug_same_page(struct http_sig* sig1, struct http_sig* sig2);
 
 #endif /* _HAVE_DATABASE_H */
-

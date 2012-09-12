@@ -20,11 +20,13 @@
 #
 
 PROGNAME   = skipfish
-VERSION    = 2.05b
+VERSION    = 2.06b
 
-OBJFILES   = http_client.c database.c crawler.c analysis.c report.c
+OBJFILES   = http_client.c database.c crawler.c analysis.c report.c \
+             checks.c
 INCFILES   = alloc-inl.h string-inl.h debug.h types.h http_client.h \
-             database.h crawler.h analysis.h config.h report.h
+             database.h crawler.h analysis.h config.h report.h \
+				     checks.h
 
 CFLAGS_GEN = -Wall -funsigned-char -g -ggdb -I/usr/local/include/ \
              -I/opt/local/include/ $(CFLAGS) -DVERSION=\"$(VERSION)\"

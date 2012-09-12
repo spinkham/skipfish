@@ -127,6 +127,7 @@ u8* get_value(u8 type, u8* name, u32 offset,
     if (type != par->t[i]) continue;
     if (name && (!par->n[i] || strcasecmp((char*)par->n[i], (char*)name)))
       continue;
+
     if (offset != coff) { coff++; continue; }
     return par->v[i];
   }
@@ -453,7 +454,7 @@ u8* url_decode_token(u8* str, u32 len, u8 plus) {
    tokens. We otherwise let pretty much everything else go through, as it
    may help with the exploitation of certain vulnerabilities. */
 
-u8* url_encode_token(u8* str, u32 len, u8 also_slash) {
+u8* url_encode_token(u8* str, u32 len, u8* enc_set) {
 
   u8 *ret = ck_alloc(len * 3 + 1);
   u8 *src = str, *dst = ret;
@@ -461,8 +462,7 @@ u8* url_encode_token(u8* str, u32 len, u8 also_slash) {
   while (len--) {
     u8 c = *(src++);
 
-    if (c <= 0x20 || c >= 0x80 || strchr("#%&=+;,!$?", c) ||
-        (also_slash && c == '/')) {
+    if (c <= 0x20 || c >= 0x80 || strchr((char*)enc_set, c))  {
       if (c == 0xFF) c = 0;
       sprintf((char*)dst, "%%%02X", c);
       dst += 3;
@@ -681,7 +681,11 @@ u8* serialize_path(struct http_request* req, u8 with_host, u8 with_post) {
 
   /* First print path... */
 
-  for (i=0;i<req->par.c;i++)
+  for (i=0;i<req->par.c;i++) {
+    u8 *enc = (u8*)ENC_PATH;
+    if(req->pivot && req->fuzz_par_enc && i == req->pivot->fuzz_par)
+      enc = req->fuzz_par_enc;
+
     if (PATH_SUBTYPE(req->par.t[i])) {
 
       switch (req->par.t[i]) {
@@ -696,22 +700,27 @@ u8* serialize_path(struct http_request* req, u8 with_host, u8 with_post) {
 
       if (req->par.n[i]) {
         u32 len = strlen((char*)req->par.n[i]);
-        u8* str = url_encode_token(req->par.n[i], len, 1);
+        u8* str = url_encode_token(req->par.n[i], len, enc);
         ASD(str); ASD("=");
         ck_free(str);
       }
       if (req->par.v[i]) {
         u32 len = strlen((char*)req->par.v[i]);
-        u8* str = url_encode_token(req->par.v[i], len, 1);
+        u8* str = url_encode_token(req->par.v[i], len, enc);
         ASD(str);
         ck_free(str);
       }
 
     }
+  }
 
   /* Then actual parameters. */
 
-  for (i=0;i<req->par.c;i++)
+  for (i=0;i<req->par.c;i++) {
+    u8 *enc = (u8*)ENC_DEFAULT;
+    if(req->pivot && req->fuzz_par_enc && i == req->pivot->fuzz_par)
+      enc = req->fuzz_par_enc;
+
     if (QUERY_SUBTYPE(req->par.t[i])) {
 
       if (!got_search) {
@@ -729,23 +738,29 @@ u8* serialize_path(struct http_request* req, u8 with_host, u8 with_post) {
 
       if (req->par.n[i]) {
         u32 len = strlen((char*)req->par.n[i]);
-        u8* str = url_encode_token(req->par.n[i], len, 0);
+        u8* str = url_encode_token(req->par.n[i], len, enc);
         ASD(str); ASD("=");
         ck_free(str);
       }
       if (req->par.v[i]) {
         u32 len = strlen((char*)req->par.v[i]);
-        u8* str = url_encode_token(req->par.v[i], len, 0);
+        u8* str = url_encode_token(req->par.v[i], len, enc);
         ASD(str);
         ck_free(str);
       }
 
     }
+  }
 
   got_search = 0;
 
   if (with_post)
-    for (i=0;i<req->par.c;i++)
+    for (i=0;i<req->par.c;i++) {
+
+      u8 *enc = (u8*)ENC_DEFAULT;
+      if(req->pivot && req->fuzz_par_enc && i == req->pivot->fuzz_par)
+        enc = req->fuzz_par_enc;
+
       if (POST_SUBTYPE(req->par.t[i])) {
 
       if (!got_search) {
@@ -755,18 +770,19 @@ u8* serialize_path(struct http_request* req, u8 with_host, u8 with_post) {
 
       if (req->par.n[i]) {
         u32 len = strlen((char*)req->par.n[i]);
-        u8* str = url_encode_token(req->par.n[i], len, 0);
+        u8* str = url_encode_token(req->par.n[i], len, enc);
         ASD(str); ASD("=");
         ck_free(str);
       }
       if (req->par.v[i]) {
         u32 len = strlen((char*)req->par.v[i]);
-        u8* str = url_encode_token(req->par.v[i], len, 0);
+        u8* str = url_encode_token(req->par.v[i], len, enc);
         ASD(str);
         ck_free(str);
       }
 
     }
+  }
 
 #undef ASD
 
@@ -1076,7 +1092,7 @@ u8* build_request_data(struct http_request* req) {
       ASD("\r\n");
     } else if (global_http_par.t[i] == PARAM_COOKIE &&
         !GET_CK(global_http_par.n[i], &req->par)) {
-      if (ck_pos) ADD_STR_DATA(ck_buf, ck_pos, ";");
+      if (ck_pos) ADD_STR_DATA(ck_buf, ck_pos, "; ");
       ADD_STR_DATA(ck_buf, ck_pos, global_http_par.n[i]);
       ADD_STR_DATA(ck_buf, ck_pos, "=");
       ADD_STR_DATA(ck_buf, ck_pos, global_http_par.v[i]);
@@ -1111,23 +1127,29 @@ u8* build_request_data(struct http_request* req) {
 
     /* The default case: application/x-www-form-urlencoded. */
 
-    for (i=0;i<req->par.c;i++)
+    for (i=0;i<req->par.c;i++) {
+      u8 *enc = (u8*)ENC_DEFAULT;
+      if(req->pivot && req->fuzz_par_enc && i == req->pivot->fuzz_par)
+        enc = req->fuzz_par_enc;
+
       if (req->par.t[i] == PARAM_POST) {
         if (pay_pos) ADD_STR_DATA(pay_buf, pay_pos, "&");
         if (req->par.n[i]) {
           u32 len = strlen((char*)req->par.n[i]);
-          u8* str = url_encode_token(req->par.n[i], len, 0);
+          u8* str = url_encode_token(req->par.n[i], len, enc);
           ADD_STR_DATA(pay_buf, pay_pos, str);
           ADD_STR_DATA(pay_buf, pay_pos, "=");
           ck_free(str);
         }
         if (req->par.v[i]) {
           u32 len = strlen((char*)req->par.v[i]);
-          u8* str = url_encode_token(req->par.v[i], len, 0);
+          u8* str = url_encode_token(req->par.v[i], len, enc);
           ADD_STR_DATA(pay_buf, pay_pos, str);
           ck_free(str);
         }
       }
+
+    }
 
     ASD("Content-Type: application/x-www-form-urlencoded\r\n");
 
@@ -1756,6 +1778,7 @@ static void destroy_unlink_conn(struct conn_entry* c, u8 keep) {
 /* Performs struct conn_entry for reuse following a clean shutdown. */
 
 static void reuse_conn(struct conn_entry* c, u8 keep) {
+
   if (c->q) destroy_unlink_queue(c->q, keep);
   c->q = 0;
   ck_free(c->read_buf);
@@ -1868,6 +1891,14 @@ void async_request(struct http_request* req) {
 
 static void check_ssl(struct conn_entry* c) {
   X509 *p;
+  SSL_CIPHER *cp;
+
+  /* Test if a weak cipher has been negotiated  */
+  cp = SSL_get_current_cipher(c->srv_ssl);
+  if(!(cp->algo_strength & SSL_MEDIUM) && !(cp->algo_strength & SSL_HIGH))
+      problem(PROB_SSL_WEAK_CIPHER, c->q->req, 0,
+        (u8*)SSL_CIPHER_get_name(cp),host_pivot(c->q->req->pivot), 0);
+
 
   p = SSL_get_peer_certificate(c->srv_ssl);
 

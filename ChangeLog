@@ -1,3 +1,44 @@
+Version 2.06b:
+--------------
+
+  - Crawler update which gives more control over the injection test
+    scheduling. This comes with the --checks and --checks-toggle
+    flags to display and enable/disable checks.
+
+  - Pages where the response varies are no longer completely
+    discarded. Instead now we only disable tests that require stability
+    which increases scan coverage.
+
+  - Split the traversal and disclosure test to increase coverage:
+    traversal checks require stable pages, the disclosure checks can be
+    performed on all.
+
+  - Updated dictionaries and converted them to use the dictionary
+    optimisations we introduced in 2.03b
+
+  - Fixed offline report viewing (thanks to Sebastian Roschke)
+
+  - Added NULL byte file disclosure tests
+
+  - Added JSP inclusion error check to analyse.c
+
+  - Added XSS injection tests for cookies
+
+  - Directory listings are now reported as individual (info-type) issues
+
+  - Added warning in case the negotiated SSL cipher turns out to be a
+    weak one (leaving the cipher enumeration to network scanners)
+
+  - Added experimental -v flag which can be used to enable (limited)
+    runtime reporting. This output is written to stderr and should be
+    redirected to a file, unless you use the -u flag.
+
+  - The man page has been rewritten and now includes detailed descriptions
+    and examples.
+
+  - A whole bunch of small bug fixes
+
+
 Version 2.05b:
 --------------
 

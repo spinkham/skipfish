@@ -26,23 +26,43 @@
 #include "http_client.h"
 #include "database.h"
 
-#ifdef _VIA_CRAWLER_C
+/* Function called during startup to build the test/check structure */
 
-/* Strings for traversal and file disclosure tests. The order should
-   not be changed  */
+void replace_slash(struct http_request* req, u8* new_val);
+void handle_error(struct http_request* req, struct http_response* res, u8* desc, u8 stop);
+void inject_done(struct pivot_desc*);
+void destroy_misc_data(struct pivot_desc* pv, struct http_request* self);
+struct pivot_desc* dir_parent(struct pivot_desc* pv);
 
-static const char* disclosure_tests[] = {
-  "../../../../../../../../etc/hosts",
-  "../../../../../../../../etc/passwd",
-  "..\\..\\..\\..\\..\\..\\..\\..\\boot.ini",
-  "../../../../../../../../WEB-INF/web.xml",
-  "file:///etc/hosts",
-  "file:///etc/passwd",
-  "file:///boot.ini",
-  0
-};
+/* Internal helper macros: */
 
-#endif
+#define TPAR(_req) ((_req)->par.v[(_req)->pivot->fuzz_par])
+
+#define SET_VECTOR(_state, _req, _str) do { \
+    if (_state == PSTATE_CHILD_INJECT) { \
+      replace_slash((_req), (u8*)_str); \
+    } else { \
+      ck_free(TPAR(_req)); \
+      TPAR(_req) = ck_strdup((u8*)_str); \
+    } \
+  } while (0)
+
+#define APPEND_VECTOR(_state, _req, _str) do { \
+    if (_state == PSTATE_CHILD_INJECT) { \
+      replace_slash((_req), (u8*)_str); \
+    } else { \
+      u8* _n = ck_alloc(strlen((char*)TPAR(_req)) + strlen((char*)_str) + 1); \
+      sprintf((char*)_n, "%s%s", TPAR(_req), _str); \
+      ck_free(TPAR(_req)); \
+      TPAR(_req) = _n; \
+    } \
+  } while (0)
+
+/* Classifies a response, with a special handling of "unavailable" and
+   "gateway timeout" codes. */
+
+#define FETCH_FAIL(_res) ((_res)->state != STATE_OK || (_res)->code == 503 || \
+  (_res)->code == 504)
 
 
 extern u32 crawl_prob;          /* Crawl probability (1-100%)  */
@@ -107,6 +127,14 @@ void add_form_hint(u8* name, u8* value);
     ck_free(_url); \
   } while (0)
 
+#define DEBUG_STATE_CALLBACK(_req, _state, _type)  do { \
+    u8* _url = serialize_path(_req, 1, 1); \
+    DEBUG("* %s::%s: URL %s (running: %s)\n", __FUNCTION__, _state, _url, \
+          _type ? "checks" : "tests"); \
+    ck_free(_url); \
+  } while (0)
+
+
 #define DEBUG_HELPER(_pv) do { \
     u8* _url = serialize_path((_pv)->req, 1, 1); \
     DEBUG("* %s: URL %s (%u, len %u)\n", __FUNCTION__, _url, (_pv)->res ? \
@@ -117,6 +145,7 @@ void add_form_hint(u8* name, u8* value);
 #else
 
 #define DEBUG_CALLBACK(_req, _res)
+#define DEBUG_STATE_CALLBACK(_req, _res, _cb)
 #define DEBUG_HELPER(_pv)
 #define DEBUG_PIVOT(_text, _pv)
 

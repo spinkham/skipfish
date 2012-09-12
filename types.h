@@ -39,4 +39,10 @@ typedef int64_t  s64;
 
 #define R(_ceil) ((u32)(random() % (_ceil)))
 
+#ifndef MIN
+#  define MIN(_a,_b) ((_a) > (_b) ? (_b) : (_a))
+#  define MAX(_a,_b) ((_a) > (_b) ? (_a) : (_b))
+#endif /* !MIN */
+
+
 #endif /* ! _HAVE_TYPES_H */

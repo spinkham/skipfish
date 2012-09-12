@@ -39,14 +39,15 @@
 #include "string-inl.h"
 
 #include "crawler.h"
+#include "checks.h"
 #include "analysis.h"
 #include "database.h"
 #include "http_client.h"
 #include "report.h"
 
 #ifdef DEBUG_ALLOCATOR
-struct __AD_trk_obj* __AD_trk[ALLOC_BUCKETS];
-u32 __AD_trk_cnt[ALLOC_BUCKETS];
+struct TRK_obj* TRK[ALLOC_BUCKETS];
+u32 TRK_cnt[ALLOC_BUCKETS];
 #endif /* DEBUG_ALLOCATOR */
 
 /* Ctrl-C handler... */
@@ -242,7 +243,8 @@ static void read_urls(u8* fn) {
 int main(int argc, char** argv) {
   s32 opt;
   u32 loop_cnt = 0, purge_age = 0, seed;
-  u8  show_once = 0, be_quiet = 0, display_mode = 0, has_fake = 0;
+  u8 show_once = 0, no_statistics = 0, display_mode = 0, has_fake = 0;
+  s32 oindex = 0;
   u8 *wordlist = NULL, *output_dir = NULL;
   u8* gtimeout_str = NULL;
   u32 gtimeout = 0;
@@ -256,6 +258,60 @@ int main(int argc, char** argv) {
   signal(SIGPIPE, SIG_IGN);
   SSL_library_init();
 
+/* Options, options, and options */
+
+  static struct option long_options[] = {
+    {"auth", required_argument, 0, 'A' },
+    {"host", required_argument, 0, 'F' },
+    {"cookie", required_argument, 0, 'C' },
+    {"reject-cookies", required_argument, 0, 'N' },
+    {"header", required_argument, 0, 'H' },
+    {"user-agent", required_argument, 0, 'b' },
+#ifdef PROXY_SUPPORT
+    {"proxy", required_argument, 0, 'J' },
+#endif /* PROXY_SUPPORT */
+    {"max-depth", required_argument, 0, 'd' },
+    {"max-child", required_argument, 0, 'c' },
+    {"max-descendants", required_argument, 0, 'x' },
+    {"max-requests", required_argument, 0, 'r' },
+    {"max-rate", required_argument, 0, 'l'},
+    {"probability", required_argument, 0, 'p' },
+    {"seed", required_argument, 0, 'q' },
+    {"include", required_argument, 0, 'I' },
+    {"exclude", required_argument, 0, 'X' },
+    {"skip-param", required_argument, 0, 'K' },
+    {"skip-forms", no_argument, 0, 'O' },
+    {"include-domain", required_argument, 0, 'D' },
+    {"ignore-links", no_argument, 0, 'P' },
+    {"no-ext-fuzzing", no_argument, 0, 'Y' },
+    {"log-mixed-content", no_argument, 0, 'M' },
+    {"skip-error-pages", no_argument, 0, 'Z' },
+    {"log-external-urls", no_argument, 0, 'U' },
+    {"log-cache-mismatches", no_argument, 0, 'E' },
+    {"form-value", no_argument, 0, 'T' },
+    {"rw-wordlist", required_argument, 0, 'W' },
+    {"no-keyword-learning", no_argument, 0, 'L' },
+    {"mode", required_argument, 0, 'J' },
+    {"wordlist", required_argument, 0, 'S'},
+    {"trust-domain", required_argument, 0, 'B' },
+    {"max-connections", required_argument, 0, 'g' },
+    {"max-host-connections", required_argument, 0, 'm' },
+    {"max-fail", required_argument, 0, 'f' },
+    {"request-timeout", required_argument, 0, 't' },
+    {"network-timeout", required_argument, 0, 'w' },
+    {"idle-timeout", required_argument, 0, 'i' },
+    {"response-size", required_argument, 0, 's' },
+    {"discard-binary", required_argument, 0, 'e' },
+    {"output", required_argument, 0, 'o' },
+    {"help", no_argument, 0, 'h' },
+    {"quiet", no_argument, 0, 'u' },
+    {"verbose", no_argument, 0, 'v' },
+    {"scan-timeout", required_argument, 0, 'k'},
+    {"checks", no_argument, 0, 0},
+    {"checks-toggle", required_argument, 0, 0},
+    {0, 0, 0, 0 }
+
+  };
   /* Come up with a quasi-decent random seed. */
 
   gettimeofday(&tv, NULL);
@@ -263,9 +319,10 @@ int main(int argc, char** argv) {
 
   SAY("skipfish version " VERSION " by <lcamtuf@google.com>\n");
 
-  while ((opt = getopt(argc, argv,
+  while ((opt = getopt_long(argc, argv,
           "+A:B:C:D:EF:G:H:I:J:K:LMNOPQR:S:T:UW:X:YZ"
-          "b:c:d:ef:g:hi:k:l:m:o:p:q:r:s:t:uw:x:")) > 0)
+	  "b:c:d:ef:g:hi:k:l:m:o:p:q:r:s:t:uvw:x:",
+          long_options, &oindex)) >= 0)
 
     switch (opt) {
 
@@ -505,8 +562,13 @@ int main(int argc, char** argv) {
         break;
 
       case 'u':
-        be_quiet = 1;
+        no_statistics = 1;
         break;
+
+      case 'v':
+        verbosity++;
+        break;
+
 
       case 'e':
         delete_bin = 1;
@@ -519,6 +581,18 @@ int main(int argc, char** argv) {
 
       case 'Z':
         no_500_dir = 1;
+        break;
+
+      case '?':
+        PFATAL("Unrecognized option.");
+	break;
+
+      case 0:
+        if(!strcmp( "checks", long_options[oindex].name ))
+          display_injection_checks();
+        if(!strcmp( "checks-toggle", long_options[oindex].name ))
+          toggle_injection_checks((u8*)optarg, 1);
+
         break;
 
       default:
@@ -541,6 +615,11 @@ int main(int argc, char** argv) {
 
   if (!output_dir)
     FATAL("Output directory not specified (try -h for help).");
+
+  if(verbosity && !no_statistics && isatty(2))
+    FATAL("Please use -v in combination with the -u flag or, "
+          "run skipfish while redirecting stderr to a file. ");
+
 
   if (resp_tmout < rw_tmout) 
     resp_tmout = rw_tmout;
@@ -567,8 +646,10 @@ int main(int argc, char** argv) {
   }
 
 
-  if (!wordlist)
-    FATAL("Wordlist not specified (try -h for help; see dictionaries/README-FIRST).");
+  if (!wordlist) {
+    wordlist = (u8*)"/dev/null";
+    DEBUG("* No wordlist specified with -W defaulting to /dev/null..\n");
+  }
 
   load_keywords(wordlist, 0, purge_age);
 
@@ -614,12 +695,13 @@ int main(int argc, char** argv) {
   st_time = tv.tv_sec * 1000LL + tv.tv_usec / 1000;
 
 #ifdef SHOW_SPLASH
-  if (!be_quiet) splash_screen();
+  if (!no_statistics) splash_screen();
 #endif /* SHOW_SPLASH */
 
-  if (!be_quiet) SAY("\x1b[H\x1b[J");
+  if (!no_statistics) SAY("\x1b[H\x1b[J");
   else SAY(cLGN "[*] " cBRI "Scan in progress, please stay tuned...\n");
 
+  /* Enter the crawler loop */
   while ((next_from_queue() && !stop_soon) || (!show_once++)) {
 
     u8 keybuf[8];
@@ -639,7 +721,7 @@ int main(int argc, char** argv) {
 
     req_sec = (req_count - queue_cur / 1.15) * 1000 / (run_time + 1);
 
-    if (be_quiet || ((loop_cnt++ % 100) && !show_once && idle == 0))
+    if (no_statistics || ((loop_cnt++ % 100) && !show_once && idle == 0))
       continue;
 
     if (clear_screen) {
@@ -699,7 +781,7 @@ int main(int argc, char** argv) {
     destroy_database();
     destroy_http();
     destroy_signatures();
-    __AD_report();
+    __TRK_report();
   }
 #endif /* DEBUG_ALLOCATOR */
 

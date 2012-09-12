@@ -1425,7 +1425,7 @@ next_elem:
 /* Analyzes response headers and body to detect stored XSS, redirection,
    401, 500 codes, exception messages, source code, caching issues, etc. */
 
-void content_checks(struct http_request* req, struct http_response* res) {
+u8 content_checks(struct http_request* req, struct http_response* res) {
   u8* tmp;
   u32 off, tag_id, scan_id;
   u8  high_risk = 0;
@@ -1563,7 +1563,7 @@ void content_checks(struct http_request* req, struct http_response* res) {
   else if (res->code >= 500)
     problem(PROB_SERV_ERR, req, res, NULL, req->pivot, 0);
 
-  if (!res->pay_len) return;
+  if (!res->pay_len) return 0;
 
   if (!is_mostly_ascii(res)) goto binary_checks;
 
@@ -1831,7 +1831,7 @@ binary_checks:
   /* No MIME checks on Content-Disposition: attachment responses. */
 
   if ((tmp = GET_HDR((u8*)"Content-Disposition", &res->hdr)) &&
-      inl_strcasestr(tmp, (u8*)"attachment")) return;
+      inl_strcasestr(tmp, (u8*)"attachment")) return 0;
 
 //  if (!relaxed_mime) {
 //
@@ -1920,6 +1920,7 @@ binary_checks:
 
   }
 
+  return 0;
 }
 
 
@@ -2357,13 +2358,23 @@ static void check_for_stuff(struct http_request* req,
   }
 
   if (strstr((char*)res->payload, "<b>Warning</b>:  MySQL: ") ||
+      strstr((char*)res->payload, "Unclosed quotation mark") ||
+      strstr((char*)res->payload, "Syntax error in string in query expression") ||
       strstr((char*)res->payload, "java.sql.SQLException") ||
-      strstr((char*)res->payload, "You have an error in your SQL syntax; ")) {
+      strstr((char*)res->payload, "SqlClient.SqlException: Syntax error") ||
+      strstr((char*)res->payload, "Incorrect syntax near") ||
+      strstr((char*)res->payload, "PostgreSQL query failed") ||
+      strstr((char*)res->payload, "Dynamic SQL Error") ||
+      strstr((char*)res->payload, "unable to perform query") ||
+      strstr((char*)res->payload, "[Microsoft][ODBC SQL Server Driver]") ||
+      strstr((char*)res->payload, "You have an error in your SQL syntax; ") ||
+      strstr((char*)res->payload, "[DM_QUERY_E_SYNTAX]")) {
     problem(PROB_ERROR_POI, req, res, (u8*)"SQL server error", req->pivot, 0);
     return;
   }
 
-  if ((tmp = (u8*)strstr((char*)res->payload, "ORA-")) &&
+  if (((tmp = (u8*)strstr((char*)res->payload, "ORA-")) ||
+       (tmp = (u8*)strstr((char*)res->payload, "FRM-"))) &&
       isdigit(tmp[4]) && tmp[9] == ':') {
     problem(PROB_ERROR_POI, req, res, (u8*)"Oracle server error", req->pivot, 0);
     return;
@@ -2478,7 +2489,7 @@ static void check_for_stuff(struct http_request* req,
       strstr((char*)sniffbuf, "<a href=\"?C=N;O=D\">") ||
       strstr((char*)sniffbuf, "<h1>Index of /") ||
       strstr((char*)sniffbuf, ">[To Parent Directory]<")) {
-    problem(PROB_FILE_POI, req, res, (u8*)"Directory listing", req->pivot, 0);
+    problem(PROB_DIR_LIST, req, res, (u8*)"Directory listing", req->pivot, 0);
     return;
   }
 
@@ -2569,6 +2580,7 @@ static void check_for_stuff(struct http_request* req,
       u32 del = strcspn((char*)cur, ",|;\n");
 
       eol = (u8*)strchr((char*)cur, '\n');
+      if(!eol) break;
 
       if (!cur[del] || cur[del] == '\n' || (cur[del] == ',' && 
           cur[del+1] == ' ')) {
@@ -2660,4 +2672,3 @@ void maybe_delete_payload(struct pivot_desc* pv) {
   }
 
 }
-

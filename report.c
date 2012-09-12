@@ -48,6 +48,7 @@ struct p_sig_desc {
 static struct p_sig_desc* p_sig;
 static u32 p_sig_cnt;
 u8 suppress_dupes;
+u32 verbosity = 0;
 
 
 /* Response, issue sample data. */
@@ -416,8 +417,23 @@ static void save_req_res(struct http_request* req, struct http_response* res, u8
     u8* rd = build_request_data(req);
     f = fopen("request.dat", "w");
     if (!f) PFATAL("Cannot create 'request.dat'");
-    fwrite(rd, strlen((char*)rd), 1, f);
+    if (fwrite(rd, strlen((char*)rd), 1, f)) {};
     fclose(f);
+
+    /* Write .js file with base64 encoded json data. */
+    u32 size = 0;
+    u8* rd_js;
+    NEW_STR(rd_js, size);
+    ADD_STR_DATA(rd_js, size, "var req = {'data':'");
+    ADD_STR_DATA(rd_js, size, js_escape(rd, 0));
+    ADD_STR_DATA(rd_js, size, "'}");
+
+    f = fopen("request.js", "w");
+    if (!f) PFATAL("Cannot create 'request.js'");
+    if (fwrite(rd_js, strlen((char*)rd_js), 1, f)) {};
+    fclose(f);
+
+    ck_free(rd_js);
     ck_free(rd);
   }
 
@@ -425,15 +441,44 @@ static void save_req_res(struct http_request* req, struct http_response* res, u8
     u32 i;
     f = fopen("response.dat", "w");
     if (!f) PFATAL("Cannot create 'response.dat'");
-    fprintf(f, "HTTP/1.1 %u %s\n", res->code, res->msg);
 
+    u64 msg_size = strlen((char*)res->msg);
+    u64 rs_size = msg_size + strlen("HTTP/1.1 1000 \n") + 1;
+    u8* rs = ck_alloc(rs_size);
+    snprintf((char*)rs, rs_size -1, "HTTP/1.1 %u %s\n", res->code, res->msg);
+
+    u32 s = strlen((char*)rs);
     for (i=0;i<res->hdr.c;i++)
-      if (res->hdr.t[i] == PARAM_HEADER)
-        fprintf(f, "%s: %s\n", res->hdr.n[i], res->hdr.v[i]);
+      if (res->hdr.t[i] == PARAM_HEADER) {
+        ADD_STR_DATA(rs, s, res->hdr.n[i]);
+        ADD_STR_DATA(rs, s, ": ");
+        ADD_STR_DATA(rs, s, res->hdr.v[i]);
+        ADD_STR_DATA(rs, s, "\n");
+      }
 
-    fprintf(f, "\n");
-    fwrite(res->payload, res->pay_len, 1, f);
+
+    if(res->payload) {
+      ADD_STR_DATA(rs, s, "\n");
+      ADD_STR_DATA(rs, s, res->payload);
+    }
+
+    if (fwrite(rs, strlen((char*)rs), 1, f)) {};
     fclose(f);
+
+    /* Write .js file with base64 encoded json data. */
+    u8* rs_js;
+    NEW_STR(rs_js, s);
+    ADD_STR_DATA(rs_js, s, "var res = {'data':'");
+    ADD_STR_DATA(rs_js, s, js_escape(rs, 0));
+    ADD_STR_DATA(rs_js, s, "'}");
+
+    f = fopen("response.js", "w");
+    if (!f) PFATAL("Cannot create 'response.js'");
+    if (fwrite(rs_js, strlen((char*)rs_js), 1, f)) {};
+    fclose(f);
+
+    ck_free(rs_js);
+    ck_free(rs);
 
     /* Also collect MIME samples at this point. */
 
@@ -785,10 +830,11 @@ static void save_pivots(FILE* f, struct pivot_desc* cur) {
     }
 
     if (cur->res)
-      fprintf(f, "dup=%u %s%scode=%u len=%u notes=%u\n", cur->dupe,
+      fprintf(f, "dup=%u %s%scode=%u len=%u notes=%u sig=0x%x\n", cur->dupe,
              cur->bogus_par ? "bogus " : "",
              cur->missing ? "returns_404 " : "",
-             cur->res->code, cur->res->pay_len, cur->issue_cnt);
+             cur->res->code, cur->res->pay_len, 
+             cur->issue_cnt, cur->pv_sig);
     else
       fprintf(f, "not_fetched\n");
 

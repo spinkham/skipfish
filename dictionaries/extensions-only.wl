@@ -86,6 +86,7 @@ e 1 1 1 sql
 e 1 1 1 stackdump
 e 1 1 1 svn-base
 e 1 1 1 swf
+e 1 1 1 swp
 e 1 1 1 tar
 e 1 1 1 tar.bz2
 e 1 1 1 tar.gz
@@ -106,3 +107,4 @@ e 1 1 1 xsl
 e 1 1 1 xslt
 e 1 1 1 yml
 e 1 1 1 zip
+e 1 1 1 ~

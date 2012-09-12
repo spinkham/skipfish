@@ -259,6 +259,7 @@ var issue_desc= {
   "10401": "Resource not directly accessible",
   "10402": "HTTP authentication required",
   "10403": "Server error triggered",
+  "10404": "Directory listing enabled",
   "10501": "All external links",
   "10502": "External URL redirector",
   "10503": "All e-mail addresses",
@@ -289,6 +290,7 @@ var issue_desc= {
   "30202": "Self-signed SSL certificate",
   "30203": "SSL certificate host name mismatch",
   "30204": "No SSL certificate data found",
+  "30205": "Weak SSL cipher negotiated",
   "30301": "Directory listing restrictions bypassed",
   "30401": "Redirection to attacker-supplied URLs",
   "30402": "Attacker-supplied URLs in embedded content (lower risk)",
@@ -322,6 +324,7 @@ var issue_desc= {
   "50103": "Query injection vector",
   "50104": "Format string vector",
   "50105": "Integer overflow vector",
+  "50106": "File inclusion",
   "50201": "SQL query or similar syntax in parameters",
   "50301": "PUT request accepted"
 
@@ -398,20 +401,47 @@ function toggle_node(dir, tid) {
 
 
 /* Displays request or response dump in a faux window. */
+var g_path = '';
+var g_ignore = 0;
 
 function show_dat(path, ignore) {
+
+  g_path = path;
+  g_ignore = ignore;
+
+  /* workaround for cases where there is no response */
+  if (typeof req !== 'undefined')
+    if (req !== null) req = null;
+  if (typeof res !== 'undefined')
+    if (res !== null) res = null;
+
+  prepare_view();
+
+  load_script(path + '/request.js', render_dat);
+  load_script(path + '/response.js', render_dat_res);
+
+}
+
+var req_text = '';
+var res_text = '';
+var finalize = 0;
+var pX = 0;
+var pY = 0;
+
+function prepare_view() {
+
   var out = document.getElementById('req_txtarea'),
-      cov = document.getElementById('cover');
+    cov = document.getElementById('cover');
 
   document.body.style.overflow = 'hidden';
 
   out.value = '';
 
-  var x = new XMLHttpRequest();
-  var content;
+  var path = g_path;
+  var ignore = g_ignore;
 
-  var pX = window.scrollX ? window.scrollX : document.body.scrollLeft;
-  var pY = window.scrollY ? window.scrollY : document.body.scrollTop;
+  pX = window.scrollX ? window.scrollX : document.body.scrollLeft;
+  pY = window.scrollY ? window.scrollY : document.body.scrollTop;
 
   out.parentNode.style.left = pX;
   out.parentNode.style.top = pY;
@@ -421,56 +451,139 @@ function show_dat(path, ignore) {
   out.parentNode.style.display = 'block';
   cov.style.display = 'block';
 
-  x.open('GET', path + '/request.dat', false);
-  x.send(null);
-
-  content = '=== REQUEST ===\n\n' + x.responseText;
-
-  x.open('GET', path + '/response.dat', false);
-  x.send(null);
-
-  if (x.responseText.substr(0,5) == 'HTTP/') 
-    content += '\n=== RESPONSE ===\n\n' + x.responseText + '\n=== END OF DATA ===\n';
-  else content += '\n=== RESPONSE NOT AVAILABLE ===\n\n=== END OF DATA ===\n';
-
-  out.value = content;
-  delete x;
+  req_text = '';
+  res_text = '';
+  finalize = 0;
 
   out.focus();
+  window.scrollTo(pX, pY);
 
   if (ignore) ignore_click = true;
   return false;
 }
 
+function render_dat() {
+
+  if (typeof req !== 'undefined')
+    if (req != null) req_text = req.data;
+
+  if (req_text != null && finalize) finalize_view();
+
+  finalize = 1;
+}
+
+function render_dat_res() {
+
+  if (typeof res !== 'undefined')
+    if (res != null) res_text = res.data;
+
+  if (res_text != null && finalize) finalize_view();
+
+  finalize = 1;
+
+}
+
+function finalize_view() {
+
+  var out = document.getElementById('req_txtarea');
+
+  var content = '=== REQUEST ===\n\n' + req_text;
+
+  if (res_text.substr(0,5) == 'HTTP/')
+    content += '\n=== RESPONSE ===\n\n' + res_text + '\n=== END OF DATA ===\n';
+  else content += '\n=== RESPONSE NOT AVAILABLE ===\n\n=== END OF DATA ===\n';
+
+  out.value = content;
+
+  out.focus();
+  window.scrollTo(pX,pY);
+
+}
 
 /* Displays request or response dump in a proper window. */
 
+var wind = null;
+
 function show_win(path, ignore) {
-  var out = window.open('','_blank','scroll=yes,addressbar=no');
-  var x = new XMLHttpRequest();
-  var content;
 
-  x.open('GET', path + '/request.dat', false);
-  x.send(null);
+  g_path = path;
+  g_ignore = g_ignore;
+  wind = null;
 
-  content = '=== REQUEST ===\n\n' + x.responseText;
+  /* workaround when there is no response */
+  if (typeof req !== 'undefined')
+    if (req !== null) req = null;
+  if (typeof res !== 'undefined')
+    if (res !== null) res = null;
 
-  x.open('GET', path + '/response.dat', false);
-  x.send(null);
+  prepare_win();
 
-  if (x.responseText.substr(0,5) == 'HTTP/') 
-    content += '\n=== RESPONSE ===\n\n' + x.responseText + '\n=== END OF DATA ===\n';
+  load_script(path + '/request.js', render_win);
+  load_script(path + '/response.js', render_win_res);
+
+}
+
+function prepare_win() {
+
+  wind = window.open('','_blank','scroll=yes,addressbar=no');
+  var out = wind;
+  var content = '';
+
+  var path = g_path;
+  var ignore = g_ignore;
+
+  req_text = '';
+  res_text = '';
+  finalize = 0;
+
+}
+
+/* Callback to render request or response dump */
+
+function render_win() {
+
+
+  req_text = '';
+  if (typeof req !== 'undefined') req_text = req.data;
+
+  if (req_text != null && finalize) finalize_win();
+
+  finalize = 1;
+}
+
+function render_win_res() {
+
+  res_text = '';
+  if (typeof res !== 'undefined')
+    if (res != null) res_text = res.data;
+
+  if (res_text != null && finalize) finalize_win();
+
+  finalize = 1;
+}
+
+function finalize_win() {
+
+  if (typeof wind == 'undefined') return;
+  if (wind == null) return;
+
+  var out = wind;
+  var content = '';
+
+  content = '=== REQUEST ===\n\n' + req_text;
+
+  if (res_text.substr(0,5) == 'HTTP/') 
+    content += '\n=== RESPONSE ===\n\n' + res_text + '\n=== END OF DATA ===\n';
   else content += '\n=== RESPONSE NOT AVAILABLE ===\n\n=== END OF DATA ===\n';
 
   out.document.body.innerHTML = '<pre></pre>';
 
   out.document.body.firstChild.appendChild(out.document.createTextNode(content));
-  delete x;
 
   if (ignore) ignore_click = true;
-  return false;
-}
+    return false;
 
+}
 
 /* Hides request view. */
 
@@ -487,31 +600,61 @@ function hide_dat() {
   document.getElementById('cover').style.display = 'none'
 }
 
+/* Dynamically load JavaScript files */
+
+function load_script(sname, callback) {
+
+  /* Remove previously loaded scripts */
+  var old_script = document.getElementsByName('tmp_script');
+
+  for (var i = 0; i < old_script.length; i++) {
+    document.removeChild(old_script[i]);
+  }
+
+  var head = document.getElementsByTagName('head')[0];
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.id = sname;
+  script.name = 'tmp_script';
+  script.src = sname;
+  script.onload = callback;
+  script.onerror = callback;
+  head.appendChild(script);
+
+}
 
 /* Loads issues, children for a node, renders HTML. */
 
+var g_add_html = '';
+var g_tid = 0;
+var g_dir = '';
+
 function load_node(dir, tid) {
-  var x = new XMLHttpRequest();
+  g_dir = dir;
+  g_tid = tid;
   var t = document.getElementById('c_' + tid);
-  var add_html = '';
 
-  x.open('GET', dir + 'child_index.js', false);
-  x.send(null);
-  eval(x.responseText);
-
-  x.open('GET', dir + 'issue_index.js', false);
-  x.send(null);
-  eval(x.responseText);
+  load_script(dir + 'child_index.js', function () {});
 
   if (diff_mode) {
-    x.open('GET', dir + 'diff_data.js', false);
-    x.send(null);
-    eval(x.responseText);
+    load_script(dir + 'issue_index.js', function () {});
+    load_script(dir + 'diff_data.js', load_issues);
+  } else {
+    load_script(dir + 'issue_index.js', load_issues);
   }
 
-  delete x;
+}
 
-  next_opacity('c_' + tid, 0);
+/* Function callback to render the node data */
+
+function load_issues() {
+
+  var t = document.getElementById('c_' + g_tid);
+
+  next_opacity('c_' + g_tid, 0);
+
+  var add_html = '';
+  var dir = g_dir;
 
   if (issue.length > 0)
     add_html += '<div class=issue_ctr>\n';
@@ -554,7 +697,7 @@ function load_node(dir, tid) {
         add_html += '<li><div class="fetch_info">' + 
                     'Fetch result: ' + i2.error + '</div>';
       }
-  
+
       if (i2.extra.length > 0) add_html += '<div class="comment">Memo: ' + H(i2.extra) + '</div>\n';
 
     }

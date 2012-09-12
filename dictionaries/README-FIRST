@@ -87,10 +87,11 @@ associated request cost):
    scanner will not discover non-linked resources such as /admin,
    /index.php.old, etc:
 
-   $ ./skipfish -W- -LV [...other options...]
+   $ ./skipfish -W- -L [...other options...]
 
-   This mode is very fast, but *NOT* recommended for general use because of
-   limited coverage. Use only where absolutely necessary.
+   This mode is very fast, but *NOT* recommended for general use because
+   the lack of dictionary bruteforcing will limited the coverage. Use
+   only where absolutely necessary.
 
 2) Orderly scan with minimal extension brute-force. In this mode, the scanner
    will not discover resources such as /admin, but will discover cases such as
@@ -134,9 +135,6 @@ associated request cost):
                       frameworks, about 140,000 requests.
 
      complete       - all-inclusive dictionary, over 210,000 requests.
-
-     complete-fast  - An optimized version of the 'complete' dictionary
-                      with 20-30% less requests.
 
    Normal fuzzing mode is recommended when doing thorough assessments of
    reasonably responsive servers; but it may be prohibitively expensive

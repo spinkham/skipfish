@@ -74,6 +74,21 @@
 #define F_DEBUG(x...) fprintf(stderr,x)
 #define SAY(x...)   printf(x)
 
+#define L1 1       /* Informative, one line messages     */
+#define L2 2       /* Expand the above, dump reqs, resps */
+#define L3 3       /* todo(heinenn) do we need this..    */
+
+#ifdef LOG_STDERR
+  #define DEBUGC(_l, x...) DEBUG(x)
+#else
+  #define DEBUGC(_l, x...) do { \
+    if(_l <= verbosity) { \
+      fprintf(stderr, x); \
+    } \
+  } while (0)
+#endif /* LOG_STDERR */
+
+
 #define WARN(x...) do { \
     F_DEBUG(cYEL "[!] WARNING: " cBRI x); \
     F_DEBUG(cRST "\n"); \

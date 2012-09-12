@@ -560,6 +560,16 @@ u8 is_c_sens(struct pivot_desc* pv) {
   return pv->csens;
 }
 
+/* Lookup an issue title */
+
+u8* lookup_issue_title(u32 id) {
+  u32 i = 0;
+
+  while(pstructs[i].id && pstructs[i].id != id)
+    i++;
+
+  return pstructs[i].title;
+}
 
 /* Registers a problem, if not duplicate (res, extra may be NULL): */
 
@@ -571,7 +581,9 @@ void problem(u32 type, struct http_request* req, struct http_response* res,
   if (pv->type == PIVOT_NONE) FATAL("Uninitialized pivot point");
   if (type == PROB_NONE || !req) FATAL("Invalid issue data");
 
+#ifdef LOG_STDERR
   DEBUG("--- NEW PROBLEM - type: %u, extra: '%s' ---\n", type, extra);
+#endif /* LOG_STDERR */
 
   /* Check for duplicates */
 
@@ -587,6 +599,16 @@ void problem(u32 type, struct http_request* req, struct http_response* res,
   pv->issue[pv->issue_cnt].extra = extra ? ck_strdup(extra) : NULL;
   pv->issue[pv->issue_cnt].req   = req_copy(req, pv, 1);
   pv->issue[pv->issue_cnt].res   = res_copy(res);
+
+#ifndef LOG_STDERR
+  u8* url = serialize_path(req, 1, 1);
+  u8* title = lookup_issue_title(type);
+  DEBUGC(L1, "\n--- NEW PROBLEM\n");
+  DEBUGC(L1, "    - type: %u, %s\n", type, title);
+  DEBUGC(L1, "    - url:  %s\n", url);
+  DEBUGC(L2, "    - extra: %s\n", extra);
+  ck_free(url);
+#endif /* LOG_STDERR */
 
   /* Mark copies of half-baked requests as done. */
 
@@ -1117,7 +1139,7 @@ wordlist_retry:
   }
 
   if (fields == 1 && !strcmp((char*)type, "#r")) {
-    printf("Found %s (readonly:%d)\n", type, read_only);
+    DEBUG("Found %s (readonly:%d)\n", type, read_only);
     if (!read_only)
       FATAL("Attempt to load read-only wordlist '%s' via -W (use -S instead).\n", fname);
 
@@ -1513,4 +1535,3 @@ void destroy_database() {
   ck_free(xss_req);
 
 }
-

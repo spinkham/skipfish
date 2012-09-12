@@ -7,7 +7,7 @@
 
    Author: Michal Zalewski <lcamtuf@google.com>
 
-   Copyright 2009, 2010, 2011 by Google Inc. All Rights Reserved.
+   Copyright 2009 - 2012 by Google Inc. All Rights Reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -35,18 +35,48 @@
 
 #define ALLOC_CHECK_SIZE(_s) do { \
     if ((_s) > MAX_ALLOC) \
-      FATAL("bad alloc request: %u bytes", (_s)); \
+      ABORT("Bad alloc request: %u bytes", (_s)); \
   } while (0)
 
 #define ALLOC_CHECK_RESULT(_r,_s) do { \
     if (!(_r)) \
-      FATAL("out of memory: can't allocate %u bytes", (_s)); \
+      ABORT("Out of memory: can't allocate %u bytes", (_s)); \
+  } while (0)
+
+#define ALLOC_MAGIC   0xFF00
+#define ALLOC_MAGIC_F 0xFE00
+
+#define ALLOC_C(_ptr) (((u16*)(_ptr))[-3])
+#define ALLOC_S(_ptr) (((u32*)(_ptr))[-1])
+
+#define CHECK_PTR(_p) do { \
+    if ((_p) && ALLOC_C(_p) != ALLOC_MAGIC) {\
+      if (ALLOC_C(_p) == ALLOC_MAGIC_F) \
+        ABORT("Use after free."); \
+      else \
+        ABORT("Bad alloc canary."); \
+    } \
   } while (0)
 
 
-#define ALLOC_MAGIC   0xFF00
-#define ALLOC_C(_ptr) (((u16*)(_ptr))[-3])
-#define ALLOC_S(_ptr) (((u32*)(_ptr))[-1])
+#define CHECK_PTR_EXPR(_p) ({ \
+    typeof (_p) _tmp = (_p); \
+    CHECK_PTR(_tmp); \
+    _tmp; \
+  })
+
+#ifdef CHECK_UAF
+#  define CP(_p) CHECK_PTR_EXPR(_p)
+#else
+#  define CP(_p) (_p)
+#endif /* ^CHECK_UAF */
+
+#ifdef ALIGN_ACCESS
+#  define ALLOC_OFF 8
+#else
+#  define ALLOC_OFF 6
+#endif /* ^ALIGN_ACCESS */
+
 
 static inline void* __DFL_ck_alloc(u32 size) {
   void* ret;
@@ -54,10 +84,10 @@ static inline void* __DFL_ck_alloc(u32 size) {
   if (!size) return NULL;
 
   ALLOC_CHECK_SIZE(size);
-  ret = malloc(size + 6);
+  ret = malloc(size + ALLOC_OFF);
   ALLOC_CHECK_RESULT(ret, size);
 
-  ret += 6;
+  ret += ALLOC_OFF;
 
   ALLOC_C(ret) = ALLOC_MAGIC;
   ALLOC_S(ret) = size;
@@ -71,21 +101,64 @@ static inline void* __DFL_ck_realloc(void* orig, u32 size) {
   u32   old_size = 0;
 
   if (!size) {
-    if (orig) free(orig - 6);
+    if (orig) {
+
+      CHECK_PTR(orig);
+
+      /* Catch pointer issues sooner. */
+#ifdef DEBUG_ALLOCATOR
+      memset(orig - ALLOC_OFF, 0xFF, ALLOC_S(orig) + ALLOC_OFF);
+      ALLOC_C(orig) = ALLOC_MAGIC_F;
+#endif /* DEBUG_ALLOCATOR */
+
+      free(orig - ALLOC_OFF);
+    }
+
     return NULL;
   }
 
   if (orig) {
-    if (ALLOC_C(orig) != ALLOC_MAGIC) ABORT("Bad alloc canary");
+
+    CHECK_PTR(orig);
+
+#ifndef DEBUG_ALLOCATOR
+    ALLOC_C(orig) = ALLOC_MAGIC_F;
+#endif /* !DEBUG_ALLOCATOR */
+
     old_size = ALLOC_S(orig);
-    orig -= 6;
+    orig -= ALLOC_OFF;
+
+    ALLOC_CHECK_SIZE(old_size);
+
   }
 
   ALLOC_CHECK_SIZE(size);
-  ret = realloc(orig, size + 6);
+
+#ifndef DEBUG_ALLOCATOR
+  ret = realloc(orig, size + ALLOC_OFF);
+  ALLOC_CHECK_RESULT(ret, size);
+#else
+
+  /* Catch pointer issues sooner: force relocation and make sure that the
+     original buffer is wiped. */
+
+  ret = malloc(size + ALLOC_OFF);
   ALLOC_CHECK_RESULT(ret, size);
 
-  ret += 6;
+  if (orig) {
+
+    memcpy(ret + ALLOC_OFF, orig + ALLOC_OFF, MIN(size, old_size));
+    memset(orig, 0xFF, old_size + ALLOC_OFF);
+
+    ALLOC_C(orig + ALLOC_OFF) = ALLOC_MAGIC_F;
+
+    free(orig);
+
+  }
+
+#endif /* ^!DEBUG_ALLOCATOR */
+
+  ret += ALLOC_OFF;
 
   ALLOC_C(ret) = ALLOC_MAGIC;
   ALLOC_S(ret) = size;
@@ -97,7 +170,26 @@ static inline void* __DFL_ck_realloc(void* orig, u32 size) {
 }
 
 
-static inline void* __DFL_ck_strdup(u8* str) {
+static inline void* __DFL_ck_realloc_kb(void* orig, u32 size) {
+
+#ifndef DEBUG_ALLOCATOR
+
+  if (orig) {
+
+    CHECK_PTR(orig);
+
+    if (ALLOC_S(orig) >= size) return orig;
+
+    size = ((size >> 10) + 1) << 10;
+  }
+
+#endif /* !DEBUG_ALLOCATOR */
+
+  return __DFL_ck_realloc(orig, size);
+}
+
+
+static inline u8* __DFL_ck_strdup(u8* str) {
   void* ret;
   u32   size;
 
@@ -106,10 +198,10 @@ static inline void* __DFL_ck_strdup(u8* str) {
   size = strlen((char*)str) + 1;
 
   ALLOC_CHECK_SIZE(size);
-  ret = malloc(size + 6);
+  ret = malloc(size + ALLOC_OFF);
   ALLOC_CHECK_RESULT(ret, size);
 
-  ret += 6;
+  ret += ALLOC_OFF;
 
   ALLOC_C(ret) = ALLOC_MAGIC;
   ALLOC_S(ret) = size;
@@ -118,16 +210,16 @@ static inline void* __DFL_ck_strdup(u8* str) {
 }
 
 
-static inline void* __DFL_ck_memdup(u8* mem, u32 size) {
+static inline void* __DFL_ck_memdup(void* mem, u32 size) {
   void* ret;
 
   if (!mem || !size) return NULL;
 
   ALLOC_CHECK_SIZE(size);
-  ret = malloc(size + 6);
+  ret = malloc(size + ALLOC_OFF);
   ALLOC_CHECK_RESULT(ret, size);
   
-  ret += 6;
+  ret += ALLOC_OFF;
 
   ALLOC_C(ret) = ALLOC_MAGIC;
   ALLOC_S(ret) = size;
@@ -136,13 +228,47 @@ static inline void* __DFL_ck_memdup(u8* mem, u32 size) {
 }
 
 
-static inline void __DFL_ck_free(void* mem) {
-  if (mem) {
-    if (ALLOC_C(mem) != ALLOC_MAGIC) ABORT("Bad alloc canary");
-    free(mem - 6);
-  }
+static inline u8* __DFL_ck_memdup_str(u8* mem, u32 size) {
+  u8* ret;
+
+  if (!mem || !size) return NULL;
+
+  ALLOC_CHECK_SIZE(size);
+  ret = malloc(size + ALLOC_OFF + 1);
+  ALLOC_CHECK_RESULT(ret, size);
+  
+  ret += ALLOC_OFF;
+
+  ALLOC_C(ret) = ALLOC_MAGIC;
+  ALLOC_S(ret) = size;
+
+  memcpy(ret, mem, size);
+  ret[size] = 0;
+
+  return ret;
 }
 
+
+static inline void __DFL_ck_free(void* mem) {
+
+  if (mem) {
+
+    CHECK_PTR(mem);
+
+#ifdef DEBUG_ALLOCATOR
+
+    /* Catch pointer issues sooner. */
+    memset(mem - ALLOC_OFF, 0xFF, ALLOC_S(mem) + ALLOC_OFF);
+
+#endif /* DEBUG_ALLOCATOR */
+
+    ALLOC_C(mem) = ALLOC_MAGIC_F;
+
+    free(mem - ALLOC_OFF);
+
+  }
+
+}
 
 #ifndef DEBUG_ALLOCATOR
 
@@ -150,74 +276,98 @@ static inline void __DFL_ck_free(void* mem) {
 
 #define ck_alloc        __DFL_ck_alloc
 #define ck_realloc      __DFL_ck_realloc
+#define ck_realloc_kb   __DFL_ck_realloc_kb
 #define ck_strdup       __DFL_ck_strdup
 #define ck_memdup       __DFL_ck_memdup
+#define ck_memdup_str   __DFL_ck_memdup_str
 #define ck_free         __DFL_ck_free
 
 #else
 
 /* Debugging mode - include additional structures and support code. */
 
-#define ALLOC_BUCKETS 1024
+#define ALLOC_BUCKETS     4096
+#define ALLOC_TRK_CHUNK   256
 
-struct __AD_trk_obj {
+struct TRK_obj {
   void *ptr;
   char *file, *func;
-  u32 line;
+  u32  line;
 };
 
 
-extern struct __AD_trk_obj* __AD_trk[ALLOC_BUCKETS];
-extern u32 __AD_trk_cnt[ALLOC_BUCKETS];
+extern struct TRK_obj* TRK[ALLOC_BUCKETS];
+extern u32 TRK_cnt[ALLOC_BUCKETS];
 
-#define __AD_H(_ptr) (((((u32)(long)(_ptr)) >> 16) ^ ((u32)(long)(_ptr))) % \
-                     ALLOC_BUCKETS)
+#ifndef __LP64__
+#define TRKH(_ptr) (((((u32)_ptr) >> 16) ^ ((u32)_ptr)) % ALLOC_BUCKETS)
+#else
+#define TRKH(_ptr) (((((u64)_ptr) >> 16) ^ ((u64)_ptr)) % ALLOC_BUCKETS)
+#endif
 
 /* Adds a new entry to the list of allocated objects. */
 
-static inline void __AD_alloc_buf(void* ptr, const char* file, const char* func,
-                                   u32 line) {
-  u32 i, b;
+static inline void TRK_alloc_buf(void* ptr, const char* file, const char* func,
+                                 u32 line) {
+
+  u32 i, bucket;
 
   if (!ptr) return;
 
-  b = __AD_H(ptr);
+  bucket = TRKH(ptr);
 
-  for (i=0;i<__AD_trk_cnt[b];i++)
-    if (!__AD_trk[b][i].ptr) {
-      __AD_trk[b][i].ptr = ptr;
-      __AD_trk[b][i].file = (char*)file;
-      __AD_trk[b][i].func = (char*)func;
-      __AD_trk[b][i].line = line;
+  for (i = 0; i < TRK_cnt[bucket]; i++)
+
+    if (!TRK[bucket][i].ptr) {
+
+      TRK[bucket][i].ptr = ptr;
+      TRK[bucket][i].file = (char*)file;
+      TRK[bucket][i].func = (char*)func;
+      TRK[bucket][i].line = line;
       return;
+
     }
 
-  __AD_trk[b] = __DFL_ck_realloc(__AD_trk[b],
-    (__AD_trk_cnt[b] + 1) * sizeof(struct __AD_trk_obj));
+  /* No space available. */
+  //TRK[bucket] = __DFL_ck_realloc(TRK[bucket],
+  //  (TRK_cnt[bucket] + 1) * sizeof(struct TRK_obj));
 
-  __AD_trk[b][__AD_trk_cnt[b]].ptr = ptr;
-  __AD_trk[b][__AD_trk_cnt[b]].file = (char*)file;
-  __AD_trk[b][__AD_trk_cnt[b]].func = (char*)func;
-  __AD_trk[b][__AD_trk_cnt[b]].line = line;
-  __AD_trk_cnt[b]++;
+
+  if (!(i % ALLOC_TRK_CHUNK)) {
+
+    TRK[bucket] = __DFL_ck_realloc(TRK[bucket],
+    TRK_cnt[bucket] + ALLOC_TRK_CHUNK * sizeof(struct TRK_obj));
+
+  }
+
+  TRK[bucket][i].ptr  = ptr;
+  TRK[bucket][i].file = (char*)file;
+  TRK[bucket][i].func = (char*)func;
+  TRK[bucket][i].line = line;
+
+  TRK_cnt[bucket]++;
 
 }
 
 
 /* Removes entry from the list of allocated objects. */
 
-static inline void __AD_free_buf(void* ptr, const char* file, const char* func,
-                                 u32 line) {
-  u32 i, b;
+static inline void TRK_free_buf(void* ptr, const char* file, const char* func,
+                                u32 line) {
+
+  u32 i, bucket;
 
   if (!ptr) return;
 
-  b = __AD_H(ptr);
+  bucket = TRKH(ptr);
 
-  for (i=0;i<__AD_trk_cnt[b];i++)
-    if (__AD_trk[b][i].ptr == ptr) {
-      __AD_trk[b][i].ptr = 0;
+  for (i = 0; i < TRK_cnt[bucket]; i++)
+
+    if (TRK[bucket][i].ptr == ptr) {
+
+      TRK[bucket][i].ptr = 0;
       return;
+
     }
 
   WARN("ALLOC: Attempt to free non-allocated memory in %s (%s:%u)",
@@ -228,75 +378,125 @@ static inline void __AD_free_buf(void* ptr, const char* file, const char* func,
 
 /* Does a final report on all non-deallocated objects. */
 
-static inline void __AD_report(void) {
-  u32 i, b;
+static inline void __TRK_report(void) {
+
+  u32 i, bucket;
 
   fflush(0);
 
-  for (b=0;b<ALLOC_BUCKETS;b++)
-    for (i=0;i<__AD_trk_cnt[b];i++)
-      if (__AD_trk[b][i].ptr)
+  for (bucket = 0; bucket < ALLOC_BUCKETS; bucket++)
+    for (i = 0; i < TRK_cnt[bucket]; i++)
+      if (TRK[bucket][i].ptr)
         WARN("ALLOC: Memory never freed, created in %s (%s:%u)",
-             __AD_trk[b][i].func, __AD_trk[b][i].file, __AD_trk[b][i].line);
+             TRK[bucket][i].func, TRK[bucket][i].file, TRK[bucket][i].line);
 
 }
 
 
 /* Simple wrappers for non-debugging functions: */
 
-static inline void* __AD_ck_alloc(u32 size, const char* file, const char* func,
-                                  u32 line) {
+static inline void* TRK_ck_alloc(u32 size, const char* file, const char* func,
+                                 u32 line) {
+
   void* ret = __DFL_ck_alloc(size);
-  __AD_alloc_buf(ret, file, func, line);
+  TRK_alloc_buf(ret, file, func, line);
   return ret;
+
 }
 
 
-static inline void* __AD_ck_realloc(void* orig, u32 size, const char* file,
-                                    const char* func, u32 line) {
-  void* ret = __DFL_ck_realloc(orig, size);
-  __AD_free_buf(orig, file, func, line);
-  __AD_alloc_buf(ret, file, func, line);
-  return ret;
-}
-
-
-static inline void* __AD_ck_strdup(u8* str, const char* file, const char* func,
-                                   u32 line) {
-  void* ret = __DFL_ck_strdup(str);
-  __AD_alloc_buf(ret, file, func, line);
-  return ret;
-}
-
-
-static inline void* __AD_ck_memdup(u8* mem, u32 size, const char* file,
+static inline void* TRK_ck_realloc(void* orig, u32 size, const char* file,
                                    const char* func, u32 line) {
-  void* ret = __DFL_ck_memdup(mem, size);
-  __AD_alloc_buf(ret, file, func, line);
+
+  void* ret = __DFL_ck_realloc(orig, size);
+  TRK_free_buf(orig, file, func, line);
+  TRK_alloc_buf(ret, file, func, line);
   return ret;
+
 }
 
 
-static inline void __AD_ck_free(void* ptr, const char* file,
+static inline void* TRK_ck_realloc_kb(void* orig, u32 size, const char* file,
+                                      const char* func, u32 line) {
+
+  void* ret = __DFL_ck_realloc_kb(orig, size);
+  TRK_free_buf(orig, file, func, line);
+  TRK_alloc_buf(ret, file, func, line);
+  return ret;
+
+}
+
+
+static inline void* TRK_ck_strdup(u8* str, const char* file, const char* func,
+                                  u32 line) {
+
+  void* ret = __DFL_ck_strdup(str);
+  TRK_alloc_buf(ret, file, func, line);
+  return ret;
+
+}
+
+
+static inline void* TRK_ck_memdup(void* mem, u32 size, const char* file,
+                                  const char* func, u32 line) {
+
+  void* ret = __DFL_ck_memdup(mem, size);
+  TRK_alloc_buf(ret, file, func, line);
+  return ret;
+
+}
+
+
+static inline void* TRK_ck_memdup_str(void* mem, u32 size, const char* file,
+                                      const char* func, u32 line) {
+
+  void* ret = __DFL_ck_memdup_str(mem, size);
+  TRK_alloc_buf(ret, file, func, line);
+  return ret;
+
+}
+
+
+static inline void TRK_ck_free(void* ptr, const char* file,
                                 const char* func, u32 line) {
-  __AD_free_buf(ptr, file, func, line);
+
+  TRK_free_buf(ptr, file, func, line);
   __DFL_ck_free(ptr);
+
 }
 
-
-/* Populates file / function / line number data to *_d wrapper calls: */
+/* Alias user-facing names to tracking functions: */
 
 #define ck_alloc(_p1) \
-  __AD_ck_alloc(_p1, __FILE__, __FUNCTION__, __LINE__)
+  TRK_ck_alloc(_p1, __FILE__, __FUNCTION__, __LINE__)
+
 #define ck_realloc(_p1, _p2) \
-  __AD_ck_realloc(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
+  TRK_ck_realloc(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
+
+#define ck_realloc_kb(_p1, _p2) \
+  TRK_ck_realloc_kb(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
+
 #define ck_strdup(_p1) \
-  __AD_ck_strdup(_p1, __FILE__, __FUNCTION__, __LINE__)
+  TRK_ck_strdup(_p1, __FILE__, __FUNCTION__, __LINE__)
+
 #define ck_memdup(_p1, _p2) \
-  __AD_ck_memdup(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
+  TRK_ck_memdup(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
+
+#define ck_memdup_str(_p1, _p2) \
+  TRK_ck_memdup_str(_p1, _p2, __FILE__, __FUNCTION__, __LINE__)
+
 #define ck_free(_p1) \
-  __AD_ck_free(_p1, __FILE__, __FUNCTION__, __LINE__)
+  TRK_ck_free(_p1, __FILE__, __FUNCTION__, __LINE__)
 
 #endif /* ^!DEBUG_ALLOCATOR */
+
+#define alloc_printf(_str...) ({ \
+    u8* _tmp; \
+    s32 _len = snprintf(NULL, 0, _str); \
+    if (_len < 0) FATAL("Whoa, snprintf() fails?!"); \
+    _tmp = ck_alloc(_len + 1); \
+    snprintf((char*)_tmp, _len + 1, _str); \
+    _tmp; \
+  })
 
 #endif /* ! _HAVE_ALLOC_INL_H */

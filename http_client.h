@@ -76,6 +76,18 @@ struct param_array {
 
 #define HEADER_SUBTYPE(_x) ((_x) >= PARAM_HEADER)
 
+/* Different character sets to feed the encoding function  */
+
+#define ENC_DEFAULT "#&=+;,!$?%"                /* Default encoding          */
+#define ENC_PATH    "#&=+;,!$?%/"               /* Path encoding with slash  */
+#define ENC_NULL    "#&=+;,!$?"                 /* Encoding without %        */
+
+/* SSL Cipher strengths */
+
+#define SSL_MEDIUM 0x00000040L
+#define SSL_HIGH   0x00000080L
+
+
 struct http_response;
 struct queue_entry;
 
@@ -112,6 +124,9 @@ struct http_request {
 
   u8* trying_key;               /* Current keyword ptr          */
   u8  trying_spec;              /* Keyword specificity info     */
+
+  u8* fuzz_par_enc;            /* Fuzz target encoding      */
+
 
 };
 
@@ -292,7 +307,7 @@ u8* url_decode_token(u8* str, u32 len, u8 plus);
    otherwise let pretty much everything else go through, as it may help with
    the exploitation of certain vulnerabilities. */
 
-u8* url_encode_token(u8* str, u32 len, u8 also_slash);
+u8* url_encode_token(u8* str, u32 len, u8* enc_set);
 
 /* Reconstructs URI from http_request data. Includes protocol and host
    if with_host is non-zero. */

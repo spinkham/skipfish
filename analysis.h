@@ -70,7 +70,7 @@ void scrape_response(struct http_request* req, struct http_response* res);
 /* Analyzes response headers and body to detect stored XSS, redirection,
    401, 500 codes, exception messages, source code, offensive comments, etc. */
 
-void content_checks(struct http_request* req, struct http_response* res);
+u8 content_checks(struct http_request* req, struct http_response* res);
 
 /* Deletes payload of binary responses if requested. */
 
