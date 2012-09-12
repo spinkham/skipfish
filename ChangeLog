@@ -1,3 +1,29 @@
+Version 2.07b:
+--------------
+
+  - A bugfix to fprint_response() will help reduce false positives that
+    could occur for differential tests (i.e. the query and shell injection
+    tests)
+
+  - We now suppress implicit cache warnings when dealing with 302, 303 and 307
+    redirects.
+
+  - Added --no-checks which allows a scan to be run without any injection
+    tests. This still allows bruteforcing and combines well with the
+    new ability to load URLs from previous scan results.
+
+  - We can now parse the pivots.txt, which can be found in the output
+    directory of older scans. All URLs will be loaded which seriously
+    speeds up recurring scans.
+
+  - Directory bruteforcing now includes a content negotiation trick where
+    a using a fake mime in the Accept: header will cause some servers to
+    propose us files via a 406 response.
+
+  - A horrible bug fix which caused instable pages not be marked
+    as such. The result: false positives.
+
+
 Version 2.06b:
 --------------
 

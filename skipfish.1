@@ -138,11 +138,17 @@ Using this flag will cause forms to be ignored during the scan.
 .IP "-P/--ignore-links"
 This flag will disable link extracting and effectively disables crawling. Using \-P is useful when you want to test one specific URL or when you want to feed skipfish a list of URLs that were collected with an external crawler.
 
+.SH TESTING SCOPE
+.PP
+
 .IP "--checks"
 EXPERIMENTAL: Displays the crawler injection tests. The output shows the index number (useful for \-\-checks\-toggle), the check name and whether the check is enabled.
 
 .IP "--checks-toggle <check1,check2,..>"
 EXPERIMENTAL: Every injection test can be enabled/disabled with using this flag. As value, you need to provide the check numbers which can be obtained with the \-\-checks flag. Multiple checks can be toggled via a comma separated value (i.e. \-\-checks\-toggle 1,2 )
+
+.IP "--no-checks"
+EXPERIMENTAL: Disables all injection tests for this scan and limits the scan to crawling and, optionally, bruteforcing. As with all scans, the output directory will contain a pivots.txt file. This file can be used to feed future scans.
 
 .SH REPORTING OPTIONS
 .PP

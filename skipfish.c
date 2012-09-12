@@ -202,16 +202,36 @@ static void read_urls(u8* fn) {
   while (fgets((char*)tmp, MAX_URL_LEN, f)) {
     struct http_request *req;
     u8* url = tmp;
+    u8* ptr;
     u32 l;
 
     while (isspace(*url)) url++;
 
-    l = strlen((char*)url);
-    while (l && isspace(url[l-1])) l--;
-    url[l] = 0;
+    /* Check if we're reading a pivots.txt file and grab the URL */
+    if(!strncmp((char*)url,"GET ", 4) || !strncmp((char*)url,"POST ", 4)) {
+      url += 4;
+
+      /* If the server response code is a 404, than we'll skip the URL
+      to avoid wasting time on things that are likely not to exist. */
+      if(inl_findstr(url, (u8*)"code=404", MAX_URL_LEN))
+        continue;
+
+      ptr = url;
+      /* Find the next space to terminate the URL */
+      while(ptr && !isspace(*ptr)) ptr++;
+
+      if(!ptr) FATAL("URL parsing failed at line: %s", tmp);
+
+      *ptr = 0;
+    /* Else we expect a simple flat file with URLs */
+    } else {
+      l = strlen((char*)url);
+      while (l && isspace(url[l-1])) l--;
+      url[l] = 0;
+    }
 
     if (*url == '#' || !*url) continue;
- 
+
     req = ck_alloc(sizeof(struct http_request));
 
     if (parse_url(url, req, NULL))
@@ -309,6 +329,7 @@ int main(int argc, char** argv) {
     {"scan-timeout", required_argument, 0, 'k'},
     {"checks", no_argument, 0, 0},
     {"checks-toggle", required_argument, 0, 0},
+    {"no-checks", no_argument, 0, 0},
     {0, 0, 0, 0 }
 
   };
@@ -592,6 +613,8 @@ int main(int argc, char** argv) {
           display_injection_checks();
         if(!strcmp( "checks-toggle", long_options[oindex].name ))
           toggle_injection_checks((u8*)optarg, 1);
+        if(!strcmp( "no-checks", long_options[oindex].name ))
+          no_checks = 1;
 
         break;
 

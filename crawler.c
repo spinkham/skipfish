@@ -1669,6 +1669,7 @@ static u8 dir_dict_bogus_check(struct http_request* req,
       if (c == req->pivot->child_cnt) {
         n = req_copy(req->pivot->req, req->pivot, 1);
         replace_slash(n, tmp);
+
         n->callback = dir_dict_check;
         n->user_val = 0;
         req->pivot->pending++;
@@ -1699,6 +1700,12 @@ static u8 dir_dict_bogus_check(struct http_request* req,
     n->callback = dir_dict_check;
     n->user_val = 0;
     req->pivot->pending++;
+
+    /* While bruteforcing, we explicitly set a fake Accept value to
+    force a 406 response from servers that support content negotiation
+    */
+
+    set_value(PARAM_HEADER, (u8*)"Accept", (u8*)"skip/fish;", 0, &n->par);
     async_request(n);
 
     if (prefix(req->trying_key, (u8*)".ht")) {
@@ -1734,6 +1741,15 @@ static u8 dir_dict_check(struct http_request* req,
   u32 i;
 
   DEBUG_CALLBACK(req, res);
+
+  /* When we get a 406, than our content negotiation trick worked. It
+  means the body contains alternatives and also that this pivot doesn't
+  exist. So we scrape the content and return immediately.  */
+
+  if(res->code == 406) {
+    RESP_CHECKS(req, res);
+    return 0;
+  }
 
   if (FETCH_FAIL(res)) {
     handle_error(req, res, (u8*)"during path-based dictionary probes", 0);

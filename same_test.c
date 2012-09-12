@@ -43,8 +43,8 @@
 #include "report.h"
 
 #ifdef DEBUG_ALLOCATOR
-struct __AD_trk_obj* __AD_trk[ALLOC_BUCKETS];
-u32 __AD_trk_cnt[ALLOC_BUCKETS];
+struct TRK_obj* TRK[ALLOC_BUCKETS];
+u32 TRK_cnt[ALLOC_BUCKETS];
 #endif /* DEBUG_ALLOCATOR */
 
 #define MAX_LEN (1024*1024)

@@ -121,6 +121,12 @@ void add_form_hint(u8* name, u8* value);
     ck_free(_url); \
   } while (0)
 
+#define DEBUG_MISC_CALLBACK(_req, _res) do { \
+  int i; \
+  for (i = 0; i < req->pivot->misc_cnt; i++) \
+    DEBUG_CALLBACK(MREQ(i), MRES(i)); \
+  } while (0)
+
 #define DEBUG_PIVOT(_text, _pv) do { \
     u8* _url = serialize_path((_pv)->req, 1, 1); \
     DEBUG("* %s: %s\n", _text, _url); \
@@ -145,6 +151,7 @@ void add_form_hint(u8* name, u8* value);
 #else
 
 #define DEBUG_CALLBACK(_req, _res)
+#define DEBUG_MISC_CALLBACK(_req, _res)
 #define DEBUG_STATE_CALLBACK(_req, _res, _cb)
 #define DEBUG_HELPER(_pv)
 #define DEBUG_PIVOT(_text, _pv)

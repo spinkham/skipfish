@@ -142,7 +142,7 @@ struct pivot_desc {
   struct http_response* misc_res[MISC_ENTRIES]; /* Saved responses           */
   u8 misc_cnt;                                  /* Request / response count  */
 
-#define MAX_CHECKS 32 
+#define MAX_CHECKS 32
   u8 i_skip[MAX_CHECKS];                        /* Injection step skip flags */
   u8 i_skip_add;
   u8 r404_skip;
@@ -207,6 +207,7 @@ u8* lookup_issue_title(u32 id);
 #define PROB_NONE               0               /* Invalid                   */
 
 #define PROB_SSL_CERT           10101           /* SSL issuer data           */
+#define PROB_SSL_CERT_EXPIRE    10102           /* SSL cert will expire      */
 
 #define PROB_NEW_COOKIE         10201           /* New cookie added          */
 #define PROB_SERVER_CHANGE      10202           /* New Server: value seen    */
@@ -218,6 +219,7 @@ u8* lookup_issue_title(u32 id);
 #define PROB_AUTH_REQ           10402           /* Authentication requires   */
 #define PROB_SERV_ERR           10403           /* Server error              */
 #define PROB_DIR_LIST           10404           /* Directory listing         */
+#define PROB_HIDDEN_NODE        10405           /* Hidden resource found     */
 
 #define PROB_EXT_LINK           10501           /* External link             */
 #define PROB_EXT_REDIR          10502           /* External redirector       */

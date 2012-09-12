@@ -1268,28 +1268,40 @@ void fprint_response(struct http_response* res) {
 
   for (i=0;i<res->pay_len;i++)
 
-    if (res->payload[i] <= 0x20 || 
-        res->payload[i] == '<'  || res->payload[i] == '>' ||
-        res->payload[i] == '\'' || res->payload[i] == '"') {
+    if (res->payload[i] <= 0x20 || strchr("<>\"'&:\\", (char)res->payload[i])) {
+
       if (!in_space) {
+
         in_space = 1;
-        if (c_len <= FP_MAX_LEN)
+        if (c_len && ++c_len <= FP_MAX_LEN)
           res->sig.data[c_len % FP_SIZE]++;
         c_len = 0;
+
       } else c_len++;
+
+      if (res->payload[i] == '&')
+        do { i++; } while (i < res->pay_len &&
+                           (isalnum(res->payload[i]) || strchr("#;", (char)res->payload[i])));
+
+
     } else {
+
       if (in_space) {
+
         in_space = 0;
-        if (c_len <= FP_MAX_LEN)
+        if (c_len && ++c_len <= FP_MAX_LEN)
           res->sig.data[c_len % FP_SIZE]++;
         c_len = 0;
-      } else c_len++;
+
+      } else {
+        res->sig.has_text = 1;
+        c_len++;
+      }
+
     }
 
-  res->sig.data[c_len % FP_SIZE]++;
-
+  if (c_len) res->sig.data[c_len % FP_SIZE]++;
 }
-
 
 /* Parses a network buffer containing raw HTTP response received over the
    network ('more' == the socket is still available for reading). Returns 0

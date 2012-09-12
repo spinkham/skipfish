@@ -96,6 +96,7 @@ struct queue_entry;
 struct http_sig {
   u32 code;                     /* HTTP response code           */
   u32 data[FP_SIZE];            /* Response fingerprint data    */
+  u8 has_text;                  /* Does the page have text      */
 };
 
 /* HTTP request descriptor: */
@@ -125,8 +126,7 @@ struct http_request {
   u8* trying_key;               /* Current keyword ptr          */
   u8  trying_spec;              /* Keyword specificity info     */
 
-  u8* fuzz_par_enc;            /* Fuzz target encoding      */
-
+  u8* fuzz_par_enc;             /* Fuzz target encoding         */
 
 };
 

@@ -34,7 +34,8 @@ u8  no_parse,            /* Disable HTML link detection */
     warn_mixed,          /* Warn on mixed content       */
     log_ext_urls,        /* Log all external URLs       */
     no_forms,            /* Do not submit forms         */
-    pedantic_cache;      /* Match HTTP/1.0 and HTTP/1.1 */
+    pedantic_cache,      /* Match HTTP/1.0 and HTTP/1.1 */
+    no_checks;           /* No checks / crawl only mode */
 
 /* Form autofill hints: */
 
@@ -1475,24 +1476,6 @@ u8 content_checks(struct http_request* req, struct http_response* res) {
       h10c = 1;
     }
 
-    /* Check if injection strings ended up in one of our cookie name or
-       values and complain */
-
-    u32 i = 0;
-
-    while(injection_headers[i]) {
-      off = 0;
-
-      do {
-        tmp = GET_HDR_OFF((u8*)injection_headers[i], &res->hdr,off++);
-        if(tmp && strstr((char*)tmp, "skipfish://invalid/;"))
-          problem(PROB_HEADER_INJECT,req, res,
-                 (u8*)injection_headers[i], req->pivot, 0);
-
-      } while(tmp);
-      i++;
-    }
-
     /* Check HTTP/1.1 intent next. Detect conflicting keywords. */
 
     if (cc) {
@@ -1524,10 +1507,12 @@ u8 content_checks(struct http_request* req, struct http_response* res) {
               "caching explicitly permitted on a 'Set-Cookie' response",
               req->pivot, 0);
 
-    } else if (res->cookies_set && !h10c && !h11c && cacheable) {
+    } else if (res->cookies_set && !h10c && !h11c && cacheable &&
+               (res->code != 302 && res->code != 303 && res->code != 307)) {
 
       /* Implicitly cacheable Set-Cookie response with no intent specified.
-         Likewise, makes us unhappy. */
+         Likewise, makes us unhappy. Unless the HTTP code is 302, 303 or 307
+         in which case implicit caching is forbidden by rfc2616. */
 
       problem(PROB_CACHE_HI, req, res, (u8*)
               "implicitly cacheable 'Set-Cookie' response",
@@ -1554,6 +1539,23 @@ u8 content_checks(struct http_request* req, struct http_response* res) {
               req->pivot, 0);
 
     }
+  }
+
+  /* Check if injection strings ended up in one of our cookie name or
+     values and complain */
+
+  u32 i = 0;
+  while(injection_headers[i]) {
+    off = 0;
+
+    do {
+      tmp = GET_HDR_OFF((u8*)injection_headers[i], &res->hdr,off++);
+      if(tmp && strstr((char*)tmp, "skipfish://invalid/;"))
+        problem(PROB_HEADER_INJECT,req, res,
+               (u8*)injection_headers[i], req->pivot, 0);
+
+    } while(tmp);
+    i++;
   }
 
   /* CHECK 2: Log troubling response codes. */
@@ -2366,6 +2368,7 @@ static void check_for_stuff(struct http_request* req,
       strstr((char*)res->payload, "PostgreSQL query failed") ||
       strstr((char*)res->payload, "Dynamic SQL Error") ||
       strstr((char*)res->payload, "unable to perform query") ||
+      strstr((char*)res->payload, "Microsoft OLE DB Provider for ODBC Drivers</font>") ||
       strstr((char*)res->payload, "[Microsoft][ODBC SQL Server Driver]") ||
       strstr((char*)res->payload, "You have an error in your SQL syntax; ") ||
       strstr((char*)res->payload, "[DM_QUERY_E_SYNTAX]")) {

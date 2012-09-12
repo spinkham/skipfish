@@ -20,7 +20,7 @@
 #
 
 PROGNAME   = skipfish
-VERSION    = 2.06b
+VERSION    = 2.07b
 
 OBJFILES   = http_client.c database.c crawler.c analysis.c report.c \
              checks.c

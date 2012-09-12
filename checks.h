@@ -13,6 +13,8 @@ void display_injection_checks(void);
 void release_injection_checks(void);
 void toggle_injection_checks(u8* str, u32 enable);
 
+extern u8 no_checks;
+
 /* The inject state manager callback function is used in crawler.c to
    direct the flow to the state manager where all the injection tests are
    performed. */

@@ -111,13 +111,13 @@ static struct cb_handle cb_handles[] = {
 
   /* Behavior checks for dirs/params */
 
-  { BH_CHECKS, 1, 0, 1, PIVOT_PARAM, (u8*)"param behavior",
+  { BH_CHECKS, 0, 0, 1, PIVOT_PARAM, (u8*)"param behavior",
     param_behavior_tests, param_behavior_check, 0 },
 
   { 2, 1, 0, 1, PIVOT_PARAM, (u8*)"param OGNL",
     param_ognl_tests, param_ognl_check, 0 },
 
-  { BH_CHECKS, 1, 0, 1, PIVOT_DIR, (u8*)"inject behavior",
+  { BH_CHECKS, 1, 0, 1, PIVOT_DIR|PIVOT_FILE, (u8*)"inject behavior",
         inject_behavior_tests, inject_behavior_check, 0 },
 
   /* All the injection tests */
@@ -157,7 +157,7 @@ static struct cb_handle cb_handles[] = {
   { 2, 1, 0, 0, 0, (u8*)"XML injection",
         inject_xml_tests, inject_xml_check, 0 },
 
-  { 9, 1, 0, 0, 0, (u8*)"Shell injection",
+  { 12, 1, 0, 0, 0, (u8*)"Shell injection",
         inject_shell_tests, inject_shell_check, 0 },
 
   { 2, 1, 0, 0, 0, (u8*)"format string",
@@ -222,6 +222,11 @@ u8 inject_state_manager(struct http_request* req, struct http_response* res) {
   s32 check = req->pivot->check_idx;
 
   DEBUG_CALLBACK(req, res);
+
+  /* If we are in crawler only more, jump to inject_done to effectively
+     disable all checks for the pivot */
+
+  if(no_checks) goto inject_done;
 
   /* First test that gets us in the loop? This means we'll immediately go and
      schedule some tests */
@@ -328,6 +333,8 @@ schedule_tests:
     return 0;
   }
 
+inject_done:
+
   /* All injection tests done. Reset the counter and call inject_done()
      to finish (or proceed with param tests */
 
@@ -360,10 +367,11 @@ static u8 inject_behavior_check(struct http_request* req,
                                 struct http_response* res) {
 
   u32 i;
+
   /* pv->state may change after async_request() calls in
      insta-fail mode, so we should cache accordingly. */
 
-  DEBUG_CALLBACK(req, res);
+  DEBUG_MISC_CALLBACK(req, res);
 
   for (i=0; i<req->pivot->misc_cnt; i++) {
 
@@ -407,7 +415,7 @@ static u8 put_upload_tests(struct pivot_desc* pv) {
 static u8 put_upload_check(struct http_request* req,
                            struct http_response* res) {
 
-  DEBUG_CALLBACK(req, res);
+  DEBUG_MISC_CALLBACK(req, res);
 
   /* If PUT and FOO of the page does not give the same result. And if
   additionally we get a 2xx code, than we'll mark the issue as detected */
@@ -476,7 +484,7 @@ static u8 inject_xml_tests(struct pivot_desc* pivot) {
 static u8 inject_xml_check(struct http_request* req,
                            struct http_response* res) {
 
-  DEBUG_CALLBACK(req, res);
+  DEBUG_MISC_CALLBACK(req, res);
 
   /* Got all responses:
 
@@ -495,10 +503,9 @@ static u8 inject_xml_check(struct http_request* req,
   return 0;
 }
 
-
 static u8 inject_shell_tests(struct pivot_desc* pivot) {
 
-  /* Shell command injection - 9 requests. */
+  /* Shell command injection - 12 requests. */
 
   u32 orig_state = pivot->state;
   struct http_request* n;
@@ -557,13 +564,31 @@ static u8 inject_shell_tests(struct pivot_desc* pivot) {
   n->user_val = 8;
   async_request(n);
 
+  n = req_copy(pivot->req, pivot, 1);
+  SET_VECTOR(orig_state, n, "`true`");
+  n->callback = inject_state_manager;
+  n->user_val = 9;
+  async_request(n);
+
+  n = req_copy(pivot->req, pivot, 1);
+  SET_VECTOR(orig_state, n, "`false`");
+  n->callback = inject_state_manager;
+  n->user_val = 10;
+  async_request(n);
+
+  n = req_copy(pivot->req, pivot, 1);
+  SET_VECTOR(orig_state, n, "`uname`");
+  n->callback = inject_state_manager;
+  n->user_val = 11;
+  async_request(n);
+
   return 0;
 }
 
 static u8 inject_shell_check(struct http_request* req,
                              struct http_response* res) {
 
-  DEBUG_CALLBACK(req, res);
+  DEBUG_MISC_CALLBACK(req, res);
 
   /* Got all responses:
 
@@ -577,6 +602,12 @@ static u8 inject_shell_check(struct http_request* req,
        misc[7] = "`false`"
        misc[8] = '`uname`'
 
+     And a variant that replaces the original values (instead of appending)
+
+       misc[9] = `true`
+       misc[10] = `false`
+       misc[11] = `uname`
+
      If misc[0] == misc[1], but misc[0] != misc[2], we probably have shell
      injection. Ditto for the remaining triplets. We use the `false` case
      to avoid errors on search fields, etc. */
@@ -586,7 +617,6 @@ static u8 inject_shell_check(struct http_request* req,
     problem(PROB_SH_INJECT, MREQ(0), MRES(0), 
       (u8*)"responses to `true` and `false` different than to `uname`",
       req->pivot, 0);
-    RESP_CHECKS(MREQ(2), MRES(2));
   }
 
   if (same_page(&MRES(3)->sig, &MRES(4)->sig) &&
@@ -594,7 +624,6 @@ static u8 inject_shell_check(struct http_request* req,
     problem(PROB_SH_INJECT, MREQ(3), MRES(3),
       (u8*)"responses to `true` and `false` different than to `uname`",
       req->pivot, 0);
-    RESP_CHECKS(MREQ(5), MRES(5));
   }
 
   if (same_page(&MRES(6)->sig, &MRES(7)->sig) &&
@@ -602,7 +631,13 @@ static u8 inject_shell_check(struct http_request* req,
     problem(PROB_SH_INJECT, MREQ(6), MRES(6),
       (u8*)"responses to `true` and `false` different than to `uname`",
       req->pivot, 0);
-    RESP_CHECKS(MREQ(8), MRES(8));
+  }
+
+  if (same_page(&MRES(9)->sig, &MRES(10)->sig) &&
+      !same_page(&MRES(9)->sig, &MRES(11)->sig)) {
+    problem(PROB_SH_INJECT, MREQ(9), MRES(9),
+      (u8*)"responses to `true` and `false` different than to `uname`",
+      req->pivot, 0);
   }
 
   return 0;
@@ -762,7 +797,7 @@ static u8 inject_dir_listing_check(struct http_request* req,
                                    struct http_response* res) {
   u32 orig_state = req->pivot->state;
 
-  DEBUG_CALLBACK(req, res);
+  DEBUG_MISC_CALLBACK(req, res);
 
   /* Got all responses. For directories, this is:
 
@@ -882,7 +917,7 @@ static u8 inject_inclusion_tests(struct pivot_desc* pivot) {
 static u8 inject_inclusion_check(struct http_request* req,
                                    struct http_response* res) {
 
-  DEBUG_CALLBACK(req, res);
+  DEBUG_MISC_CALLBACK(req, res);
 
   /*
      Perform directory traveral and file inclusion tests.
@@ -1010,7 +1045,7 @@ static u8 inject_redir_check(struct http_request* req,
   u8* val;
   u32 i;
 
-  DEBUG_CALLBACK(req, res);
+  DEBUG_MISC_CALLBACK(req, res);
 
   /* Check Location, Refresh headers. */
 
@@ -1091,7 +1126,7 @@ static u8 inject_split_tests(struct pivot_desc* pivot) {
 static u8 inject_split_check(struct http_request* req,
                              struct http_response* res) {
 
-  DEBUG_CALLBACK(req, res);
+  DEBUG_MISC_CALLBACK(req, res);
 
   /* Not differential. */
 
@@ -1231,7 +1266,7 @@ static u8 inject_sql_tests(struct pivot_desc* pivot) {
 static u8 inject_sql_check(struct http_request* req,
                            struct http_response* res) {
 
-  DEBUG_CALLBACK(req, res);
+  DEBUG_MISC_CALLBACK(req, res);
 
   /* Got all data:
 
@@ -1263,8 +1298,6 @@ static u8 inject_sql_check(struct http_request* req,
     problem(PROB_SQL_INJECT, MREQ(0), MRES(0),
       (u8*)"response suggests arithmetic evaluation on server side (type 1)",
       req->pivot, 0);
-    RESP_CHECKS(MREQ(0), MRES(0));
-    RESP_CHECKS(MREQ(2), MRES(2));
   }
 
   if (same_page(&MRES(1)->sig, &MRES(6)->sig) &&
@@ -1272,24 +1305,18 @@ static u8 inject_sql_check(struct http_request* req,
     problem(PROB_SQL_INJECT, MREQ(7), MRES(7),
       (u8*)"response suggests arithmetic evaluation on server side (type 2)",
       req->pivot, 0);
-    RESP_CHECKS(MREQ(6), MRES(6));
-    RESP_CHECKS(MREQ(7), MRES(7));
   }
 
-  if (!same_page(&MRES(3)->sig, &MRES(4)->sig) &&
+  if (same_page(&MRES(3)->sig, &MRES(4)->sig) &&
       !same_page(&MRES(3)->sig, &MRES(5)->sig)) {
     problem(PROB_SQL_INJECT, MREQ(4), MRES(4),
       (u8*)"response to '\" different than to \\'\\\"", req->pivot, 0);
-    RESP_CHECKS(MREQ(3), MRES(3));
-    RESP_CHECKS(MREQ(4), MRES(4));
   }
 
   if (same_page(&MRES(4)->sig, &MRES(9)->sig) &&
       !same_page(&MRES(8)->sig, &MRES(9)->sig)) {
     problem(PROB_SQL_INJECT, MREQ(4), MRES(4),
       (u8*)"response to ''''\"\"\"\" different than to '\"'\"'\"'\"", req->pivot, 0);
-    RESP_CHECKS(MREQ(8), MRES(8));
-    RESP_CHECKS(MREQ(9), MRES(9));
   }
 
   return 0;
@@ -1321,7 +1348,7 @@ static u8 inject_format_tests(struct pivot_desc* pivot) {
 
 static u8 inject_format_check(struct http_request* req,
                               struct http_response* res) {
-  DEBUG_CALLBACK(req, res);
+  DEBUG_MISC_CALLBACK(req, res);
 
   /* Got all data:
 
@@ -1410,7 +1437,7 @@ static u8 inject_integer_tests(struct pivot_desc* pivot) {
 static u8 inject_integer_check(struct http_request* req,
                                struct http_response* res) {
 
-  DEBUG_CALLBACK(req, res);
+  DEBUG_MISC_CALLBACK(req, res);
 
   /* Got all data:
 
@@ -1512,15 +1539,9 @@ static u8 param_behavior_tests(struct pivot_desc* pivot) {
 static u8 param_behavior_check(struct http_request* req,
                                struct http_response* res) {
 
-  u32 i;
   DEBUG_CALLBACK(req, res);
 
-  for (i=0; i<req->pivot->misc_cnt; i++) {
-   if (!same_page(&MRES(i)->sig, &RPRES(req)->sig))
-     break;
-  }
-
-  if (i == req->pivot->misc_cnt) {
+  if (same_page(&res->sig, &RPRES(req)->sig)) {
     DEBUG("* Parameter seems to have no effect.\n");
     req->pivot->bogus_par = 1;
     return 0;
@@ -1608,7 +1629,7 @@ static u8 param_ognl_tests(struct pivot_desc* pivot) {
 static u8 param_ognl_check(struct http_request* req,
                            struct http_response* res) {
 
-  DEBUG_CALLBACK(req, res);
+  DEBUG_MISC_CALLBACK(req, res);
 
   /* First response is meant to give the same result. Second
      is meant to give a different one. */
@@ -1651,7 +1672,7 @@ static u8 dir_ips_check(struct http_request* req,
                         struct http_response* res) {
   struct pivot_desc* par;
 
-  DEBUG_CALLBACK(req, res);
+  DEBUG_MISC_CALLBACK(req, res);
 
   par = dir_parent(req->pivot);
 

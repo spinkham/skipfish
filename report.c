@@ -33,6 +33,7 @@
 #include "http_client.h"
 #include "database.h"
 #include "crawler.h"
+#include "checks.h"
 #include "analysis.h"
 
 /* Pivot and issue signature data. */
@@ -828,6 +829,12 @@ static void save_pivots(FILE* f, struct pivot_desc* cur) {
       case 1:  fprintf(f, "linked=maybe "); break;
       default: fprintf(f, "linked=yes ");
     }
+
+
+    /* When in no_checks mode, we'll report all the detected files and
+       directories. We don't do this when crawling is disabled.. */
+    if(!cur->linked && no_checks && !no_parse)
+      problem(PROB_HIDDEN_NODE, cur->req, cur->res, 0, cur, 0);
 
     if (cur->res)
       fprintf(f, "dup=%u %s%scode=%u len=%u notes=%u sig=0x%x\n", cur->dupe,

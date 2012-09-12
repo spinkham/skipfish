@@ -31,7 +31,7 @@
    option in the command line. This mode will not work as expected for
    HTTPS requests at this time - sorry. */
 
-// #define PROXY_SUPPORT           1
+//#define PROXY_SUPPORT           1
 
 /* Default paths to runtime files: */
 

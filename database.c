@@ -735,7 +735,6 @@ u8 param_allowed(u8* pname) {
 
 }
 
-
 /* Compares the checksums for two responses: */
 
 u8 same_page(struct http_sig* sig1, struct http_sig* sig2) {
@@ -743,7 +742,13 @@ u8 same_page(struct http_sig* sig1, struct http_sig* sig2) {
   s32 total_diff  = 0;
   u32 total_scale = 0;
 
-  if (sig1->code != sig2->code) return 0;
+  /* Different response codes: different page */
+  if (sig1->code != sig2->code)
+    return 0;
+
+  /* One has text and the other hasnt: different page */
+  if (sig1->has_text != sig2->has_text)
+    return 0;
 
   for (i=0;i<FP_SIZE;i++) {
     s32 diff = sig1->data[i] - sig2->data[i];
@@ -753,8 +758,8 @@ u8 same_page(struct http_sig* sig1, struct http_sig* sig2) {
         abs(diff) > FP_T_ABS)
       if (++bucket_fail > FP_B_FAIL) return 0;
 
-    total_diff  += diff;
-    total_scale += scale;
+    total_diff     += diff;
+    total_scale    += scale;
 
   }
 
@@ -762,9 +767,7 @@ u8 same_page(struct http_sig* sig1, struct http_sig* sig2) {
     return 0;
 
   return 1;
-
 }
-
 
 /* Dumps signature data: */
 
@@ -822,8 +825,12 @@ void debug_same_page(struct http_sig* sig1, struct http_sig* sig2) {
 
   DEBUG("(allow)\n");
 
-  DEBUG("Total diff: %d, scale %d, allow %d\n",
-    total_diff, total_scale, 1 + (u32)(total_scale * FP_T_REL / 100));
+  DEBUG("Total diff: %d, scale %d, allow %d. ",
+    abs(total_diff), total_scale, 1 + (u32)(total_scale * FP_T_REL / 100));
+
+  DEBUG("Both pages have text: ");
+  if (sig1->has_text != sig2->has_text)
+    DEBUG("no\n"); else DEBUG("yes\n");
 
 #endif /* LOG_STDERR */
 
@@ -1464,7 +1471,6 @@ static void dealloc_pivots(struct pivot_desc* cur) {
   if (cur != &root_pivot) ck_free(cur);
 
 }
-
 
 
 /* Creates a new XSS location tag. */
