@@ -1,3 +1,16 @@
+Version 2.09b:
+
+  - Fixed a crash that could be triggered during 404 fingerprint failures
+
+  - Signature IDs for detected issues are now stored in the report
+    JSON files.
+
+  - Added mod_status, mod_info, MySQL dump, phpMyAdmin SQL dump and
+    robots.txt signatures. 
+
+  - Improved the Flash and Silverlight crossdomain policy signatures to
+    only warn about them when they use wildcards.
+
 Version 2.08b:
 
   - Added Host header XSS testing.

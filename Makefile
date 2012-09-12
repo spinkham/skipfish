@@ -20,7 +20,7 @@
 #
 
 PROGNAME   = skipfish
-VERSION    = 2.08b
+VERSION    = 2.09b
 
 SRCDIR     = src
 SFILES     = http_client.c database.c crawler.c analysis.c report.c \

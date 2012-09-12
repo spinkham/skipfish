@@ -707,7 +707,13 @@ function load_issues() {
                     'Fetch result: ' + i2.error + '</div>';
       }
 
-      if (i2.extra.length > 0) add_html += '<div class="comment">Memo: ' + H(i2.extra) + '</div>\n';
+      if (i2.extra.length > 0) {
+        add_html += '<div class="comment">Memo: ' + H(i2.extra);
+        if (i2.sid.length > 0 && i2.sid > 0) {
+          add_html += ' (sig: ' + i2.sid + ')';
+        }
+        add_html += '</div>\n';
+      }
 
     }
 
@@ -922,9 +928,14 @@ function load_issue_summaries() {
                   '[ <a href="#" onclick="return show_dat(\'' + i.samples[sno].dir + '\', false)">show trace</a> ' +
                   '<a href="#" onclick="return show_win(\'' + i.samples[sno].dir + '\', false)">+</a> ]</span>\n';
 
-      if (i.samples[sno].extra && i.samples[sno].extra.length > 0) 
-        add_html += '<div class="comment">Memo: ' + H(i.samples[sno].extra) + '</div>\n';
+      if (i.samples[sno].extra && i.samples[sno].extra.length > 0)  {
+        add_html += '<div class="comment">Memo: ' + H(i.samples[sno].extra);
+        if (i.samples[sno].sid && i.samples[sno].sid > 0) {
+          add_html += ' (sig: ' + i.samples[sno].sid + ')';
+        }
+        add_html += '</div>\n';
 
+      }
     }
 
     add_html += '</ol></tr></td></table>\n';

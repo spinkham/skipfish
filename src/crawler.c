@@ -1399,12 +1399,11 @@ bad_404:
     } else {
 
       if (req->pivot->type != PIVOT_SERV) {
-        /* todo(niels) improve behavior by adding a new pivot */
-        n = req_copy(RPREQ(req), req->pivot, 1);
-        replace_slash(n, NULL);
-        maybe_add_pivot(n, NULL, 2);
+
         req->pivot->type = PIVOT_PATHINFO;
-        destroy_request(n);
+        replace_slash(req->pivot->req, NULL);
+
+        /* XXX Update request */
 
       } else
         problem(PROB_404_FAIL, RPREQ(req), RPRES(req),

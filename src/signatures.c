@@ -495,20 +495,11 @@ void signature_problem(struct signature *sig,
 #ifdef _SIGNATURE_TEST
   DEBUG("signature_problem() called for %d (%s)\n", sig->id, sig->memo);
 #else
-  u8* memo = NULL;
 
-  /* Each signature is supposed to have a memo: testing just in case */
-  if (sig->memo) {
-    u32 len = strlen((char*)sig->memo);
-    memo = ck_alloc(len + 15); /* of which 5 for the ID */
-    snprintf((char*)memo, len + 14, "%s (sig: %u)", (char*)sig->memo, sig->id);
-  }
+  /* Register the problem, together with the sid */
+  register_problem((sig->prob ? sig->prob : sig_serv[sig->severity]), sig->id,
+                    req, res, (sig->memo ? sig->memo : (u8*)""), req->pivot, 0);
 
-  /* Todo: update issue_desc and add the ID in it */
-  problem((sig->prob ? sig->prob : sig_serv[sig->severity]), req, res,
-                              (memo ? memo : (u8*)""), req->pivot, 0);
-
-  if (memo) ck_free(memo);
 #endif
 }
 

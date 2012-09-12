@@ -452,13 +452,19 @@ struct pstruct pstructs[] = {
 struct issue_desc {
   u32   type;                                   /* PROB_*                    */
   u8*   extra;                                  /* Problem-specific string   */
-  u32   sid;                                    /* Signature ID, if any      */
+  u32   sid;                                    /* Source ID, if any         */
   struct http_request* req;                     /* HTTP request sent         */
   struct http_response* res;                    /* HTTP response seen        */
 };
 
-/* Register a problem, if not duplicate (res, extra may be NULL): */
 
+
+/* Register a problem, if not duplicate (res, extra may be NULL): */
+void register_problem(u32 type, u32 sid, struct http_request* req,
+                      struct http_response* res, u8* extra,
+                      struct pivot_desc* pv, u8 allow_dup);
+
+/* Wrapper for register_problem */
 void problem(u32 type, struct http_request* req, struct http_response* res,
              u8* extra, struct pivot_desc* pv, u8 allow_dup);
 

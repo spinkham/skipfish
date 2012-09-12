@@ -2379,12 +2379,6 @@ static void check_for_stuff(struct http_request* req,
     }
   }
 
-  if (inl_strcasestr(sniffbuf, (u8*)"\nDisallow:") ||
-      inl_strcasestr(sniffbuf, (u8*)"\rDisallow:")) {
-    problem(PROB_FILE_POI, req, res, (u8*)"robots.txt ruleset", req->pivot, 0);
-    return;
-  }
-
   /* Add more directory signatures here... */
 
   if (strstr((char*)sniffbuf, "<A HREF=\"?N=D\">") ||
@@ -2471,14 +2465,6 @@ static void check_for_stuff(struct http_request* req,
     return;
   }
 
-  /* Three very lame rules follow; help improve. */
-
-  if (inl_strcasestr(res->payload, (u8*)"\nCREATE TABLE") ||
-      inl_strcasestr(res->payload, (u8*)"\nSELECT * FROM") ||
-      inl_strcasestr(res->payload, (u8*)"\nDROP TABLE")) {
-    problem(PROB_FILE_POI, req, res, (u8*)"SQL script", req->pivot, 0);
-    return;
-  }
 }
 
 

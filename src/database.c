@@ -406,9 +406,6 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
 
     }
 
-    /* Store a reference in our the callers request struct. */
-    req->pivot = cur;
-
     /* At this point, 'cur' points to a newly created or existing node
        for the path element. If this element is parametric, make sure
        that its value is on the 'try' list. */
@@ -542,10 +539,6 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
 
   }
 
-  /* Set the request pivot, if not set already */
-  if(!req->pivot)
-    req->pivot = cur;
-
   /* Done, at last! */
 
 }
@@ -599,6 +592,7 @@ void remove_issue(struct pivot_desc *pv, u32 type) {
         tmp[cnt].extra = pv->issue[i].extra;
         tmp[cnt].req = pv->issue[i].req;
         tmp[cnt].res = pv->issue[i].res;
+        tmp[cnt].sid = pv->issue[i].sid;
         cnt++;
       }
     }
@@ -609,10 +603,19 @@ void remove_issue(struct pivot_desc *pv, u32 type) {
 }
 
 
-/* Registers a problem, if not duplicate (res, extra may be NULL): */
-
 void problem(u32 type, struct http_request* req, struct http_response* res,
              u8* extra, struct pivot_desc* pv, u8 allow_dup) {
+
+  /* Small wrapper for all those problem() calls that do not need to
+     specify a sid */
+  register_problem(type, 0, req, res, extra, pv, allow_dup);
+
+}
+
+/* Registers a problem, if not duplicate (res, extra may be NULL): */
+void register_problem(u32 type, u32 sid, struct http_request* req,
+                      struct http_response* res, u8* extra,
+                      struct pivot_desc* pv, u8 allow_dup) {
 
   u32 i;
 
@@ -637,6 +640,7 @@ void problem(u32 type, struct http_request* req, struct http_response* res,
   pv->issue[pv->issue_cnt].extra = extra ? ck_strdup(extra) : NULL;
   pv->issue[pv->issue_cnt].req   = req_copy(req, pv, 1);
   pv->issue[pv->issue_cnt].res   = res_copy(res);
+  pv->issue[pv->issue_cnt].sid   = sid;
 
 #ifndef LOG_STDERR
   u8* url = serialize_path(req, 1, 1);

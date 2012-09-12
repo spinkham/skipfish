@@ -1856,8 +1856,6 @@ static u8 param_behavior_check(struct http_request* req,
 
   DEBUG_MISC_CALLBACK(req, res);
 
-  req->pivot->state = PSTATE_PAR_CHECK;
-
   for (i=0; i<req->pivot->misc_cnt; i++) {
 
     /* Store the biggest response time */
@@ -1911,7 +1909,9 @@ static u8 param_behavior_check(struct http_request* req,
       req->pivot->res_varies = 1;
       problem(PROB_VARIES, req, res, 0, req->pivot, 0);
     }
+    return 0;
   }
+  req->pivot->state = PSTATE_PAR_CHECK;
 
   return 0;
 }

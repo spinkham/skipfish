@@ -13,8 +13,8 @@ id:31006; sev:3; content:"Provider="; content:";Password="; depth:512; memo:"ODB
 id:31007; sev:3; content:"Driver="; content:";Pwd="; depth:512; memo:"ODBC connect string";
 
 # Typical crossdomain / access policy files
-id:31008; sev:3; content:"<cross-domain-policy>"; depth:512; memo:"Flash crossdomain file";
-id:31009; sev:3; content:"<access-policy>"; depth:512; memo:"Silverlight cross-domain policy";
+id:31008; sev:2; content:"<cross-domain-policy>"; depth:512; content:'<allow-access-from domain="*"'; depth:50; memo:"Flash cross-domain policy with wildcard";
+id:31009; sev:4; content:"<access-policy>"; depth:512; content:'<domain uri="*"/>'; depth:512;  memo:"Silverlight cross-domain policy with wildcard";
 
 # Web.xml config file
 id:31010; sev:3; content:"<web-app"; depth:512; memo:"web.xml config file";
@@ -27,6 +27,13 @@ id:31012; sev:3; content:"SVN RCS data"; depth:256; memo:"SVN RCS data";
 id:31013; sev:3; content:"0] \"GET /"; depth:1024; memo:"Apache access log";
 id:31014; sev:3; content:"[error] [client "; depth:1024; memo:"Apache error log";
 id:31015; sev:3; content:"0, GET, /"; depth:1024; memo:"Microsoft IIS access log";
+
+# Generic robots.txt file
+id:31016; sev:4; content:"User-agent:"; depth:100; content:"Disallow: /"; memo:"robots.txt file";
+
+# Signatures to detect SQL dumps
+id:31101; sev:2; mime:"text/plain"; content:"-- MySQL dump"; depth:1; content:"-- Host"; depth:256; content:"-- Server version"; memo:"MySQL dump database file";
+id:31103; sev:2; mime:"text/plain"; content:" phpMyAdmin SQL Dump"; depth:3; content:" version"; content:"CREATE TABLE"; memo:"phpMyAdmin database dump file";
 
 # Source code and scripts
 id:32001; sev:3; content:"\nimport java."; depth:512; memo:"Java source";

@@ -605,8 +605,8 @@ static void output_crawl_tree(struct pivot_desc* pv) {
     u8 tmp[32];
     sprintf((char*)tmp, "i%u", i);
 
-    fprintf(f, "  { 'severity': %u, 'type': %u, 'extra': '%s', ",
-            PSEV(pv->issue[i].type) - 1, pv->issue[i].type,
+    fprintf(f, "  { 'severity': %u, 'type': %u, 'sid': '%d', 'extra': '%s', ",
+            PSEV(pv->issue[i].type) - 1, pv->issue[i].type, pv->issue[i].sid,
             pv->issue[i].extra ? js_escape(pv->issue[i].extra, 0) : (u8*)"");
 
     describe_res(f, pv->issue[i].res);
@@ -744,9 +744,9 @@ static void output_summary_views() {
       save_req_res(i_samp[i].i[c]->req, i_samp[i].i[c]->res, 0);
       if (chdir("..")) PFATAL("chdir unexpectedly fails!");
       fprintf(f, "    { 'url': '%s', ", js_escape(p, 0));
-      fprintf(f, "'extra': '%s', 'dir': '%s/%s' }%s\n", 
+      fprintf(f, "'extra': '%s', 'sid': '%d', 'dir': '%s/%s' }%s\n", 
               i_samp[i].i[c]->extra ? js_escape(i_samp[i].i[c]->extra, 0) : 
-              (u8*)"", tmp, tmp2, 
+              (u8*)"", i_samp[i].i[c]->sid, tmp, tmp2, 
               (c == use_samp - 1) ? " ]" : ",");
       ck_free(p);
     }
