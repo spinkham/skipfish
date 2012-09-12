@@ -126,7 +126,13 @@ struct http_request {
   u8* trying_key;               /* Current keyword ptr          */
   u8  trying_spec;              /* Keyword specificity info     */
 
+  /* Used by injection tests: */
+
   u8* fuzz_par_enc;             /* Fuzz target encoding         */
+  u8 no_cookies;                /* Don't send cookies           */
+
+  u32 start_time;               /* Request start time           */
+  u32 end_time;                 /* Request end time             */
 
 };
 
@@ -216,6 +222,8 @@ struct conn_entry {
   u8* write_buf;                /* Pending write buffer         */
   u32 write_off;                /* Current write offset         */
   u32 write_len;
+
+  u8* origin;                   /* Connection origin            */
 
   struct queue_entry* q;        /* Current queue entry          */
 
@@ -340,6 +348,10 @@ u8* build_request_data(struct http_request* req);
 
 u8 parse_response(struct http_request* req, struct http_response* res, u8* data,
                   u32 data_len, u8 more);
+
+/* Helper function for grabbing lines when parsing requests and responses */
+
+u8* grab_line(u8* data, u32* cur_pos, u32 data_len);
 
 /* Processes the queue. Returns the number of queue entries remaining,
    0 if none. Will do a blocking select() to wait for socket state changes

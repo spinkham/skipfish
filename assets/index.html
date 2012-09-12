@@ -278,6 +278,7 @@ var issue_desc= {
   "10804": "Conflicting MIME / charset info (low risk)",
   "10901": "Numerical filename - consider enumerating",
   "10902": "OGNL-like parameter behavior",
+  "10909": "Signature match (informational)",
 
   "20101": "Resource fetch failed",
   "20102": "Limits exceeded, fetch suppressed",
@@ -294,6 +295,7 @@ var issue_desc= {
   "30203": "SSL certificate host name mismatch",
   "30204": "No SSL certificate data found",
   "30205": "Weak SSL cipher negotiated",
+  "30206": "Host name length mismatch (name string has null byte)",
   "30301": "Directory listing restrictions bypassed",
   "30401": "Redirection to attacker-supplied URLs",
   "30402": "Attacker-supplied URLs in embedded content (lower risk)",
@@ -305,11 +307,13 @@ var issue_desc= {
   "30701": "Incorrect caching directives (lower risk)",
   "30801": "User-controlled response prefix (BOM / plugin attacks)",
   "30901": "HTTP header injection vector",
+  "30909": "Signature match detected",
 
   "40101": "XSS vector in document body",
   "40102": "XSS vector via arbitrary URLs",
   "40103": "HTTP response header splitting",
   "40104": "Attacker-supplied URLs in embedded content (higher risk)",
+  "40105": "XSS vector via injected HTML tag attribute",
   "40201": "External content embedded on a page (higher risk)",
   "40202": "Mixed content embedded on a page (higher risk)",
   "40301": "Incorrect or missing MIME type (higher risk)",
@@ -321,6 +325,7 @@ var issue_desc= {
   "40501": "Directory traversal / file inclusion possible",
   "40601": "Incorrect caching directives (higher risk)",
   "40701": "Password form submits from or to non-HTTPS page",
+  "40909": "Signature match detected (higher risk)",
 
   "50101": "Server-side XML injection vector",
   "50102": "Shell injection vector",
@@ -329,7 +334,8 @@ var issue_desc= {
   "50105": "Integer overflow vector",
   "50106": "File inclusion",
   "50201": "SQL query or similar syntax in parameters",
-  "50301": "PUT request accepted"
+  "50301": "PUT request accepted",
+  "50909": "Signature match detected (high risk)"
 
 };
 

@@ -85,6 +85,9 @@ associated with web security scanners. Specific advantages include:
         stored XSS (path, parameters, headers), blind SQL or XML injection,
         or blind shell injection.
 
+      * Snort style content signatures which will highlight server errors,
+        information leaks or potentially dangerous web applications.
+
       * Report post-processing drastically reduces the noise caused by any
         remaining false positives or server gimmicks by identifying repetitive
         patterns.
@@ -274,23 +277,15 @@ report will be non-destructively annotated by adding red background to all
 new or changed nodes; and blue background to all new or changed issues
 found.
 
-Some sites may require authentication; for simple HTTP credentials, you can
-try:
+Some sites may require authentication for which our support is described
+in docs/authentication.txt. In most cases, you'll be wanting to use the
+form authentication method which is capable of detecting broken sessions
+in order to re-authenticate.
 
-$ ./skipfish -A user:pass ...other parameters...
-
-Alternatively, if the site relies on HTTP cookies instead, log in in your
-browser or using a simple curl script, and then provide skipfish with a
-session cookie:
-
-$ ./skipfish -C name=val ...other parameters...
-
-Other session cookies may be passed the same way, one per each -C option.
-
-Certain URLs on the site may log out your session; you can combat this in two
-ways: by using the -N option, which causes the scanner to reject attempts to
-set or delete cookies; or with the -X parameter, which prevents matching URLs
-from being fetched:
+Once authenticated, certain URLs on the site may log out your session;
+you can combat this in two ways: by using the -N option, which causes
+the scanner to reject attempts to set or delete cookies; or with the -X
+parameter, which prevents matching URLs from being fetched:
 
 $ ./skipfish -X /logout/logout.aspx ...other parameters...
 
@@ -543,8 +538,6 @@ know:
   * Config file support.
 
   * Scheduling and management web UI.
-
-  * A database for banner / version checks or other configurable rules?
 
 -------------------------------------
 9. Oy! Something went horribly wrong!

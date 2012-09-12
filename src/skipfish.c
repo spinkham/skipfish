@@ -44,6 +44,8 @@
 #include "database.h"
 #include "http_client.h"
 #include "report.h"
+#include "signatures.h"
+#include "auth.h"
 
 #ifdef DEBUG_ALLOCATOR
 struct TRK_obj* TRK[ALLOC_BUCKETS];
@@ -73,72 +75,78 @@ static void usage(char* argv0) {
 
       "Authentication and access options:\n\n"
 
-      "  -A user:pass   - use specified HTTP authentication credentials\n"
-      "  -F host=IP     - pretend that 'host' resolves to 'IP'\n"
-      "  -C name=val    - append a custom cookie to all requests\n"
-      "  -H name=val    - append a custom HTTP header to all requests\n"
-      "  -b (i|f|p)     - use headers consistent with MSIE / Firefox / iPhone\n"
+      "  -A user:pass      - use specified HTTP authentication credentials\n"
+      "  -F host=IP        - pretend that 'host' resolves to 'IP'\n"
+      "  -C name=val       - append a custom cookie to all requests\n"
+      "  -H name=val       - append a custom HTTP header to all requests\n"
+      "  -b (i|f|p)        - use headers consistent with MSIE / Firefox / iPhone\n"
 #ifdef PROXY_SUPPORT
-     "   -J proxy       - use a specified HTTP proxy server\n"
+     "   -J proxy          - use a specified HTTP proxy server\n"
 #endif /* PROXY_SUPPORT */
-      "  -N             - do not accept any new cookies\n\n"
+      "  -N                - do not accept any new cookies\n"
+      "  --auth-form url   - form authentication URL\n"
+      "  --auth-user user  - form authentication user\n"
+      "  --auth-pass pass  - form authentication password\n"
+      "  --auth-verify-url -  URL for in-session detection\n\n"
 
       "Crawl scope options:\n\n"
 
-      "  -d max_depth   - maximum crawl tree depth (%u)\n"
-      "  -c max_child   - maximum children to index per node (%u)\n"
-      "  -x max_desc    - maximum descendants to index per branch (%u)\n"
-      "  -r r_limit     - max total number of requests to send (%u)\n"
-      "  -p crawl%%      - node and link crawl probability (100%%)\n"
-      "  -q hex         - repeat probabilistic scan with given seed\n"
-      "  -I string      - only follow URLs matching 'string'\n"
-      "  -X string      - exclude URLs matching 'string'\n"
-      "  -K string      - do not fuzz parameters named 'string'\n"
-      "  -D domain      - crawl cross-site links to another domain\n"
-      "  -B domain      - trust, but do not crawl, another domain\n"
-      "  -Z             - do not descend into 5xx locations\n"
-      "  -O             - do not submit any forms\n"
-      "  -P             - do not parse HTML, etc, to find new links\n\n"
+      "  -d max_depth     - maximum crawl tree depth (%u)\n"
+      "  -c max_child     - maximum children to index per node (%u)\n"
+      "  -x max_desc      - maximum descendants to index per branch (%u)\n"
+      "  -r r_limit       - max total number of requests to send (%u)\n"
+      "  -p crawl%%        - node and link crawl probability (100%%)\n"
+      "  -q hex           - repeat probabilistic scan with given seed\n"
+      "  -I string        - only follow URLs matching 'string'\n"
+      "  -X string        - exclude URLs matching 'string'\n"
+      "  -K string        - do not fuzz parameters named 'string'\n"
+      "  -D domain        - crawl cross-site links to another domain\n"
+      "  -B domain        - trust, but do not crawl, another domain\n"
+      "  -Z               - do not descend into 5xx locations\n"
+      "  -O               - do not submit any forms\n"
+      "  -P               - do not parse HTML, etc, to find new links\n\n"
 
       "Reporting options:\n\n"
 
-      "  -o dir         - write output to specified directory (required)\n"
-      "  -M             - log warnings about mixed content / non-SSL passwords\n"
-      "  -E             - log all HTTP/1.0 / HTTP/1.1 caching intent mismatches\n"
-      "  -U             - log all external URLs and e-mails seen\n"
-      "  -Q             - completely suppress duplicate nodes in reports\n"
-      "  -u             - be quiet, disable realtime progress stats\n\n"
+      "  -o dir          - write output to specified directory (required)\n"
+      "  -M              - log warnings about mixed content / non-SSL passwords\n"
+      "  -E              - log all HTTP/1.0 / HTTP/1.1 caching intent mismatches\n"
+      "  -U              - log all external URLs and e-mails seen\n"
+      "  -Q              - completely suppress duplicate nodes in reports\n"
+      "  -u              - be quiet, disable realtime progress stats\n"
+      "  -v              - enable runtime logging (to stderr)\n\n"
 
       "Dictionary management options:\n\n"
 
-      "  -W wordlist    - use a specified read-write wordlist (required)\n"
-      "  -S wordlist    - load a supplemental read-only wordlist\n"
-      "  -L             - do not auto-learn new keywords for the site\n"
-      "  -Y             - do not fuzz extensions in directory brute-force\n"
-      "  -R age         - purge words hit more than 'age' scans ago\n"
-      "  -T name=val    - add new form auto-fill rule\n"
-      "  -G max_guess   - maximum number of keyword guesses to keep (%d)\n\n"
+      "  -W wordlist     - use a specified read-write wordlist (required)\n"
+      "  -S wordlist     - load a supplemental read-only wordlist\n"
+      "  -L              - do not auto-learn new keywords for the site\n"
+      "  -Y              - do not fuzz extensions in directory brute-force\n"
+      "  -R age          - purge words hit more than 'age' scans ago\n"
+      "  -T name=val     - add new form auto-fill rule\n"
+      "  -G max_guess    - maximum number of keyword guesses to keep (%d)\n\n"
+      "  -z sigfile      - load signatures from this file\n\n"
 
       "Performance settings:\n\n"
 
-      "  -l max_req     - max requests per second (%f)\n"
-      "  -g max_conn    - max simultaneous TCP connections, global (%u)\n"
-      "  -m host_conn   - max simultaneous connections, per target IP (%u)\n"
-      "  -f max_fail    - max number of consecutive HTTP errors (%u)\n"
-      "  -t req_tmout   - total request response timeout (%u s)\n"
-      "  -w rw_tmout    - individual network I/O timeout (%u s)\n"
-      "  -i idle_tmout  - timeout on idle HTTP connections (%u s)\n"
-      "  -s s_limit     - response size limit (%u B)\n"
-      "  -e             - do not keep binary responses for reporting\n\n"
+      "  -g max_conn     - max simultaneous TCP connections, global (%u)\n"
+      "  -m host_conn    - max simultaneous connections, per target IP (%u)\n"
+      "  -f max_fail     - max number of consecutive HTTP errors (%u)\n"
+      "  -t req_tmout    - total request response timeout (%u s)\n"
+      "  -w rw_tmout     - individual network I/O timeout (%u s)\n"
+      "  -i idle_tmout   - timeout on idle HTTP connections (%u s)\n"
+      "  -s s_limit      - response size limit (%u B)\n"
+      "  -e              - do not keep binary responses for reporting\n\n"
 
       "Safety settings:\n\n"
 
-      "  -k duration    - stop scanning after the given duration h:m:s\n\n"
+      "  -l max_req      - max requests per second (%f)\n"
+      "  -k duration     - stop scanning after the given duration h:m:s\n\n"
 
-      "Send comments and complaints to <lcamtuf@google.com>.\n", argv0,
+      "Send comments and complaints to <heinenn@google.com>.\n", argv0,
       max_depth, max_children, max_descendants, max_requests,
-      MAX_GUESSES, max_requests_sec, max_connections, max_conn_host,
-      max_fail, resp_tmout, rw_tmout, idle_tmout, size_limit);
+      MAX_GUESSES, max_connections, max_conn_host,
+      max_fail, resp_tmout, rw_tmout, idle_tmout, size_limit, max_requests_sec);
 
   exit(1);
 }
@@ -263,10 +271,12 @@ static void read_urls(u8* fn) {
 int main(int argc, char** argv) {
   s32 opt;
   u32 loop_cnt = 0, purge_age = 0, seed;
-  u8 show_once = 0, no_statistics = 0, display_mode = 0, has_fake = 0;
+  u8 sig_loaded = 0, show_once = 0, no_statistics = 0,
+     display_mode = 0, has_fake = 0;
   s32 oindex = 0;
   u8 *wordlist = NULL, *output_dir = NULL;
-  u8* gtimeout_str = NULL;
+  u8 *sig_list_strg = NULL;
+  u8 *gtimeout_str = NULL;
   u32 gtimeout = 0;
 
   struct termios term;
@@ -327,9 +337,18 @@ int main(int argc, char** argv) {
     {"quiet", no_argument, 0, 'u' },
     {"verbose", no_argument, 0, 'v' },
     {"scan-timeout", required_argument, 0, 'k'},
+    {"signatures", required_argument, 0, 'z'},
     {"checks", no_argument, 0, 0},
     {"checks-toggle", required_argument, 0, 0},
     {"no-checks", no_argument, 0, 0},
+    {"fast", no_argument, 0, 0},
+    {"auth-form", required_argument, 0, 0},
+    {"auth-form-target", required_argument, 0, 0},
+    {"auth-user", required_argument, 0, 0},
+    {"auth-user-field", required_argument, 0, 0},
+    {"auth-pass", required_argument, 0, 0},
+    {"auth-pass-field", required_argument, 0, 0},
+    {"auth-verify-url", required_argument, 0, 0},
     {0, 0, 0, 0 }
 
   };
@@ -342,7 +361,7 @@ int main(int argc, char** argv) {
 
   while ((opt = getopt_long(argc, argv,
           "+A:B:C:D:EF:G:H:I:J:K:LMNOPQR:S:T:UW:X:YZ"
-	  "b:c:d:ef:g:hi:k:l:m:o:p:q:r:s:t:uvw:x:",
+          "b:c:d:ef:g:hi:k:l:m:o:p:q:r:s:t:uvw:x:z:",
           long_options, &oindex)) >= 0)
 
     switch (opt) {
@@ -514,6 +533,11 @@ int main(int argc, char** argv) {
         load_keywords((u8*)optarg, 1, 0);
         break;
 
+      case 'z':
+        load_signatures((u8*)optarg);
+        sig_loaded = 1;
+        break;
+
       case 'b':
         if (optarg[0] == 'i') browser_type = BROWSER_MSIE; else
         if (optarg[0] == 'f') browser_type = BROWSER_FFOX; else
@@ -604,17 +628,31 @@ int main(int argc, char** argv) {
         no_500_dir = 1;
         break;
 
-      case '?':
-        PFATAL("Unrecognized option.");
-	break;
-
       case 0:
-        if(!strcmp( "checks", long_options[oindex].name ))
+        if (!strcmp("checks", long_options[oindex].name ))
           display_injection_checks();
-        if(!strcmp( "checks-toggle", long_options[oindex].name ))
-          toggle_injection_checks((u8*)optarg, 1);
-        if(!strcmp( "no-checks", long_options[oindex].name ))
+        if (!strcmp("checks-toggle", long_options[oindex].name ))
+          toggle_injection_checks((u8*)optarg, 1, 1);
+        if (!strcmp("no-checks", long_options[oindex].name ))
           no_checks = 1;
+        if (!strcmp("signatures", long_options[oindex].name ))
+          load_signatures((u8*)optarg);
+        if(!strcmp("fast", long_options[oindex].name ))
+          toggle_injection_checks((u8*)"2,4,5,13,14,15,16", 0, 0);
+        if (!strcmp("auth-form", long_options[oindex].name ))
+          auth_form = (u8*)optarg;
+        if (!strcmp("auth-user", long_options[oindex].name ))
+          auth_user = (u8*)optarg;
+        if (!strcmp("auth-pass", long_options[oindex].name ))
+          auth_pass = (u8*)optarg;
+        if (!strcmp("auth-pass-field", long_options[oindex].name ))
+          auth_pass_field = (u8*)optarg;
+        if (!strcmp("auth-user-field", long_options[oindex].name ))
+          auth_user_field = (u8*)optarg;
+        if (!strcmp("auth-form-target", long_options[oindex].name ))
+          auth_form_target = (u8*)optarg;
+        if (!strcmp("auth-verify-url", long_options[oindex].name ))
+          auth_verify_url = (u8*)optarg;
 
         break;
 
@@ -644,7 +682,7 @@ int main(int argc, char** argv) {
           "run skipfish while redirecting stderr to a file. ");
 
 
-  if (resp_tmout < rw_tmout) 
+  if (resp_tmout < rw_tmout)
     resp_tmout = rw_tmout;
 
   if (max_connections < max_conn_host)
@@ -671,15 +709,42 @@ int main(int argc, char** argv) {
 
   if (!wordlist) {
     wordlist = (u8*)"/dev/null";
-    DEBUG("* No wordlist specified with -W defaulting to /dev/null..\n");
+    DEBUG("* No wordlist specified with -W: defaulting to /dev/null\n");
   }
 
+  /* If no signature files have been specified via command-line: load
+     the default file */
+  if (!sig_loaded)
+    load_signatures((u8*)SIG_FILE);
+
   load_keywords(wordlist, 0, purge_age);
+
+  /* Load the signatures list for the matching */
+  if (sig_list_strg) load_signatures(sig_list_strg);
+
+  /* Try to authenticate when the auth_user and auth_pass fields are set. */
+  if (auth_user && auth_pass) {
+    authenticate();
+
+    while (next_from_queue()) {
+      usleep(1000);
+    }
+
+    switch (auth_state) {
+      case ASTATE_DONE:
+        DEBUGC(L1, "*- Authentication succeeded!\n");
+        break;
+
+      default:
+        DEBUG("Auth state: %d\n", auth_state);
+        FATAL("Authentication failed (use -uv for more info)\n");
+        break;
+    }
+  }
 
   /* Schedule all URLs in the command line for scanning. */
 
   while (optind < argc) {
-
     struct http_request *req;
 
     /* Support @ notation for reading URL lists from files. */
@@ -724,6 +789,8 @@ int main(int argc, char** argv) {
   if (!no_statistics) SAY("\x1b[H\x1b[J");
   else SAY(cLGN "[*] " cBRI "Scan in progress, please stay tuned...\n");
 
+  u64 refresh_time = 0;
+
   /* Enter the crawler loop */
   while ((next_from_queue() && !stop_soon) || (!show_once++)) {
 
@@ -747,32 +814,35 @@ int main(int argc, char** argv) {
     if (no_statistics || ((loop_cnt++ % 100) && !show_once && idle == 0))
       continue;
 
-    if (clear_screen) {
-      SAY("\x1b[H\x1b[2J");
-      clear_screen = 0;
-    }
+    if (end_time > refresh_time) {
+      refresh_time = (end_time + 10);
 
-    SAY(cYEL "\x1b[H"
-           "skipfish version " VERSION " by <lcamtuf@google.com>\n\n"
-           cBRI "  -" cPIN " %s " cBRI "-\n\n" cNOR, 
+      if (clear_screen) {
+        SAY("\x1b[H\x1b[2J");
+        clear_screen = 0;
+      }
+
+      SAY(cYEL "\x1b[H"
+          "skipfish version " VERSION " by lcamtuf@google.com\n\n"
+           cBRI "  -" cPIN " %s " cBRI "-\n\n" cNOR,
            allow_domains[0]);
 
 
-    if (!display_mode) {
-      http_stats(st_time);
-      SAY("\n");
-      database_stats();
-    } else {
-      http_req_list();
-    }
+      if (!display_mode) {
+        http_stats(st_time);
+        SAY("\n");
+        database_stats();
+      } else {
+        http_req_list();
+      }
 
-    SAY("        \r");
+      SAY("        \r");
+    }
 
     if (fread(keybuf, 1, sizeof(keybuf), stdin) > 0) {
       display_mode ^= 1;
       clear_screen = 1;
     }
-
   }
 
   gettimeofday(&tv, NULL);
@@ -802,6 +872,7 @@ int main(int argc, char** argv) {
 #ifdef DEBUG_ALLOCATOR
   if (!stop_soon) {
     destroy_database();
+    destroy_signature_lists();
     destroy_http();
     destroy_signatures();
     __TRK_report();

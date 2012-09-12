@@ -29,6 +29,8 @@
 #include "database.h"
 #include "crawler.h"
 #include "analysis.h"
+#include "signatures.h"
+#include "pcre.h"
 
 u8  no_parse,            /* Disable HTML link detection */
     warn_mixed,          /* Warn on mixed content       */
@@ -448,10 +450,10 @@ static u8 maybe_xsrf(u8* token) {
 /* Another helper for scrape_response(): examines all <input> tags
    up until </form>, then adds them as parameters to current request. */
 
-static void collect_form_data(struct http_request* req,
-                              struct http_request* orig_req,
-                              struct http_response* orig_res,
-                              u8* cur_str, u8 is_post) {
+void collect_form_data(struct http_request* req,
+                       struct http_request* orig_req,
+                       struct http_response* orig_res,
+                       u8* cur_str, u8 is_post) {
 
   u8  has_xsrf = 0, pass_form = 0, file_form = 0;
   u32 tag_cnt = 0;
@@ -637,6 +639,70 @@ static u8 is_mostly_ascii(struct http_response* res) {
 
 }
 
+
+
+struct http_request* make_form_req(struct http_request *req,
+                                   struct http_request *base,
+                                   u8* cur_str, u8* target) {
+
+  u8 *method, *clean_url;
+  u8 *dirty_url;
+  struct http_request* n;
+  u8 parse_form = 1;
+
+  FIND_AND_MOVE(dirty_url, cur_str, "action=");
+  FIND_AND_MOVE(method, cur_str, "method=");
+
+  /* See if we need to POST this form or not. */
+
+  if (method && *method) {
+    if (strchr("\"'", *method)) method++;
+    if (tolower(method[0]) == 'p') parse_form = 2;
+  }
+
+  /* If a form target is specified, we need to use that */
+
+  if (target) {
+    dirty_url = ck_strdup(target);
+  } else if (!dirty_url || !*dirty_url || !prefix(dirty_url, "\"\"") ||
+             !prefix(dirty_url, "''")) {
+
+    /* Forms with no URL submit to current location. */
+    dirty_url = serialize_path(req, 1, 0);
+  } else {
+    /* Last, extract the URL from the tag */
+    EXTRACT_ALLOC_VAL(dirty_url, dirty_url);
+  }
+
+  clean_url = html_decode_param(dirty_url, 0);
+  ck_free(dirty_url);
+
+  n = ck_alloc(sizeof(struct http_request));
+
+  n->pivot = req->pivot;
+  if (parse_form == 2) {
+    ck_free(n->method);
+    n->method = ck_strdup((u8*)"POST");
+  } else {
+    /* On GET forms, strip existing query params to get a submission
+       target. */
+    u8* qmark = (u8*)strchr((char*)clean_url, '?');
+    if (qmark) *qmark = 0;
+  }
+
+  if (parse_url(clean_url, n, base ? base : req)) {
+    DEBUG("Unable to parse_url from form: %s\n", clean_url);
+    ck_free(clean_url);
+    destroy_request(n);
+    return NULL;
+  }
+
+  ck_free(clean_url);
+  return n;
+
+}
+
+
 /* Analyzes response headers (Location, etc), body to extract new links,
    keyword guesses. This code is designed to be simple and fast, but it
    does not even try to understand the intricacies of HTML or whatever
@@ -687,7 +753,8 @@ void scrape_response(struct http_request* req, struct http_response* res) {
     if (*cur_str == '<' && (tag_end = (u8*)strchr((char*)cur_str + 1, '>'))) {
 
       u32 link_type = 0;
-      u8  set_base = 0, parse_form = 0;
+      u8  set_base = 0;
+      u8  is_post = 0;
       u8  *dirty_url = NULL, *clean_url = NULL, *meta_url = NULL,
           *delete_dirty = NULL;
 
@@ -747,25 +814,16 @@ void scrape_response(struct http_request* req, struct http_response* res) {
 
       } else if (ISTAG(cur_str, "form")) {
 
-        u8* method;
-        parse_form = 1;
-        FIND_AND_MOVE(dirty_url, cur_str, "action=");
+        /* Parse the form and kick off a new pivot for further testing */
+        struct http_request* n = make_form_req(req, base, cur_str, NULL);
+        if (n) {
+          if (url_allowed(n) && R(100) < crawl_prob && !no_forms) {
+            is_post = (n->method && !strcmp((char*)n->method, "POST"));
 
-        /* See if we need to POST this form or not. */
-
-        FIND_AND_MOVE(method, cur_str, "method=");
-
-        if (method && *method) {
-          if (strchr("\"'", *method)) method++;
-          if (tolower(method[0]) == 'p') parse_form = 2;
-        }
-
-        /* Forms with no URL submit to current location. */
-
-        if (!dirty_url || !*dirty_url || !prefix(dirty_url, (char*)"\"\"") ||
-            !prefix(dirty_url, (char*)"''")) {
-          dirty_url = serialize_path(req, 1, 0);
-          delete_dirty = dirty_url;
+            collect_form_data(n, req, res, tag_end + 1, is_post);
+            maybe_add_pivot(n, NULL, 5);
+          }
+          destroy_request(n);
         }
 
       } else {
@@ -805,38 +863,6 @@ void scrape_response(struct http_request* req, struct http_response* res) {
         struct http_request* n = ck_alloc(sizeof(struct http_request));
         n->pivot = req->pivot;
         if (!parse_url(clean_url, n, base ? base : req)) base = n;
-
-      } else if (parse_form) {
-
-        /* <form> handling... */
-
-        struct http_request* n = ck_alloc(sizeof(struct http_request));
-        n->pivot = req->pivot;
-
-        if (parse_form == 2) {
-          ck_free(n->method);
-          n->method = ck_strdup((u8*)"POST");
-        } else {
-
-          /* On GET forms, strip existing query params to get a submission
-             target. */
-
-          u8* qmark = (u8*)strchr((char*)clean_url, '?');
-          if (qmark) *qmark = 0;
-        }
-
-        /* Don't collect form fields, etc, if target is not within the
-           scope anyway. */
-
-        DEBUG("* Found form: target %s method %s\n", clean_url, n->method);
-
-        if (!parse_url(clean_url, n, base ? base : req) && url_allowed(n) &&
-            R(100) < crawl_prob && !no_forms) {
-          collect_form_data(n, req, res, tag_end + 1, (parse_form == 2));
-          maybe_add_pivot(n, NULL, 5);
-        }
-
-        destroy_request(n);
 
       }
 
@@ -1287,11 +1313,21 @@ static void check_js_xss(struct http_request* req, struct http_response* res,
       while(*end_quote && end_quote++ && *end_quote != in_quot)
         if(*end_quote == '\\') end_quote++;
 
-      /* Injected string is 'skip'''"fish""" */
-      if(end_quote && !case_prefix(end_quote + 1,"skip'''"))
-        problem(PROB_URL_XSS, req, res, (u8*)"injected string in JS/CSS code (single quote not escaped)", req->pivot, 0);
-      if(end_quote && !case_prefix(end_quote + 1,"fish\"\"\""))
-        problem(PROB_URL_XSS, req, res, (u8*)"injected string in JS/CSS code (double quote not escaped)", req->pivot, 0);
+      /* Injected string is 'skip'''"fish""" (or it's encoded variants */
+      if(end_quote && (!case_prefix(end_quote + 1,"skip'''") ||
+                       !case_prefix(end_quote + 1,"fish\"\"\"")))
+        problem(PROB_URL_XSS, req, res, (u8*)"injected string in JS/CSS code (quote escaping issue)", req->pivot, 0);
+
+      if(end_quote && (!prefix(last_word, "on") ||
+                       !prefix(last_word, "url") ||
+                       !prefix(last_word, "href")) &&
+         (!case_prefix(end_quote + 1,"skip&apos;&apos;&apos;") ||
+          !case_prefix(end_quote + 1,"skip&#x27;&#x27;&#x27;") ||
+          !case_prefix(end_quote + 1,"skip&quot;&quot;&quot;") ||
+          !case_prefix(end_quote + 1,"skip&#x22;&#x22;&#x22;"))) {
+        problem(PROB_URL_XSS, req, res, (u8*)"injected string in JS/CSS code (html encoded)", req->pivot, 0);
+
+      }
 
     } else if (in_quot && *text == in_quot) in_quot = 0;
 
@@ -1430,9 +1466,12 @@ u8 content_checks(struct http_request* req, struct http_response* res) {
   u8* tmp;
   u32 off, tag_id, scan_id;
   u8  high_risk = 0;
-  struct http_request* n;
 
   DEBUG_CALLBACK(req, res);
+
+  /* CHECK 0: signature matching */
+  match_signatures(req, res);
+
 
   /* CHECK 1: Caching header logic. */
 
@@ -1581,34 +1620,6 @@ u8 content_checks(struct http_request* req, struct http_response* res) {
 
   if (is_javascript(res) || is_css(res)) check_js_xss(req, res, res->payload);
 
-  /* Responses that do not contain the term "function", "if", "for", "while", etc,
-     are much more likely to be dynamic JSON than just static scripts. Let's
-     try to highlight these. */
-
-  if (is_javascript(res) && !res->json_safe &&
-      (!req->method || !strcmp((char*)req->method, "GET")) &&
-      !inl_findstr(res->payload, (u8*)"if (", 1024) &&
-      !inl_findstr(res->payload, (u8*)"if(", 1024) &&
-      !inl_findstr(res->payload, (u8*)"for (", 1024) &&
-      !inl_findstr(res->payload, (u8*)"for(", 1024) &&
-      !inl_findstr(res->payload, (u8*)"while (", 1024) &&
-      !inl_findstr(res->payload, (u8*)"while(", 1024) &&
-      !inl_findstr(res->payload, (u8*)"function ", 1024) &&
-      !inl_findstr(res->payload, (u8*)"function(", 1024))
-    problem(PROB_JS_XSSI, req, res, NULL, req->pivot, 0);
-
-
-  /* If the response resembles javascript and a callback parameter does
-     not exist, we'll add this parameter in an attempt to catch JSONP
-     issues */
-
-  if(is_javascript(res) && !GET_PAR((u8*)"callback", &req->par)) {
-    n = req_copy(RPREQ(req), req->pivot, 1);
-    SET_PAR((u8*)"callback",(u8*)"hello",&n->par);
-    maybe_add_pivot(n, NULL, 2);
-    destroy_request(n);
-  }
-
   tmp = res->payload;
 
   do {
@@ -1655,9 +1666,10 @@ u8 content_checks(struct http_request* req, struct http_response* res) {
 
         /* Name followed by '='? Grab value. */
 
+        u8 quote = 0;
         if (*tmp == '=') {
           u32 vlen;
-          u8 save, quote = 0;
+          u8 save;
 
           tmp++;
 
@@ -1676,6 +1688,11 @@ u8 content_checks(struct http_request* req, struct http_response* res) {
           tmp += vlen + quote;
         }
 
+        /* CHECK X.X: Unquoted value can allow parameter XSS */
+        if (!quote && clean_val && 
+            !case_prefix(clean_val, "skipfish:"))
+            problem(PROB_TAG_XSS, req, res, tag_name, req->pivot, 0);
+
         if (!strcasecmp((char*)tag_name, "script") &&
             !strcasecmp((char*)param_name, "src")) remote_script = 1;
 
@@ -1687,6 +1704,11 @@ u8 content_checks(struct http_request* req, struct http_response* res) {
             (!strcasecmp((char*)param_name, "value") && 
              strcasecmp((char*)tag_name, "input")) ||
             !strcasecmp((char*)param_name, "codebase")) && clean_val) {
+
+          /* Check links with the javascript scheme */
+          if (!case_prefix(clean_val, "javascript:") ||
+              !case_prefix(clean_val, "vbscript:"))
+            check_js_xss(req, res, clean_val);
 
           if (!case_prefix(clean_val, "skipfish:"))
             problem(PROB_URL_XSS, req, res, tag_name, req->pivot, 0);
@@ -2306,76 +2328,6 @@ static void check_for_stuff(struct http_request* req,
 
   /* Assorted interesting error messages. */
 
-  if (strstr((char*)res->payload, "<font face=\"Arial\" size=2>error '")) {
-    problem(PROB_ERROR_POI, req, res, (u8*)"Microsoft runtime error",
-            req->pivot, 0);
-    return;
-  }
-
-  if (strstr((char*)res->payload, "<span><H1>Server Error in '")) {
-    problem(PROB_ERROR_POI, req, res, (u8*)
-            "ASP.NET Yellow Screen of Death", req->pivot, 0);
-    return;
-  }
-
-  if (strstr((char*)sniffbuf, "<title>JRun Servlet Error</title>")) {
-    problem(PROB_ERROR_POI, req, res, (u8*)"JRun servlet error", req->pivot, 0);
-    return;
-  }
-
-  if (strstr((char*)res->payload, "Exception in thread \"") ||
-      strstr((char*)res->payload, "at java.lang.") ||
-      (strstr((char*)res->payload, "\tat ") &&
-      (strstr((char*)res->payload, ".java:")))) {
-    problem(PROB_ERROR_POI, req, res, (u8*)"Java exception trace", req->pivot, 0);
-    return;
-  }
-
-  if ((tmp = (u8*)strstr((char*)res->payload, " on line "))) {
-    u32 off = 512;
-
-    while (tmp - 1 > res->payload && !strchr("\r\n", tmp[-1])
-           && off--) tmp--;
-
-    if (off && (!prefix(tmp, "Warning: ") || !prefix(tmp, "Notice: ") ||
-        !prefix(tmp, "Fatal error: ")     || !prefix(tmp, "Parse error: ") ||
-        !prefix(tmp, "Deprecated: ")      || 
-        !prefix(tmp, "Strict Standards: ") ||
-        !prefix(tmp, "Catchable fatal error: "))) {
-      problem(PROB_ERROR_POI, req, res, (u8*)"PHP error (text)", req->pivot, 0);
-      return;
-    }
-
-    if (off && !prefix(tmp, "<b>") && (!prefix(tmp + 3, "Warning</b>: ") ||
-        !prefix(tmp + 3, "Notice</b>: ") || 
-        !prefix(tmp + 3, "Fatal error</b>: ") ||
-        !prefix(tmp + 3, "Parse error</b>: ") ||
-        !prefix(tmp + 3, "Deprecated</b>: ")   || 
-        !prefix(tmp + 3, "Strict Standards</b>: ") ||
-        !prefix(tmp + 3, "Catchable fatal error</b>: "))) {
-      problem(PROB_ERROR_POI, req, res, (u8*)"PHP error (HTML)", req->pivot, 0);
-      return;
-    }
-
-  }
-
-  if (strstr((char*)res->payload, "<b>Warning</b>:  MySQL: ") ||
-      strstr((char*)res->payload, "Unclosed quotation mark") ||
-      strstr((char*)res->payload, "Syntax error in string in query expression") ||
-      strstr((char*)res->payload, "java.sql.SQLException") ||
-      strstr((char*)res->payload, "SqlClient.SqlException: Syntax error") ||
-      strstr((char*)res->payload, "Incorrect syntax near") ||
-      strstr((char*)res->payload, "PostgreSQL query failed") ||
-      strstr((char*)res->payload, "Dynamic SQL Error") ||
-      strstr((char*)res->payload, "unable to perform query") ||
-      strstr((char*)res->payload, "Microsoft OLE DB Provider for ODBC Drivers</font>") ||
-      strstr((char*)res->payload, "[Microsoft][ODBC SQL Server Driver]") ||
-      strstr((char*)res->payload, "You have an error in your SQL syntax; ") ||
-      strstr((char*)res->payload, "[DM_QUERY_E_SYNTAX]")) {
-    problem(PROB_ERROR_POI, req, res, (u8*)"SQL server error", req->pivot, 0);
-    return;
-  }
-
   if (((tmp = (u8*)strstr((char*)res->payload, "ORA-")) ||
        (tmp = (u8*)strstr((char*)res->payload, "FRM-"))) &&
       isdigit(tmp[4]) && tmp[9] == ':') {
@@ -2383,54 +2335,6 @@ static void check_for_stuff(struct http_request* req,
     return;
   }
 
-  if (strstr((char*)res->payload, "[an error occurred while processing")) {
-    problem(PROB_ERROR_POI, req, res, (u8*)"SHTML error", req->pivot, 0);
-    return;
-  }
-
-  if (strstr((char*)res->payload, "Traceback (most recent call last):")) {
-    problem(PROB_ERROR_POI, req, res, (u8*)"Python error", req->pivot, 0);
-    return;
-  }
-
-  /* Interesting files. */
-
-  if (strstr((char*)res->payload, "ADDRESS=(PROTOCOL=")) {
-    problem(PROB_FILE_POI, req, res, (u8*)"SQL configuration or logs", req->pivot, 0);
-    return;
-  }
-
-  if (inl_strcasestr(res->payload, (u8*)";database=") && 
-      inl_strcasestr(res->payload, (u8*)";pwd=")) {
-    problem(PROB_FILE_POI, req, res, (u8*)"ODBC connect string", req->pivot, 0);
-    return;
-  }
-
-  if (strstr((char*)sniffbuf, "<cross-domain-policy>")) {
-    problem(PROB_FILE_POI, req, res, (u8*)
-            "Flash cross-domain policy", req->pivot, 0);
-
-    /*
-      if (strstr((char*)res->payload, "domain=\"*\""))
-        problem(PROB_CROSS_WILD, req, res, (u8*)
-                "Cross-domain policy with wildcard rules", req->pivot, 0);
-     */
-
-    return;
-  }
-
-  if (strstr((char*)sniffbuf, "<access-policy>")) {
-    problem(PROB_FILE_POI, req, res, (u8*)"Silverlight cross-domain policy",
-            req->pivot, 0);
-
-    /*
-      if (strstr((char*)res->payload, "uri=\"*\""))
-        problem(PROB_CROSS_WILD, req, res, (u8*)
-                "Cross-domain policy with wildcard rules", req->pivot, 0);
-     */
-
-    return;
-  }
 
   if (inl_strcasestr(sniffbuf, (u8*)"\nAuthType ") ||
       (inl_strcasestr(sniffbuf, (u8*)"\nOptions ") && (
@@ -2481,11 +2385,6 @@ static void check_for_stuff(struct http_request* req,
     return;
   }
 
-  if (strstr((char*)sniffbuf, "<web-app")) {
-    problem(PROB_FILE_POI, req, res, (u8*)"web.xml config file", req->pivot, 0);
-    return;
-  }
-
   /* Add more directory signatures here... */
 
   if (strstr((char*)sniffbuf, "<A HREF=\"?N=D\">") ||
@@ -2493,6 +2392,9 @@ static void check_for_stuff(struct http_request* req,
       strstr((char*)sniffbuf, "<h1>Index of /") ||
       strstr((char*)sniffbuf, ">[To Parent Directory]<")) {
     problem(PROB_DIR_LIST, req, res, (u8*)"Directory listing", req->pivot, 0);
+
+    /* Since we have the listing, we'll skip bruteforcing directory */
+    req->pivot->no_fuzz = 3;
     return;
   }
 
@@ -2516,61 +2418,12 @@ static void check_for_stuff(struct http_request* req,
 
   }
 
-  if (strstr((char*)sniffbuf, "<wc-entries") ||
-      strstr((char*)sniffbuf, "svn:special svn:")) {
-    problem(PROB_FILE_POI, req, res, (u8*)"SVN RCS data", req->pivot, 0);
-    return;
-  }
-
-  /* This should also cover most cases of Perl, Python, etc. */
-
-  if (!prefix(sniffbuf, "#!/")) {
-    problem(PROB_FILE_POI, req, res, (u8*)"shell script", req->pivot, 0);
-    return;
-  }
-
-  if (strstr((char*)res->payload, "<?") && strstr((char*)res->payload, "?>") && 
-      !strstr((char*)sniffbuf, "<?xml") && !strstr((char*)res->payload, "# ?>") &&
-      !strstr((char*)res->payload, "<?import")) {
-    problem(PROB_FILE_POI, req, res, (u8*)"PHP source", req->pivot, 0);
-    return;
-  }
-
-  if (strstr((char*)res->payload, "<%@") && strstr((char*)res->payload, "%>")) {
-    problem(PROB_FILE_POI, req, res, (u8*)"JSP source", req->pivot, 0);
-    return;
-  }
-
-  if (strstr((char*)res->payload, "<%") && strstr((char*)res->payload, "%>")) {
-    problem(PROB_FILE_POI, req, res, (u8*)"ASP source", req->pivot, 0);
-    return;
-  }
-
-  if (strstr((char*)sniffbuf, "\nimport java.")) {
-    problem(PROB_FILE_POI, req, res, (u8*)"Java source", req->pivot, 0);
-    return;
-  }
-
-  if (strstr((char*)sniffbuf, "\n#include")) {
-    problem(PROB_FILE_POI, req, res, (u8*)"C/C++ source", req->pivot, 0);
-    return;
-  }
-
   if (strstr((char*)res->payload, "End Sub\n") ||
       strstr((char*)res->payload, "End Sub\r")) {
     problem(PROB_FILE_POI, req, res, (u8*)"Visual Basic source", req->pivot, 0);
     return;
   }
 
-  if (strstr((char*)sniffbuf, "0] \"GET /")) {
-    problem(PROB_FILE_POI, req, res, (u8*)"Apache server logs", req->pivot, 0);
-    return;
-  }
-
-  if (strstr((char*)sniffbuf, "0, GET, /")) {
-    problem(PROB_FILE_POI, req, res, (u8*)"IIS server logs", req->pivot, 0);
-    return;
-  }
 
   /* Plain text, and every line contains ;, comma, or |? */
 
@@ -2604,13 +2457,6 @@ static void check_for_stuff(struct http_request* req,
 
   }
 
-  /* Excel is almost always interesting on its own. */
-
-  if (res->sniff_mime_id == MIME_EXT_EXCEL) {
-    problem(PROB_FILE_POI, req, res, (u8*)"Excel spreadsheet", req->pivot, 0);
-    return;
-  }
-
   /* This is a bit dodgy, but the most prominent sign of non-browser JS on
      Windows is the instantiation of obscure ActiveX objects to access local
      filesystem, create documents, etc. Unfortunately, some sites may also be
@@ -2633,17 +2479,6 @@ static void check_for_stuff(struct http_request* req,
     problem(PROB_FILE_POI, req, res, (u8*)"SQL script", req->pivot, 0);
     return;
   }
-
-  if (inl_strcasestr(sniffbuf, (u8*)"@echo ")) {
-    problem(PROB_FILE_POI, req, res, (u8*)"DOS batch script", req->pivot, 0);
-    return;
-  }
-
-  if (inl_strcasestr(res->payload, (u8*)"(\"Wscript.")) {
-    problem(PROB_FILE_POI, req, res, (u8*)"Windows shell script", req->pivot, 0);
-    return;
-  }
-
 }
 
 

@@ -1,0 +1,13 @@
+
+####################################
+# INTERESTING MIME TYPES
+
+id:41001; sev:4; mime:"application/vnd.ms-excel"; memo:"Microsoft Excel spreadsheet (mime)";
+id:41002; sev:4; mime:"application/vnd.ms-project"; memo:"Microsoft Project file (mime)";
+id:41003; sev:4; mime:"application/x-httpd-php-source"; memo:"PHP source file (mime)";
+id:41004; sev:4; mime:"application/x-msdos-program"; memo:"DOS executable or script (mime)";
+id:41005; sev:4; mime:"application/x-msi"; memo:"MSI installer (mime)";
+id:41006; sev:3; mime:"application/x-python-code"; memo:"Python code (mime)";
+id:41007; sev:3; mime:"application/x-shellscript"; memo:"Shell script (mime)";
+
+

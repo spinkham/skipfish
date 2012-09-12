@@ -76,6 +76,23 @@ u8 content_checks(struct http_request* req, struct http_response* res);
 
 void maybe_delete_payload(struct pivot_desc* pv);
 
+
+
+/* Examines all <input> tags up until </form>, then adds them as
+   parameters to current request. */
+
+void collect_form_data(struct http_request* req,
+                       struct http_request* orig_req,
+                       struct http_response* orig_res,
+                       u8* cur_str, u8 is_post);
+
+
+/* Create a http_request from an HTML form structure */
+
+struct http_request* make_form_req(struct http_request *req,
+                                   struct http_request *base,
+                                   u8* cur_str, u8* target);
+
 /* MIME detector output codes: */
 
 #define MIME_NONE               0       /* Checks missing or failed       */

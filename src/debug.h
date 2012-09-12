@@ -72,7 +72,7 @@
 #endif /* ^LOG_STDERR */
 
 #define F_DEBUG(x...) fprintf(stderr,x)
-#define SAY(x...)   printf(x)
+#define SAY(x...) printf(x)
 
 #define L1 1       /* Informative, one line messages     */
 #define L2 2       /* Expand the above, dump reqs, resps */

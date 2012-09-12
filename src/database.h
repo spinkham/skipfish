@@ -106,6 +106,8 @@ struct pivot_desc {
 
   u8 res_varies;                                /* Response varies?          */
   u8 bad_parent;                                /* Parent is well-behaved?   */
+  u8 res_time_exceeds;                          /* Response time too long?   */
+  u32 res_time_base;                            /* Base response time        */
 
   /* Fuzzer and probe state data: */
 
@@ -127,8 +129,9 @@ struct pivot_desc {
   u32 r404_pending;                             /* ...for 404 probes         */
   u32 ck_pending;                               /* ...for behavior checks    */
 
-  s32 check_idx;                                /* Current injection test    */
-  u32 check_state;                              /* Current injection test    */
+  s32 check_idx;                                /* Current test index    */
+  u32 check_state;                              /* Current test state    */
+  u32 check_id;                                 /* Current test id       */
 
   struct http_sig r404[MAX_404];                /* 404 response signatures   */
   u32 r404_cnt;                                 /* Number of sigs collected  */
@@ -162,6 +165,7 @@ struct pivot_desc {
 
 extern struct pivot_desc root_pivot;
 extern u32 verbosity;
+extern u32 slist_cnt;
 
 /* Checks child / descendant limits. */
 
@@ -199,6 +203,10 @@ u8 is_c_sens(struct pivot_desc* pv);
 /* Lookup an issue title */
 
 u8* lookup_issue_title(u32 id);
+
+/* Remove issues from a pivot */
+
+void remove_issue(struct pivot_desc *pv, u32 type);
 
 /* Recorded security issues */
 
@@ -241,6 +249,8 @@ u8* lookup_issue_title(u32 id);
 #define PROB_FUZZ_DIGIT         10901           /* Try fuzzing file name     */
 #define PROB_OGNL               10902           /* OGNL-like parameter       */
 
+#define PROB_SIG_DETECT         10909           /* Signature detected info   */
+
 /* - Internal warnings (scan failures, etc): */
 
 #define PROB_FETCH_FAIL         20101           /* Fetch failed.             */
@@ -263,6 +273,7 @@ u8* lookup_issue_title(u32 id);
 #define PROB_SSL_BAD_HOST       30203           /* Certificate host mismatch */
 #define PROB_SSL_NO_CERT        30204           /* No certificate data?      */
 #define PROB_SSL_WEAK_CIPHER    30205           /* Weak cipher negotiated    */
+#define PROB_SSL_HOST_LEN       30206           /* Possible \0 in host name  */
 
 #define PROB_DIR_LIST_BYPASS    30301           /* Dir listing bypass        */
 
@@ -282,12 +293,15 @@ u8* lookup_issue_title(u32 id);
 
 #define PROB_HEADER_INJECT      30901           /* Injected string in header */
 
+#define PROB_SIG_DETECT_L       30909           /* Signature detected low    */
+
 /* - Moderate severity issues (data compromise): */
 
 #define PROB_BODY_XSS           40101           /* Document body XSS         */
 #define PROB_URL_XSS            40102           /* URL-based XSS             */
 #define PROB_HTTP_INJECT        40103           /* Header splitting          */
 #define PROB_USER_URL_ACT       40104           /* Active user content       */
+#define PROB_TAG_XSS            40105           /* TAG attribute XSS         */
 
 #define PROB_EXT_SUB            40201           /* External subresource      */
 #define PROB_MIXED_SUB          40202           /* Mixed content subresource */
@@ -306,6 +320,8 @@ u8* lookup_issue_title(u32 id);
 
 #define PROB_PASS_NOSSL         40701           /* Password form, no HTTPS   */
 
+#define PROB_SIG_DETECT_M       40909           /* Signature detected moderate*/
+
 /* - High severity issues (system compromise): */
 
 #define PROB_XML_INJECT         50101           /* Backend XML injection     */
@@ -319,6 +335,8 @@ u8* lookup_issue_title(u32 id);
 #define PROB_SQL_PARAM          50201           /* SQL-like parameter        */
 
 #define PROB_PUT_DIR            50301           /* HTTP PUT accepted         */
+
+#define PROB_SIG_DETECT_H       50909           /* Signature detected high   */
 
 
 #ifdef _VIA_DATABASE_C
@@ -434,6 +452,7 @@ struct pstruct pstructs[] = {
 struct issue_desc {
   u32   type;                                   /* PROB_*                    */
   u8*   extra;                                  /* Problem-specific string   */
+  u32   sid;                                    /* Signature ID, if any      */
   struct http_request* req;                     /* HTTP request sent         */
   struct http_response* res;                    /* HTTP response seen        */
 };

@@ -1,3 +1,41 @@
+Version 2.08b:
+
+  - Added Host header XSS testing.
+
+  - Added HTML encoding XSS tests to detect scenarios where our
+    injection string ends up in an attributes that execute HTML encoded
+    Javascript. For example: onclick.
+
+  - Bruteforcing is now disabled for URLs that gave a directory listing.
+
+  - Added subject alternate name checking for SSL certificates (cheers
+    to Matt Caroll for his feedback)
+
+  - Added signature matching (see doc/signatures.txt) which means a lot
+    of the content based issues are no longer hardcoded.
+
+  - Added active XSSI test. The passive XSSI stays (for now) but this
+    active check is more acurate and will remove issues detected by the
+    passive one if they cannot be confirmed. This reduces false positives
+
+  - Added HTML tag XSS test which triggers when our payload is used
+    as a tag attribute value but without quotes (courtesy of wavsep).
+
+  - Added javascript: scheme XSS testing (courtesy of wavsep).
+
+  - Added form based authentication. During these authenticated
+    scans, skipfish will check if the session has ended and re-authenticates
+    if necessary.
+
+  - Fixed a bug where in slow scans the console output could mess up
+    due to the high(er) refresh rate.
+
+  - Fixed a bug where a missed response during the injection tests could
+    result in a crash. (courtesy of Sebastian Roschke)
+
+  - Restructure the source package a bit by adding a src/, doc/ and
+    tools/ directory.
+
 Version 2.07b:
 --------------
 

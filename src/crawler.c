@@ -405,7 +405,6 @@ static u8 unknown_retrieve_check2(struct http_request*, struct http_response*);
 
  */
 
-
 static void dir_case_start(struct pivot_desc* pv) {
   u32 i, len;
   s32 last = -1;
@@ -1176,6 +1175,7 @@ u8 dir_retrieve_check(struct http_request* req, struct http_response* res) {
 
   DEBUG_CALLBACK(req, res);
 
+
   /* Error at this point means we should give up on other probes in this
      directory. */
 
@@ -1331,7 +1331,7 @@ schedule_next:
 
         req->pivot->r404_pending++;
         async_request(n);
- 
+
       }
 
       ck_free(tmp);
@@ -1538,13 +1538,22 @@ static void dir_dict_start(struct pivot_desc* pv) {
   }
 
   if (pv->no_fuzz) {
-    if (pv->no_fuzz == 1)
-      problem(PROB_LIMITS, pv->req, pv->res, 
-              (u8*)"Recursion limit reached, not fuzzing", pv, 0);
-    else
-      problem(PROB_LIMITS, pv->req, pv->res, 
-              (u8*)"Directory out of scope, not fuzzing", pv, 0);
-      param_start(pv);
+    switch(pv->no_fuzz) {
+      case 1:
+        problem(PROB_LIMITS, pv->req, pv->res,
+                (u8*)"Recursion limit reached, not fuzzing", pv, 0);
+        break;
+
+      case 2:
+        problem(PROB_LIMITS, pv->req, pv->res,
+                (u8*)"Directory out of scope, not fuzzing", pv, 0);
+        param_start(pv);
+        break;
+
+      case 3:
+        DEBUG("Skipping directory bruteforce (allows listing)");
+        break;
+    }
     return;
   }
 

@@ -1,0 +1,24 @@
+
+###############################
+# CONTEXT SPECIFIC SIGNATURES
+#
+# During some injection tests we might not be able to determine that
+# the server is vulnerable. However, some server messages can give away
+# the fact that the underlying logic can likely be abused. The signatures
+# in this file look for such messages and are all linked to individual
+# injection tests. For example: we look for I/O errors during local file
+# disclosure attacks.
+
+#####################################################
+# Signatures for check 8: File inclusion / disclosure
+
+# PHP errors for include(), fopen(), include_once(), file_get_contents(), etc
+id:51001; sev:2; check:8; content:"[<a href='function."; content:"</a>]: failed to open stream:"; depth:100; memo:"PHP inclusion errors (during traversal tests)";
+id:51002; sev:2; check:8; content:"Warning: "; content:": failed to open stream: "; depth:100; memo:"PHP inclusion errors (during traversal tests)";
+
+# Java IO exception
+id:51003; sev:2; check:8; content:"java.io.FileNotFoundException: "; content:"at java.io."; depth:200; memo:"Java FileNotFound exception (during traversal tests)";
+
+# Python IO exception
+id:51004; sev:2; check:8; content:"Traceback (most recent call last):"; content:"No such file or directory: "; depth:512; memo:"Python IO backtrace (during traversal tests)";
+

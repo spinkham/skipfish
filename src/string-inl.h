@@ -54,10 +54,12 @@
 /* Macros for easy string prefix matching */
 
 #define prefix(_long, _short) \
-  strncmp((char*)(_long), (char*)(_short), strlen((char*)(_short)))
+  strncmp((const char*)(_long), (const char*)(_short), \
+          strlen((const char*)(_short)))
 
 #define case_prefix(_long, _short) \
-  strncasecmp((char*)(_long), (char*)(_short), strlen((char*)(_short)))
+  strncasecmp((const char*)(_long), (const char*)(_short), \
+              strlen((const char*)(_short)))
 
 
 /* Modified NetBSD strcasestr() implementation (rolling strncasecmp). */
@@ -86,7 +88,6 @@ static inline u8* inl_strcasestr(const u8* haystack, const u8* needle) {
   return (u8*)haystack;
 
 }
-
 
 /* Modified NetBSD memmem() implementation (rolling memcmp). */
 
@@ -135,6 +136,34 @@ static inline u8* inl_findstr(const u8* haystack, const u8* needle, u32 max_len)
   return (u8*)haystack;
 
 }
+
+/* Distance-limited and case-insensitive strstr. */
+
+static inline u8* inl_findstrcase(const u8* haystack, const u8* needle, u32 max_len) {
+  register u8 c, sc;
+  register u32 len;
+
+  if (!haystack || !needle) return 0;
+  max_len++;
+
+  if ((c = *needle++)) {
+
+    len = strlen((char*)needle);
+
+    do {
+      do {
+        if (!(sc = *haystack++) || !max_len--) return 0;
+      } while (tolower(sc) != c);
+    } while (strncasecmp((char*)haystack, (char*)needle, len));
+
+    haystack--;
+
+  }
+
+  return (u8*)haystack;
+
+}
+
 
 
 

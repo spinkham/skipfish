@@ -206,12 +206,18 @@ static void maybe_add_sig(struct pivot_desc* pv) {
 
   /* See if a matching signature already exists. */
 
-  for (i=0;i<p_sig_cnt;i++) 
+  for (i=0;i<p_sig_cnt;i++)
     if (p_sig[i].type == pv->type && p_sig[i].issue_sig == issue_sig &&
         p_sig[i].child_sig == child_sig &&
         same_page(p_sig[i].res_sig, &pv->res->sig)) {
 
-      pv->dupe = 1;
+      /* We don't mark parameters as dupes: different parameters for the
+      same page will get the same signature. If we mark them as duplicate,
+      some issues, like XSS' will only be reported once while that might
+      be present in two or more parameters. */
+
+      if (pv->type != PIVOT_PARAM && !pv->bogus_par)
+        pv->dupe = 1;
       return;
 
     }
@@ -617,7 +623,7 @@ static void output_crawl_tree(struct pivot_desc* pv) {
 
     if (!pv->dupe) {
       u32 c;
-      for (c=0;c<i_samp_cnt;c++) 
+      for (c=0;c<i_samp_cnt;c++)
         if (i_samp[c].type == pv->issue[i].type) break;
 
       if (c == i_samp_cnt) {

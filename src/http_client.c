@@ -35,6 +35,7 @@
 #include <time.h>
 
 #include <openssl/ssl.h>
+#include <openssl/x509v3.h>
 #include <openssl/err.h>
 #include <idna.h>
 #include <zlib.h>
@@ -1099,7 +1100,7 @@ u8* build_request_data(struct http_request* req) {
     }
   }
 
-  if (ck_pos) {
+  if (ck_pos && !req->no_cookies) {
     ASD("Cookie: ");
     ASD(ck_buf);
     ASD("\r\n");
@@ -1234,7 +1235,7 @@ u8* build_request_data(struct http_request* req) {
 
 /* Internal helper for parsing lines for parse_response(), etc. */
 
-static u8* grab_line(u8* data, u32* cur_pos, u32 data_len) {
+u8* grab_line(u8* data, u32* cur_pos, u32 data_len) {
   u8 *cur_ptr   = data + *cur_pos,
      *start_ptr = cur_ptr,
      *end_ptr   = data + data_len,
@@ -1893,6 +1894,39 @@ void async_request(struct http_request* req) {
 
 }
 
+/* A helper function to compare the CN / altname with our host name */
+
+static u8 match_cert_name(char* req_host, char* host) {
+
+  if (!host) return 0;
+
+  /* For matching, we update our pointer from *.example.org to
+    .example.org */
+  if (host[0] == '*' && host[1] == '.') {
+    host++;
+
+    if (strlen(req_host) > strlen(host)) {
+      /* The cert name is a wild card which counts for the first level
+       * subdomain. We for comparison, strip the first section:
+       *
+       * foo.bar.example.org must not match .example.org
+       * bar.example.org must match .example.org
+       *
+       * */
+      while(req_host && req_host[0] != '.')
+        req_host++;
+    }
+  }
+
+
+  if (host) DEBUG("Comparing: %s %s\n", host, req_host);
+
+  if (!host || strcasecmp(host, req_host))
+    return 0;
+
+  return 1;
+}
+
 
 /* Check SSL properties, raise security alerts if necessary. We do not perform
    a very thorough validation - we do not check for valid root CAs, bad ciphers,
@@ -1916,7 +1950,11 @@ static void check_ssl(struct conn_entry* c) {
 
   if (p) {
     u32 cur_time = time(0);
+    u32 i, acnt;
     char *issuer, *host, *req_host;
+    STACK_OF(GENERAL_NAME) *altnames;
+    char *buf = 0;
+    u8 found = 0;
 
     /* Check for certificate expiration... */
 
@@ -1940,21 +1978,53 @@ static void check_ssl(struct conn_entry* c) {
 
     free(issuer);
 
-    /* Extract CN= from certificate name, compare to destination host. */
+    /* Extract CN= from certificate name, compare to destination host. If
+       it doesn't match, step 2 is to look for alternate names and compare
+       those to the hostname */
 
     host = strrchr(p->name, '=');
+    if (host) host++; /* Strip the = */
     req_host = (char*)c->q->req->host;
 
-    if (host) {
-      host++;
-      if (host[0] == '*' && host[1] == '.') {
-        host++;
-        if (strlen(req_host) > strlen(host))
-          req_host += strlen(req_host) - strlen(host);
+    /* Step 1: compare the common name value */
+    found = match_cert_name(req_host, host);
+
+    /* Step 2: compare the alternate names */
+    if (!found) {
+
+      altnames = X509_get_ext_d2i(p, NID_subject_alt_name, NULL, NULL);
+
+      if (altnames) {
+        acnt = sk_GENERAL_NAME_num(altnames);
+        DEBUG("*-- Certificate has %d altnames\n", acnt);
+
+        for (i=0; !found && i<acnt; i++) {
+          const GENERAL_NAME *name = sk_GENERAL_NAME_value(altnames, i);
+
+          if (name->type != GEN_DNS) continue;
+
+          buf = (char*)ASN1_STRING_data(name->d.dNSName);
+
+          /* No string, no match */
+          if (!buf) continue;
+
+          /* Not falling for the \0 trick so we only compare when the
+             length matches with the string */
+
+          if (strlen(buf) != ASN1_STRING_length(name->d.dNSName)) {
+            problem(PROB_SSL_HOST_LEN, c->q->req, 0, (u8*)host,
+                    host_pivot(c->q->req->pivot), 0);
+
+          } else {
+              found = match_cert_name(req_host, buf);
+          }
+
+        }
+        GENERAL_NAMES_free(altnames);
       }
     }
 
-    if (!host || strcasecmp(host, req_host))
+    if (!found)
       problem(PROB_SSL_BAD_HOST, c->q->req, 0, (u8*)host,
               host_pivot(c->q->req->pivot), 0);
 
@@ -2065,6 +2135,9 @@ connect_error:
   c->req_start  = c->last_rw = time(0);
   c->write_buf  = build_request_data(q->req);
   c->write_len  = strlen((char*)c->write_buf);
+
+  /* Time the request */
+  q->req->start_time = c->req_start;
 
 }
 
@@ -2219,6 +2292,8 @@ SSL_read_more:
           p_ret = parse_response(c->q->req, c->q->res, c->read_buf, c->read_len,
             (c->read_len > (size_limit + READ_CHUNK)) ? 0 : 1);
 
+          c->q->req->end_time = time(0);
+
           if (!p_ret || p_ret == 3) {
 
             u8 keep;
@@ -2342,11 +2417,10 @@ SSL_read_more:
     while (q) {
       u32 to_host = 0;
 
-      // enforce the max requests per seconds requirement
+      /* enforce the max requests per seconds requirement */
       if (max_requests_sec && req_sec > max_requests_sec) {
         u32 diff = req_sec - max_requests_sec;
 
-        DEBUG("req_sec=%f max=%f diff=%u\n", req_sec, max_requests_sec, diff);
         if ((iterations_cnt++)%(diff + 1) != 0) {
             idle = 1;
             return queue_cur;

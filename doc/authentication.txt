@@ -1,0 +1,98 @@
+
+
+This document describes 3 different methods you can use to run
+authenticated skipfish scans.
+
+ 1) Form authentication
+ 2) Cookie authentication
+ 3) Basic HTTP authentication
+
+
+
+-----------------------
+1. Form authentication
+----------------------
+
+With form authentication, skipfish will submit credentials using the
+given login form. The server is expected to reply with authenticated
+cookies which will than be used during the rest of the scan.
+
+An example to login using this feature:
+
+$ ./skipfish --auth-form http://example.org/login \
+             --auth-user myuser \
+             --auth-pass mypass \
+             --auth-verify-url http://example.org/profile \
+             [...other options...]
+
+This is how it works:
+
+1. Upon start of the scan, the authentication form at /login will be
+   fetched by skipfish. We will try to complete the username and password
+   fields and submit the form.
+
+2. Once a server response is obtained, skipfish will fetch the
+   verification URL twice: once with the new session cookies and once
+   without any cookies. Both responses are expected to be different.
+
+3. During the scan, the verification URL will be used many times to
+   test whether we are authenticated. If at some point our session has
+   been terminated server-side, skipfish will re-authenticate using the
+   --auth-form (/login in our example) .
+
+Verifying whether the session is still active requires a good verification
+URL where an authenticated request is going to get a different response
+than an anonymous request. For example a 'profile' or 'my account' page.
+
+Troubleshooting:
+----------------
+
+1. Login field names not recognized
+
+  If the username and password form fields are not recognized, skipfish
+  will complain. In this case, you should specify the field names using
+  the --auth-user-field and --auth-pass-field flags.
+
+2. The form is not submitted to the right location
+
+  If the login form doesn't specify an action="" location, skipfish
+  will submit the form's content to the form URL. This will fail in some
+  occasions. For example, when the login page uses Javascript to submit
+  the form to a different location.
+
+  Use the --auth-form-target flag to specify the URL where you want skipfish
+  to submit the form to.
+
+3. Skipfish keeps getting logged out
+
+  Make sure you blacklist any URLs that will log you out. For example,
+  using the " -X /logout"
+
+
+-------------------------
+2. Cookie authentication
+-------------------------
+
+Alternatively, if the site relies on HTTP cookies you can also feed these
+to skipfish manually. To do this log in using your browser or using a
+simple curl script, and then provide skipfish with a session cookie:
+
+$ ./skipfish -C name=val [...other options...]
+
+Other session cookies may be passed the same way, one per each -C option.
+
+The -N option, which causes new cookies to be rejected by skipfish,
+is almost always a good choice when running cookie authenticated scans
+(e.g. to avoid your precious cookies from being overwritten).
+
+$ ./skipfish -N -C name=val [...other options...]
+
+-----------------------------
+3. Basic HTTP authentication
+-----------------------------
+
+For simple HTTP credentials, you can use the -A option to pass the
+credentials.
+
+$ ./skipfish -A user:pass [...other options...]
+

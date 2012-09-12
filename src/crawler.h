@@ -33,6 +33,7 @@ void handle_error(struct http_request* req, struct http_response* res, u8* desc,
 void inject_done(struct pivot_desc*);
 void destroy_misc_data(struct pivot_desc* pv, struct http_request* self);
 struct pivot_desc* dir_parent(struct pivot_desc* pv);
+void authenticate();
 
 /* Internal helper macros: */
 

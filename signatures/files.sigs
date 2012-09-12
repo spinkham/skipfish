@@ -1,0 +1,42 @@
+
+####################################
+# INTERESTING PAGES / FILES
+
+# Detect private keys
+id:31001; sev:2; mime:"text/plain"; content:"-----BEGIN DSA PRIVATE KEY-----"; depth:100; memo:"DSA private key";
+id:31002; sev:2; mime:"text/plain"; content:"-----BEGIN RSA PRIVATE KEY-----"; depth:100; memo:"RSA private key";
+
+id:31003; sev:3; content:'ADDRESS=(PROTOCOL='; memo:"SQL configuration or logs";
+id:31004; sev:3; content:";pwd="; content:";database="; depth:512; memo:"ODBC connect string";
+id:31005; sev:3; content:"Data Source="; content:";Password="; depth:512; memo:"ODBC connect string";
+id:31006; sev:3; content:"Provider="; content:";Password="; depth:512; memo:"ODBC connect string";
+id:31007; sev:3; content:"Driver="; content:";Pwd="; depth:512; memo:"ODBC connect string";
+
+# Typical crossdomain / access policy files
+id:31008; sev:3; content:"<cross-domain-policy>"; depth:512; memo:"Flash crossdomain file";
+id:31009; sev:3; content:"<access-policy>"; depth:512; memo:"Silverlight cross-domain policy";
+
+# Web.xml config file
+id:31010; sev:3; content:"<web-app"; depth:512; memo:"web.xml config file";
+
+# SVN RCS data
+id:31011; sev:3; content:"svn:special svn"; depth:256; memo:"SVN RCS data";
+id:31012; sev:3; content:"SVN RCS data"; depth:256; memo:"SVN RCS data";
+
+# Log files
+id:31013; sev:3; content:"0] \"GET /"; depth:1024; memo:"Apache access log";
+id:31014; sev:3; content:"[error] [client "; depth:1024; memo:"Apache error log";
+id:31015; sev:3; content:"0, GET, /"; depth:1024; memo:"Microsoft IIS access log";
+
+# Source code and scripts
+id:32001; sev:3; content:"\nimport java."; depth:512; memo:"Java source";
+id:32002; sev:3; content:"\n#include"; depth:512; memo:"C/C++ source";
+id:32003; sev:3; content:"#!/"; depth:1; memo:"Shell script";
+id:32004; sev:3; content:!"# ?>" content:!"<?import"; content:"<?"; content:!"xml"; depth:1; content:"?>"; memo:"PHP source";
+id:32005; sev:3; content:"<%@"; content:"%>"; memo:"JSP source";
+id:32006; sev:3; content:"<%"; content:"%>"; memo:"ASP source";
+# These two need to be improved!
+id:32007; sev:3; content:"@echo "; depth:256; memo:"DOS batch script";
+id:32008; sev:3; content:"(\"Wscript."; depth:256; memo:"Windows shell script";
+
+

@@ -406,6 +406,9 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
 
     }
 
+    /* Store a reference in our the callers request struct. */
+    req->pivot = cur;
+
     /* At this point, 'cur' points to a newly created or existing node
        for the path element. If this element is parametric, make sure
        that its value is on the 'try' list. */
@@ -539,6 +542,10 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
 
   }
 
+  /* Set the request pivot, if not set already */
+  if(!req->pivot)
+    req->pivot = cur;
+
   /* Done, at last! */
 
 }
@@ -570,6 +577,37 @@ u8* lookup_issue_title(u32 id) {
 
   return pstructs[i].title;
 }
+
+/* Remove issue(s) of with the specified 'type' */
+
+void remove_issue(struct pivot_desc *pv, u32 type) {
+
+    u32 i, cnt = 0;
+    struct issue_desc *tmp = NULL;
+
+    if (!pv->issue_cnt) return;
+
+    for (i=0; i<pv->issue_cnt; i++) {
+      if (pv->issue[i].type == type) {
+        DEBUG("* Removing issue of type: %d\n", type);
+        if (pv->issue[i].req) destroy_request(pv->issue[i].req);
+        if (pv->issue[i].res) destroy_response(pv->issue[i].res);
+      } else {
+        tmp = ck_realloc(tmp, (cnt + 1) * sizeof(struct issue_desc));
+
+        tmp[cnt].type = pv->issue[i].type;
+        tmp[cnt].extra = pv->issue[i].extra;
+        tmp[cnt].req = pv->issue[i].req;
+        tmp[cnt].res = pv->issue[i].res;
+        cnt++;
+      }
+    }
+
+    ck_free(pv->issue);
+    pv->issue = tmp;
+    pv->issue_cnt = cnt;
+}
+
 
 /* Registers a problem, if not duplicate (res, extra may be NULL): */
 
@@ -603,10 +641,10 @@ void problem(u32 type, struct http_request* req, struct http_response* res,
 #ifndef LOG_STDERR
   u8* url = serialize_path(req, 1, 1);
   u8* title = lookup_issue_title(type);
-  DEBUGC(L1, "\n--- NEW PROBLEM\n");
-  DEBUGC(L1, "    - type: %u, %s\n", type, title);
-  DEBUGC(L1, "    - url:  %s\n", url);
-  DEBUGC(L2, "    - extra: %s\n", extra);
+  DEBUGC(L2, "\n--- NEW PROBLEM\n");
+  DEBUGC(L2, "    - type: %u, %s\n", type, title);
+  DEBUGC(L2, "    - url:  %s\n", url);
+  DEBUGC(L3, "    - extra: %s\n", extra);
   ck_free(url);
 #endif /* LOG_STDERR */
 
@@ -645,7 +683,7 @@ u8 url_allowed_host(struct http_request* req) {
       if (pos && strlen((char*)req->host) ==
           strlen((char*)allow_domains[i]) + (pos - req->host))
         return 1;
- 
+
     } else
       if (!strcasecmp((char*)req->host, (char*)allow_domains[i]))
         return 1;
@@ -735,7 +773,7 @@ u8 param_allowed(u8* pname) {
 
 }
 
-/* Compares the checksums for two responses: */
+/* Compares the fingerprints for two responses: */
 
 u8 same_page(struct http_sig* sig1, struct http_sig* sig2) {
   u32 i, bucket_fail = 0;
@@ -754,8 +792,7 @@ u8 same_page(struct http_sig* sig1, struct http_sig* sig2) {
     s32 diff = sig1->data[i] - sig2->data[i];
     u32 scale = sig1->data[i] + sig2->data[i];
 
-    if (abs(diff) > 1 + (scale * FP_T_REL / 100) ||
-        abs(diff) > FP_T_ABS)
+    if (abs(diff) > 1 + (scale * FP_T_REL / 100))
       if (++bucket_fail > FP_B_FAIL) return 0;
 
     total_diff     += diff;
@@ -807,8 +844,7 @@ void debug_same_page(struct http_sig* sig1, struct http_sig* sig2) {
     s32 diff = sig1->data[i] - sig2->data[i];
     u32 scale = sig1->data[i] + sig2->data[i];
 
-    if (abs(diff) > 1 + (scale * FP_T_REL / 100) ||
-        abs(diff) > FP_T_ABS)
+    if (abs(diff) > 1 + (scale * FP_T_REL / 100))
       DEBUG("[FAIL] "); else DEBUG("[pass] ");
 
     total_diff  += diff;
@@ -825,12 +861,8 @@ void debug_same_page(struct http_sig* sig1, struct http_sig* sig2) {
 
   DEBUG("(allow)\n");
 
-  DEBUG("Total diff: %d, scale %d, allow %d. ",
+  DEBUG("Total diff: %d, scale %d, allow %d\n",
     abs(total_diff), total_scale, 1 + (u32)(total_scale * FP_T_REL / 100));
-
-  DEBUG("Both pages have text: ");
-  if (sig1->has_text != sig2->has_text)
-    DEBUG("no\n"); else DEBUG("yes\n");
 
 #endif /* LOG_STDERR */
 
@@ -1321,13 +1353,14 @@ void database_stats() {
       cGRA "   Issues found : " cNOR "%u info, %u warn, %u low, %u medium, "
                                "%u high impact\n"
       cGRA "      Dict size : " cNOR "%u words (%u new), %u extensions, "
-                               "%u candidates\n",
+                               "%u candidates\n"
+      cGRA "     Signatures : " cNOR "%u total\n",
       pivot_cnt, pivot_done, pivot_cnt ? ((100.0 * pivot_done) / (pivot_cnt))
       : 0, pivot_pending, pivot_init, pivot_attack, pivot_bf, pivot_missing,
       pivot_serv, pivot_dir, pivot_file, pivot_pinfo, pivot_unknown,
       pivot_param, pivot_value, issue_cnt[1], issue_cnt[2], issue_cnt[3],
        issue_cnt[4], issue_cnt[5], keyword_total_cnt, keyword_total_cnt -
-      keyword_orig_cnt, wg_extension_cnt, guess_cnt);
+      keyword_orig_cnt, wg_extension_cnt, guess_cnt, slist_cnt);
 
 }
 

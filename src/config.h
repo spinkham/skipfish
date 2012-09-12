@@ -31,11 +31,14 @@
    option in the command line. This mode will not work as expected for
    HTTPS requests at this time - sorry. */
 
-//#define PROXY_SUPPORT           1
+// #define PROXY_SUPPORT           1
 
 /* Default paths to runtime files: */
 
 #define ASSETS_DIR              "assets"
+
+/* Default signature file */
+#define SIG_FILE                "signatures/signatures.conf"
 
 /* Various default settings for HTTP client (cmdline override): */
 
@@ -47,12 +50,12 @@
 #define RW_TMOUT                10      /* Individual network R/W timeout  */
 #define RESP_TMOUT              20      /* Total request time limit        */
 #define IDLE_TMOUT              10      /* Connection tear down threshold  */
-#define SIZE_LIMIT              200000  /* Response size cap               */
+#define SIZE_LIMIT              400000  /* Response size cap               */
 #define MAX_GUESSES             256     /* Guess-based wordlist size limit */
 
 /* HTTP client constants: */
 
-#define MAX_URL_LEN             1024    /* Maximum length of an URL        */
+#define MAX_URL_LEN             2048    /* Maximum length of an URL        */
 #define MAX_DNS_LEN             255     /* Maximum length of a host name   */
 #define READ_CHUNK              4096    /* Read buffer size                */
 

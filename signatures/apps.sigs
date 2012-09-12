@@ -1,0 +1,13 @@
+
+# ##############################################
+# Detect interesting apps / pages that leak info
+# and where their exposure is a security risk by
+# default.
+
+# A phpinfo() page
+id:11001; sev:3; content:"<title>phpinfo()</title><meta name="; depth:2048; memo:"phpinfo() page";
+
+# A phpmyadmin page
+id:11002; sev:3; content:'<title>phpMyAdmin </title>'; depth:1024; content:'<a href="http://www.phpmyadmin.net" target="_blank" class="logo">'; depth:2048; memo:"phpMyAdmin";
+
+id:11003; sev:3; content:"<title>Parallels Plesk Panel"; depth:1024; content:'action="/login_up.php3" method="post"'; memo:"Plesk administrative interface";
