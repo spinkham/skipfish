@@ -33,7 +33,7 @@ u8 inject_state_manager(struct http_request* req, struct http_response* res);
 #define CHK_SESSION 5
 #define CHK_DIR_LIST 6
 #define CHK_PUT 7
-#define CHK_FI 8
+#define CHK_LFI 8
 #define CHK_RFI 9
 #define CHK_XSSI 10
 #define CHK_PROLOG 11
@@ -45,6 +45,7 @@ u8 inject_state_manager(struct http_request* req, struct http_response* res);
 #define CHK_BEHAVE 17
 #define CHK_IPS 18
 #define CHK_RSPLIT 19
+#define CHK_AGENT 20
 
 #ifdef _VIA_CHECKS_C
 
@@ -53,6 +54,17 @@ u8 inject_state_manager(struct http_request* req, struct http_response* res);
 #define MAX_RES_DURATION 3
 #define SLEEP_TEST_ONE   3
 #define SLEEP_TEST_TWO   5
+
+/* Browsers for behavior testing */
+
+#define BROWSER_TYPE_CNT 4
+
+u32 browser_types[BROWSER_TYPE_CNT] = {
+  BROWSER_FAST,
+  BROWSER_MSIE,
+  BROWSER_FFOX,
+  BROWSER_PHONE
+};
 
 /* Helper for calculating the request time */
 
@@ -79,19 +91,27 @@ struct cb_handle {
 /* Strings for traversal and file disclosure tests. The order should
    not be changed  */
 
-static const char* disclosure_tests[] = {
-  "../../../../../../../../etc/hosts",
-  "..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2fetc%2fhosts%00.js",
-  "../../../../../../../../etc/passwd",
-  "..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2fetc%2fpasswd%00.js",
-  "..\\..\\..\\..\\..\\..\\..\\..\\boot.ini",
-  "..%5c..%5c..%5c..%5c..%5c..%5c..%5c..%5cboot.ini%00.js",
-  "../../../../../../../../WEB-INF/web.xml",
-  "..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2fWEB-INF%2fweb.xml%3f.js",
-  "file:///etc/hosts",
-  "file:///etc/passwd",
-  "file:///boot.ini",
-  0
+
+struct lfi_test {
+  const char *vectors[10];
+  const char *test_string;
+  const char *description;
+};
+
+#define MAX_LFI_INDEX 2
+struct lfi_test lfi_tests[] = {
+  {{"/../../../../../../../../../etc/hosts",
+    "file:///etc/hosts", 0
+   }, "127.0.0.1", "File /etc/hosts was disclosed." },
+
+  {{"/../../../../../../../../../etc/passwd",
+    "file:///etc/passwd", 0
+   }, "root:x:0:0:root", "File /etc/passwd was disclosed."},
+
+  {{"..\\..\\..\\..\\..\\..\\..\\..\\boot.ini",
+    "file:///boot.ini", 0
+   }, "[boot loader]", "File boot.ini was disclosed."},
+
 };
 
 #endif /* _VIA_CHECKS_C */

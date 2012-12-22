@@ -44,6 +44,7 @@
 #include "database.h"
 #include "http_client.h"
 #include "report.h"
+#include "options.h"
 #include "signatures.h"
 #include "auth.h"
 
@@ -138,10 +139,11 @@ static void usage(char* argv0) {
       "  -s s_limit      - response size limit (%u B)\n"
       "  -e              - do not keep binary responses for reporting\n\n"
 
-      "Safety settings:\n\n"
+      "Other settings:\n\n"
 
       "  -l max_req      - max requests per second (%f)\n"
-      "  -k duration     - stop scanning after the given duration h:m:s\n\n"
+      "  -k duration     - stop scanning after the given duration h:m:s\n"
+      "  --config file   - load the specified configuration file\n\n"
 
       "Send comments and complaints to <heinenn@google.com>.\n", argv0,
       max_depth, max_children, max_descendants, max_requests,
@@ -193,7 +195,7 @@ void splash_screen(void) {
 
   while (!stop_soon && fread(keybuf, 1, sizeof(keybuf), stdin) == 0 && time_cnt++ < 600) 
     usleep(100000);
-  
+
 }
 #endif /* SHOW_SPLASH */
 
@@ -246,7 +248,7 @@ static void read_urls(u8* fn) {
       FATAL("Scan target '%s' in file '%s' is not a valid absolute URL.", url, fn);
 
     if (!url_allowed_host(req))
-      APPEND_FILTER(allow_domains, num_allow_domains,
+      APPEND_STRING(allow_domains, num_allow_domains,
                     __DFL_ck_strdup(req->host));
 
     if (!url_allowed(req))
@@ -262,7 +264,6 @@ static void read_urls(u8* fn) {
   fclose(f);
 
   if (!loaded) FATAL("No valid URLs found in '%s'.", fn);
-
 }
 
 
@@ -271,13 +272,19 @@ static void read_urls(u8* fn) {
 int main(int argc, char** argv) {
   s32 opt;
   u32 loop_cnt = 0, purge_age = 0, seed;
-  u8 sig_loaded = 0, show_once = 0, no_statistics = 0,
-     display_mode = 0, has_fake = 0;
+  u8 sig_loaded = 0, show_once = 0, no_statistics = 0, display_mode = 0;
   s32 oindex = 0;
-  u8 *wordlist = NULL, *output_dir = NULL;
+  u8 *wordlist = NULL;
   u8 *sig_list_strg = NULL;
   u8 *gtimeout_str = NULL;
+  const char *config_file = NULL;
   u32 gtimeout = 0;
+
+#ifdef PROXY_SUPPORT
+  /* A bool to track whether a fake Host header is set which doesn't
+     work with the proxy support. */
+  u8 has_fake = 0;
+#endif /* PROXY_SUPPORT */
 
   struct termios term;
   struct timeval tv;
@@ -288,80 +295,37 @@ int main(int argc, char** argv) {
   signal(SIGPIPE, SIG_IGN);
   SSL_library_init();
 
-/* Options, options, and options */
-
-  static struct option long_options[] = {
-    {"auth", required_argument, 0, 'A' },
-    {"host", required_argument, 0, 'F' },
-    {"cookie", required_argument, 0, 'C' },
-    {"reject-cookies", required_argument, 0, 'N' },
-    {"header", required_argument, 0, 'H' },
-    {"user-agent", required_argument, 0, 'b' },
-#ifdef PROXY_SUPPORT
-    {"proxy", required_argument, 0, 'J' },
-#endif /* PROXY_SUPPORT */
-    {"max-depth", required_argument, 0, 'd' },
-    {"max-child", required_argument, 0, 'c' },
-    {"max-descendants", required_argument, 0, 'x' },
-    {"max-requests", required_argument, 0, 'r' },
-    {"max-rate", required_argument, 0, 'l'},
-    {"probability", required_argument, 0, 'p' },
-    {"seed", required_argument, 0, 'q' },
-    {"include", required_argument, 0, 'I' },
-    {"exclude", required_argument, 0, 'X' },
-    {"skip-param", required_argument, 0, 'K' },
-    {"skip-forms", no_argument, 0, 'O' },
-    {"include-domain", required_argument, 0, 'D' },
-    {"ignore-links", no_argument, 0, 'P' },
-    {"no-ext-fuzzing", no_argument, 0, 'Y' },
-    {"log-mixed-content", no_argument, 0, 'M' },
-    {"skip-error-pages", no_argument, 0, 'Z' },
-    {"log-external-urls", no_argument, 0, 'U' },
-    {"log-cache-mismatches", no_argument, 0, 'E' },
-    {"form-value", no_argument, 0, 'T' },
-    {"rw-wordlist", required_argument, 0, 'W' },
-    {"no-keyword-learning", no_argument, 0, 'L' },
-    {"mode", required_argument, 0, 'J' },
-    {"wordlist", required_argument, 0, 'S'},
-    {"trust-domain", required_argument, 0, 'B' },
-    {"max-connections", required_argument, 0, 'g' },
-    {"max-host-connections", required_argument, 0, 'm' },
-    {"max-fail", required_argument, 0, 'f' },
-    {"request-timeout", required_argument, 0, 't' },
-    {"network-timeout", required_argument, 0, 'w' },
-    {"idle-timeout", required_argument, 0, 'i' },
-    {"response-size", required_argument, 0, 's' },
-    {"discard-binary", required_argument, 0, 'e' },
-    {"output", required_argument, 0, 'o' },
-    {"help", no_argument, 0, 'h' },
-    {"quiet", no_argument, 0, 'u' },
-    {"verbose", no_argument, 0, 'v' },
-    {"scan-timeout", required_argument, 0, 'k'},
-    {"signatures", required_argument, 0, 'z'},
-    {"checks", no_argument, 0, 0},
-    {"checks-toggle", required_argument, 0, 0},
-    {"no-checks", no_argument, 0, 0},
-    {"fast", no_argument, 0, 0},
-    {"auth-form", required_argument, 0, 0},
-    {"auth-form-target", required_argument, 0, 0},
-    {"auth-user", required_argument, 0, 0},
-    {"auth-user-field", required_argument, 0, 0},
-    {"auth-pass", required_argument, 0, 0},
-    {"auth-pass-field", required_argument, 0, 0},
-    {"auth-verify-url", required_argument, 0, 0},
-    {0, 0, 0, 0 }
-
-  };
   /* Come up with a quasi-decent random seed. */
 
   gettimeofday(&tv, NULL);
   seed = tv.tv_usec ^ (tv.tv_sec << 16) ^ getpid();
 
-  SAY("skipfish version " VERSION " by <lcamtuf@google.com>\n");
+  SAY("skipfish web application scanner - version " VERSION "\n");
 
-  while ((opt = getopt_long(argc, argv,
-          "+A:B:C:D:EF:G:H:I:J:K:LMNOPQR:S:T:UW:X:YZ"
-          "b:c:d:ef:g:hi:k:l:m:o:p:q:r:s:t:uvw:x:z:",
+  /* We either parse command-line arguments or read them from a config
+     file. First we check if a config file was specified and read it
+     content into the argc and argv pointers */
+
+  while ((opt = getopt_long(argc, argv, OPT_STRING,
+          long_options, &oindex)) >= 0 && !config_file) {
+        if (!opt && !strcmp("config", long_options[oindex].name ))
+          config_file = optarg;
+  }
+
+  /* Reset the index */
+  oindex = 0;
+  optind = 1;
+
+  if (config_file) {
+    DEBUG("Reading configuration file: %s\n", config_file);
+    read_config_file(config_file, &argc, &argv);
+  }
+
+  /* Parse the command-line flags. If a configuration file was specified,
+     the options loaded from it are now present in argv and will therefore
+     be parsed here all together with the CMD options. */
+
+  while ((opt = getopt_long(argc, argv, OPT_STRING,
           long_options, &oindex)) >= 0)
 
     switch (opt) {
@@ -397,7 +361,9 @@ int main(int argc, char** argv) {
           if (fake_addr == (u32)-1)
             FATAL("Could not parse IP address '%s'.", x + 1);
           fake_host((u8*)optarg, fake_addr);
+#ifdef PROXY_SUPPORT
           has_fake = 1;
+#endif /* PROXY_SUPPORT */
           break;
         }
 
@@ -423,26 +389,26 @@ int main(int argc, char** argv) {
 
       case 'D':
         if (*optarg == '*') optarg++;
-        APPEND_FILTER(allow_domains, num_allow_domains, optarg);
+        APPEND_STRING(allow_domains, num_allow_domains, optarg);
         break;
 
       case 'K':
-        APPEND_FILTER(skip_params, num_skip_params, optarg);
+        APPEND_STRING(skip_params, num_skip_params, optarg);
         break;
 
       case 'B':
         if (*optarg == '*') optarg++;
-        APPEND_FILTER(trust_domains, num_trust_domains, optarg);
+        APPEND_STRING(trust_domains, num_trust_domains, optarg);
         break;
 
       case 'I':
         if (*optarg == '*') optarg++;
-        APPEND_FILTER(allow_urls, num_allow_urls, optarg);
+        APPEND_STRING(allow_urls, num_allow_urls, optarg);
         break;
 
       case 'X':
         if (*optarg == '*') optarg++;
-        APPEND_FILTER(deny_urls, num_deny_urls, optarg);
+        APPEND_STRING(deny_urls, num_deny_urls, optarg);
         break;
 
       case 'T': {
@@ -629,30 +595,34 @@ int main(int argc, char** argv) {
         break;
 
       case 0:
-        if (!strcmp("checks", long_options[oindex].name ))
+        if (!strcmp("checks", long_options[oindex].name )) {
           display_injection_checks();
-        if (!strcmp("checks-toggle", long_options[oindex].name ))
+        } else if (!strcmp("checks-toggle", long_options[oindex].name )) {
           toggle_injection_checks((u8*)optarg, 1, 1);
-        if (!strcmp("no-checks", long_options[oindex].name ))
+        } else if (!strcmp("no-injection-tests", long_options[oindex].name )) {
           no_checks = 1;
-        if (!strcmp("signatures", long_options[oindex].name ))
+        } else if(!strcmp("flush-to-disk", long_options[oindex].name )) {
+          flush_pivot_data = 1;
+        } else if (!strcmp("signatures", long_options[oindex].name )) {
           load_signatures((u8*)optarg);
-        if(!strcmp("fast", long_options[oindex].name ))
-          toggle_injection_checks((u8*)"2,4,5,13,14,15,16", 0, 0);
-        if (!strcmp("auth-form", long_options[oindex].name ))
+        } else if(!strcmp("fast", long_options[oindex].name )) {
+          toggle_injection_checks((u8*)"2,4,6,15,16,17", 0, 0);
+        } else if (!strcmp("auth-form", long_options[oindex].name )) {
           auth_form = (u8*)optarg;
-        if (!strcmp("auth-user", long_options[oindex].name ))
+          auth_type = AUTH_FORM;
+        } else if (!strcmp("auth-user", long_options[oindex].name )) {
           auth_user = (u8*)optarg;
-        if (!strcmp("auth-pass", long_options[oindex].name ))
+        } else if (!strcmp("auth-pass", long_options[oindex].name )) {
           auth_pass = (u8*)optarg;
-        if (!strcmp("auth-pass-field", long_options[oindex].name ))
+        } else if (!strcmp("auth-pass-field", long_options[oindex].name )) {
           auth_pass_field = (u8*)optarg;
-        if (!strcmp("auth-user-field", long_options[oindex].name ))
+        } else if (!strcmp("auth-user-field", long_options[oindex].name )) {
           auth_user_field = (u8*)optarg;
-        if (!strcmp("auth-form-target", long_options[oindex].name ))
+        } else if (!strcmp("auth-form-target", long_options[oindex].name )) {
           auth_form_target = (u8*)optarg;
-        if (!strcmp("auth-verify-url", long_options[oindex].name ))
+        } else if (!strcmp("auth-verify-url", long_options[oindex].name )) {
           auth_verify_url = (u8*)optarg;
+        }
 
         break;
 
@@ -691,7 +661,7 @@ int main(int argc, char** argv) {
   /* Parse the timeout string - format h:m:s */
   if (gtimeout_str) {
     int i = 0;
-    int m[3] = { 1, 60, 3600 };
+    int m[3] = { 3600, 60, 1 };
 
     u8* tok = (u8*)strtok((char*)gtimeout_str, ":");
 
@@ -723,7 +693,11 @@ int main(int argc, char** argv) {
   if (sig_list_strg) load_signatures(sig_list_strg);
 
   /* Try to authenticate when the auth_user and auth_pass fields are set. */
-  if (auth_user && auth_pass) {
+  if (auth_type == AUTH_FORM) {
+    if (!auth_user || !auth_pass)
+      FATAL("Authentication requires a username and password.");
+
+    /* Fire off the requests */
     authenticate();
 
     while (next_from_queue()) {
@@ -740,7 +714,9 @@ int main(int argc, char** argv) {
         FATAL("Authentication failed (use -uv for more info)\n");
         break;
     }
+    DEBUG("Authentication done!\n");
   }
+
 
   /* Schedule all URLs in the command line for scanning. */
 
@@ -760,7 +736,7 @@ int main(int argc, char** argv) {
       FATAL("Scan target '%s' is not a valid absolute URL.", argv[optind]);
 
     if (!url_allowed_host(req))
-      APPEND_FILTER(allow_domains, num_allow_domains,
+      APPEND_STRING(allow_domains, num_allow_domains,
                     __DFL_ck_strdup(req->host));
 
     if (!url_allowed(req))
@@ -875,6 +851,7 @@ int main(int argc, char** argv) {
     destroy_signature_lists();
     destroy_http();
     destroy_signatures();
+    destroy_config();
     __TRK_report();
   }
 #endif /* DEBUG_ALLOCATOR */

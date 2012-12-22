@@ -27,12 +27,6 @@
 
 #define SHOW_SPLASH             1       /* Annoy user with a splash screen */
 
-/* Define this to enable experimental HTTP proxy support, through the -J
-   option in the command line. This mode will not work as expected for
-   HTTPS requests at this time - sorry. */
-
-// #define PROXY_SUPPORT           1
-
 /* Default paths to runtime files: */
 
 #define ASSETS_DIR              "assets"
@@ -65,6 +59,12 @@
    XSSes, and increase memory usage a bit. */
 
 // #define QUEUE_FILO              1
+
+/* Define this to enable experimental HTTP proxy support, through the -J
+   option in the command line. This mode will not work as expected for
+   HTTPS requests at this time. */
+
+// #define PROXY_SUPPORT           1
 
 /* Dummy file to upload to the server where possible. */
 
@@ -157,16 +157,15 @@
 #define XSRF_B64_NUM2   3               /* ...digit count override         */
 #define XSRF_B64_SLASH  2               /* ...maximum slash count          */
 
-#ifdef _VIA_CRAWLER_C
+#ifdef _VIA_CHECKS_C
 
-/* The URL and string we use in the RFI test */
+/* The URL and string we use in the RFI test (disabled by default) */
 
-#ifdef RFI_SUPPORT
 #define RFI_HOST   "http://www.google.com/humans.txt#foo="
 #define RFI_STRING "we can shake a stick"
-#endif
 
-#endif /* _VIA_CRAWLER_C */
+
+#endif /* _VIA_CHECKS_C */
 
 #ifdef _VIA_DATABASE_C
 
@@ -279,5 +278,4 @@ static const char* form_suggestion[][2] = {
 };
 
 #endif /* _VIA_ANALYSIS_C */
-
 #endif /* ! _HAVE_CONFIG_H */

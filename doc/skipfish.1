@@ -72,15 +72,13 @@ Performance settings:
   \-s s_limit     \- response size limit (200000 B)
   \-e             \- do not keep binary responses for reporting
 
-Safety settings:
+Other settings:
   \-k duration    \- stop scanning after the given duration h:m:s
+  \--config file  \- load specified configuration file
 
 .SH AUTHENTICATION AND ACCESS
 .PP
 Some sites require authentication, and skipfish supports this in different ways. First there is basic HTTP authentication, for which you can use the \-A flag. Second, and more common, are sites that require authentication on a web application level. For these sites, the best approach is to capture authenticated session cookies and provide them to skipfish using the \-C flag (multiple if needed). Last, you'll need to put some effort in protecting the session from being destroyed by excluding logout links with \-X and/or by rejecting new cookies with \-N.
-
-.IP "-A/--auth <username:password>"
-For sites requiring basic HTTP authentication, you can use this flag to specify your credentials.
 
 .IP "-F/--host <ip:hostname>"
 Using this flag, you can set the \'\fIHost:\fP\' header value to define a custom mapping between a host and an IP (bypassing the resolver). This feature is particularly useful for not-yet-launched or legacy services that don't have the necessary DNS entries.
@@ -97,30 +95,46 @@ This flag allows the user-agent to be specified where \'\fIi\fP\' stands for Int
 .IP "-N/--reject-cookies"
 This flag causes skipfish to ignore cookies that are being set by the site. This helps to enforce stateless tests and also prevent that cookies set with \'-C\' are not overwritten.
 
+.IP "-A/--auth <username:password>"
+For sites requiring basic HTTP authentication, you can use this flag to specify your credentials.
+
+.IP "--auth-form <URL>"
+The login form to use with form authentication. By default skipfish will use the form's action URL to submit the credentials. If this is missing than the login data is send to the form URL. In case that is wrong, you can set the form handler URL with --auth-form-target <URL> .
+
+.IP "--auth-user <username>"
+The username to be used during form authentication. Skipfish will try to detect the correct form field to use but if it fails to do so (and gives an error), then you can specify the form field name with --auth-user-field.
+
+.IP "--auth-pass <password>"
+The password to be used during form authentication. Similar to auth-user, the form field name can (optionally) be set with --auth-pass-field.
+
+.IP "--auth-verify-url <URL>"
+This URL allows skipfish to verify whether authentication was successful. This requires a URL where anonymous and authenticated requests are answered with a different response.
+
+
 .SH CRAWLING SCOPE
 .PP
 Some sites may be too big to scan in a reasonable timeframe. If the site features well-defined tarpits - for example, 100,000 nearly identical user profiles as a part of a social network - these specific locations can be excluded with -X or -S. In other cases, you may need to resort to other settings: -d limits crawl depth to a specified number of subdirectories; -c limits the number of children per directory; -x limits the total number of descendants per crawl tree branch; and -r limits the total number of requests to send in a scan.
 
-.IP "-d/--max-depth <depth>"
+.IP "-d/--max-crawl-depth <depth>"
 Limit the depth of subdirectories being crawled (see above).
-.IP "-c/--max-child <childs>"
+.IP "-c/--max-crawl-child <childs>"
 Limit the amount of subdirectories per directory we crawl into (see above).
-.IP "-x/--max-descendants <descendants>"
+.IP "-x/--max-crawl-descendants <descendants>"
 Limit the total number of descendants per crawl tree branch (see above).
-.IP "-r/--max-requests <request>"
+.IP "-r/--max-request-total <request>"
 The maximum number of requests can be limited with this flag.
-.IP "-p/--probability <0-100>"
+.IP "-p/--crawl-probability <0-100>"
 By specifying a percentage between 1 and 100%, it is possible to tell the crawler to follow fewer than 100% of all links, and try fewer than 100% of all dictionary entries. This \- naturally \- limits the completeness of a scan, but unlike most other settings, it does so in a balanced, non-deterministic manner. It is extremely useful when you are setting up time-bound, but periodic assessments of your infrastructure.
 .IP "-q/--seed <seed>"
 This flag sets the initial random seed for the crawler to a specified value. This can be used to exactly reproduce a previous scan to compare results.  Randomness is relied upon most heavily in the -p mode, but also influences a couple of other scan management decisions.
 
-.IP "-I/--include <domain/path>"
+.IP "-I/--include-string <domain/path>"
 With this flag, you can tell skipfish to only crawl and test URLs that match a certain string. This can help to narrow down the scope of a scan by only whitelisting certain sections of a web site (e.g. \-I /shop).
 
-.IP "-X/--exclude <domain/path>"
+.IP "-X/--exclude-string <domain/path>"
 The \-X option can be used to exclude files / directories from the scan. This is useful to avoid session termination (i.e. by excluding /logout) or just for speeding up your scans by excluding static content directories like /icons/, /doc/, /manuals/, and other standard, mundane locations along these lines.
 
-.IP "-K/--skip-param <parameter name>"
+.IP "-K/--skip-parameter <parameter name>"
 This flag allows you to specify parameter names not to fuzz. (useful for applications that put session IDs in the URL, to minimize noise).
 
 .IP "-D/--include-domain <domain>"
@@ -132,10 +146,10 @@ In some cases, you do not want to actually crawl a third-party domain, but you t
 .IP "-Z/--skip-error-pages"
 Do not crawl into pages / directories that give an error 5XX.
 
-.IP "-O/--skip-forms"
+.IP "-O/--no-form-submits"
 Using this flag will cause forms to be ignored during the scan.
 
-.IP "-P/--ignore-links"
+.IP "-P/--no-html-parsing"
 This flag will disable link extracting and effectively disables crawling. Using \-P is useful when you want to test one specific URL or when you want to feed skipfish a list of URLs that were collected with an external crawler.
 
 .SH TESTING SCOPE
@@ -147,7 +161,7 @@ EXPERIMENTAL: Displays the crawler injection tests. The output shows the index n
 .IP "--checks-toggle <check1,check2,..>"
 EXPERIMENTAL: Every injection test can be enabled/disabled with using this flag. As value, you need to provide the check numbers which can be obtained with the \-\-checks flag. Multiple checks can be toggled via a comma separated value (i.e. \-\-checks\-toggle 1,2 )
 
-.IP "--no-checks"
+.IP "--no-injection-tests"
 EXPERIMENTAL: Disables all injection tests for this scan and limits the scan to crawling and, optionally, bruteforcing. As with all scans, the output directory will contain a pivots.txt file. This file can be used to feed future scans.
 
 .SH REPORTING OPTIONS
@@ -176,7 +190,7 @@ EXPERIMENTAL: Use this flag to enable runtime reporting of, for example, problem
 
 .SH DICTIONARY MANAGEMENT
 .PP
-Make sure you've read the instructions provided in dictionaries/README-FIRST to select the right dictionary file and configure it correctly. This step has a profound impact on the quality of scan results later on.
+Make sure you've read the instructions provided in doc/dictionaries.txt to select the right dictionary file and configure it correctly. This step has a profound impact on the quality of scan results later on.
 
 .IP "-S/--wordlist <file>"
 Load the specified (read-only) wordlist for use during the scan. This flag is optional but use of a dictionary is highly recommended when performing a blackbox scan as it will highlight hidden files and directories.
@@ -187,7 +201,7 @@ Specify an initially empty file for any newly learned site-specific keywords (wh
 .IP "-L/--no-keyword-learning"
 During the scan, skipfish will try to learn and use new keywords. This flag disables that behavior and should be used when any form of brute-forcing is not desired.
 
-.IP "-Y/--no-ext-fuzzing"
+.IP "-Y/--no-extension-brute"
 This flag will disable extension guessing during directory bruteforcing.
 
 .IP "-R <age>"
@@ -202,7 +216,7 @@ During the scan, a temporary buffer of newly detected keywords is maintained. Th
 .SH PERFORMANCE OPTIONS
 The default performance setting should be fine for most servers but when the report indicates there were connection problems, you might want to tweak some of the values here. For unstable servers, the scan coverage is likely to improve when using low values for rate and connection flags.
 
-.IP "-l/--max-rate <rate>"
+.IP "-l/--max-request-rate <rate>"
 This flag can be used to limit the amount of requests per second. This is very useful when the target server can't keep up with the high amount of requests that are generated by skipfish. Keeping the amount requests per second low can also help preventing some rate-based DoS protection mechanisms from kicking in and ruining the scan.
 
 .IP "-g/--max-connections <number>"
@@ -211,7 +225,7 @@ The max simultaneous TCP connections (global) can be set with this flag.
 .IP "-m/--max-host-connections <number>"
 The max simultaneous TCP connections, per target IP,  can be set with this flag.
 
-.IP "-f/--max-fail <number>"
+.IP "-f/--max-failed-requests <number>"
 Controls the maximum number of consecutive HTTP errors you are willing to see before aborting the scan. For large scans, you probably want to set a higher value here.
 
 .IP "-t/--request-timeout <timeout>"
@@ -229,7 +243,16 @@ Sets the maximum length of a response to fetch and parse (longer responses will 
 .IP "-e/--discard-binary"
 This prevents binary documents from being kept in memory for reporting purposes, and frees up a lot of RAM.
 
+.IP "--flush-to-disk"
+This causes request / response data to be flushed to disk instead of being kept in memory. As a result, the memory usage for large scans will be significant lower.
+
 .SH EXAMPLES
+\fBScan type: config\fP
+.br
+skipfish \-\-config config/example.conf http://example.com
+.br
+
+.br
 \fBScan type: quick\fP
 .br
 skipfish \-o output/dir/ http://example.com

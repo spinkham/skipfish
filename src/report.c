@@ -49,6 +49,7 @@ struct p_sig_desc {
 static struct p_sig_desc* p_sig;
 static u32 p_sig_cnt;
 u8 suppress_dupes;
+u8 *output_dir = NULL;
 u32 verbosity = 0;
 
 
@@ -414,44 +415,119 @@ static void describe_res(FILE* f, struct http_response* res) {
 
 }
 
-
 /* Helper to save request, response data. */
 
+static void create_link(const char *dir, const char *target) {
+
+   if (!dir || !target) return;
+
+   u8 *tmp = ck_alloc(strlen(dir) + strlen(target) + 2);
+
+   sprintf((char*)tmp, "%s/%s", dir, target);
+
+   if (link((char*)tmp, target) == -1)
+     PFATAL("Unable to create hardlink: %s -> %s\n", dir, target);
+
+   ck_free(tmp);
+
+}
+
+
+/* Helper function to collects MIME samples. */
+
+static void collect_samples(struct http_request *req, struct http_response *res) {
+
+  u32 i;
+
+  /* No data, no samples */
+  if (!req || !res) return;
+
+  if (!req->pivot->dupe && res->sniffed_mime) {
+
+    for (i=0;i<m_samp_cnt;i++)
+      if (!strcmp((char*)m_samp[i].det_mime, (char*)res->sniffed_mime)) break;
+
+      if (i == m_samp_cnt) {
+        m_samp = ck_realloc(m_samp, (i + 1) * sizeof(struct mime_sample_desc));
+        m_samp[i].det_mime = res->sniffed_mime;
+        m_samp_cnt++;
+      } else {
+        u32 c;
+
+      /* If we already have something that looks very much the same on the
+         list, don't bother reporting it again. */
+
+        for (c=0;c<m_samp[i].sample_cnt;c++)
+          if (same_page(&m_samp[i].res[c]->sig, &res->sig)) return;
+      }
+
+      m_samp[i].req = ck_realloc(m_samp[i].req, (m_samp[i].sample_cnt + 1) *
+                               sizeof(struct http_request*));
+      m_samp[i].res = ck_realloc(m_samp[i].res, (m_samp[i].sample_cnt + 1) *
+                               sizeof(struct http_response*));
+      m_samp[i].req[m_samp[i].sample_cnt] = req;
+      m_samp[i].res[m_samp[i].sample_cnt] = res;
+      m_samp[i].sample_cnt++;
+
+  }
+}
+
+
 static void save_req_res(struct http_request* req, struct http_response* res, u8 sample) {
-  FILE* f;
+  FILE *f;
+  u8 *rd, *rs;
+  u32 i;
 
-  if (req) {
-    u8* rd = build_request_data(req);
-    f = fopen("request.dat", "w");
-    if (!f) PFATAL("Cannot create 'request.dat'");
-    if (fwrite(rd, strlen((char*)rd), 1, f)) {};
-    fclose(f);
-
-    /* Write .js file with base64 encoded json data. */
-    u32 size = 0;
-    u8* rd_js;
-    NEW_STR(rd_js, size);
-    ADD_STR_DATA(rd_js, size, "var req = {'data':'");
-    ADD_STR_DATA(rd_js, size, js_escape(rd, 0));
-    ADD_STR_DATA(rd_js, size, "'}");
-
-    f = fopen("request.js", "w");
-    if (!f) PFATAL("Cannot create 'request.js'");
-    if (fwrite(rd_js, strlen((char*)rd_js), 1, f)) {};
-    fclose(f);
-
-    ck_free(rd_js);
-    ck_free(rd);
+  /* No request ? We should probably crash here but that's not nice when
+     writing down a large report. Will warn in debug mode. */
+  if (!req) {
+    DEBUG("ERROR: save_req_res() was called but req == NULL\n");
+    return;
   }
 
-  if (res && req && res->state == STATE_OK) {
-    u32 i;
+  /* First check if the data has already been flushed to disk. If this
+     is the case, we'll make a copy/hardlink to the data in the CWD */
+
+  if (res && req->flushed && res->flushed) {
+    create_link((const char *)req->flush_dir, "request.dat");
+    create_link((const char *)req->flush_dir, "request.js");
+    create_link((const char *)res->flush_dir, "response.dat");
+    create_link((const char *)res->flush_dir, "response.js");
+
+    /* Collect samples */
+    if (sample) collect_samples(req, res);
+   
+    /* And done! */
+    return;
+  }
+
+ 
+  /* Getting here means we need to write down the request and
+     response. This is typically required upon when we flush data from
+     pivots that are DONE or upon report writing. */
+
+  rd = build_request_data(req);
+  f = fopen("request.dat", "w");
+  if (!f) PFATAL("Cannot create 'request.dat'");
+  fprintf(f, "%s", (char*)rd);
+  fclose(f);
+
+  /* Write .js file with base64 encoded json data. */
+  f = fopen("request.js", "w");
+  if (!f) PFATAL("Cannot create 'request.js'");
+
+  fprintf(f, "var req = {'data':'%s'}", js_escape(rd, 0));
+  fclose(f);
+
+  ck_free(rd);
+
+  if (res && res->state == STATE_OK) {
     f = fopen("response.dat", "w");
     if (!f) PFATAL("Cannot create 'response.dat'");
 
     u64 msg_size = strlen((char*)res->msg);
     u64 rs_size = msg_size + strlen("HTTP/1.1 1000 \n") + 1;
-    u8* rs = ck_alloc(rs_size);
+    rs = ck_alloc(rs_size);
     snprintf((char*)rs, rs_size -1, "HTTP/1.1 %u %s\n", res->code, res->msg);
 
     u32 s = strlen((char*)rs);
@@ -469,56 +545,97 @@ static void save_req_res(struct http_request* req, struct http_response* res, u8
       ADD_STR_DATA(rs, s, res->payload);
     }
 
-    if (fwrite(rs, strlen((char*)rs), 1, f)) {};
+    fprintf(f, "%s", rs);
     fclose(f);
 
     /* Write .js file with base64 encoded json data. */
-    u8* rs_js;
-    NEW_STR(rs_js, s);
-    ADD_STR_DATA(rs_js, s, "var res = {'data':'");
-    ADD_STR_DATA(rs_js, s, js_escape(rs, 0));
-    ADD_STR_DATA(rs_js, s, "'}");
 
     f = fopen("response.js", "w");
     if (!f) PFATAL("Cannot create 'response.js'");
-    if (fwrite(rs_js, strlen((char*)rs_js), 1, f)) {};
+    fprintf(f, "var res = {'data':'%s'}", js_escape(rs, 0));
     fclose(f);
 
-    ck_free(rs_js);
     ck_free(rs);
 
-    /* Also collect MIME samples at this point. */
-
-    if (!req->pivot->dupe && res->sniffed_mime && sample) {
-
-      for (i=0;i<m_samp_cnt;i++) 
-        if (!strcmp((char*)m_samp[i].det_mime, (char*)res->sniffed_mime)) break;
-
-      if (i == m_samp_cnt) {
-        m_samp = ck_realloc(m_samp, (i + 1) * sizeof(struct mime_sample_desc));
-        m_samp[i].det_mime = res->sniffed_mime;
-        m_samp_cnt++;
-      } else {
-        u32 c;
-
-        /* If we already have something that looks very much the same on the
-           list, don't bother reporting it again. */
-
-        for (c=0;c<m_samp[i].sample_cnt;c++)
-          if (same_page(&m_samp[i].res[c]->sig, &res->sig)) return;
-      }
-
-      m_samp[i].req = ck_realloc(m_samp[i].req, (m_samp[i].sample_cnt + 1) *
-                                 sizeof(struct http_request*));
-      m_samp[i].res = ck_realloc(m_samp[i].res, (m_samp[i].sample_cnt + 1) *
-                                 sizeof(struct http_response*));
-      m_samp[i].req[m_samp[i].sample_cnt] = req;
-      m_samp[i].res[m_samp[i].sample_cnt] = res;
-      m_samp[i].sample_cnt++;
-
-    }
-
   }
+
+  /* Collect samples if asked */
+  if (sample) collect_samples(req, res);
+
+}
+
+/* Flush payloads to tmp dir so we can free up memory */
+
+u32 flush_cnt = 0;
+u8 cache_created = 0;
+
+void flush_payload(struct http_request* req, struct http_response* res) {
+
+  u8 *tmp;
+  char *cwd;
+
+  /* To simplify: we flush pairs */
+  if (!req || !res || res->state != STATE_OK)
+    return;
+
+  /* Only flush them once */
+  if (req->flushed || res->flushed)
+    return;
+
+  /* Create the flush directory when this function is called for the
+     first time */
+
+  if (!cache_created) {
+
+    char *flush_dir = (char*)ck_alloc(strlen((char*)output_dir) + 7);
+    sprintf(flush_dir, "%s/%s", (char*)output_dir, "cache");
+
+    if (mkdir(flush_dir, 0755))
+      PFATAL("Cannot create cache: %s", flush_dir);
+
+    ck_free(flush_dir);
+    cache_created = 1;
+  }
+
+  cwd = getcwd(NULL, 0);
+  if (!cwd) PFATAL("Unable to get CWD.");
+
+  if (output_dir[0] == '/') {
+    tmp = ck_alloc(strlen((char*)output_dir) + 33);
+    sprintf((char*)tmp, "%s/cache/%u", (char*)output_dir, flush_cnt);
+  } else {
+    tmp = ck_alloc(strlen(cwd) + strlen((char*)output_dir) + 33);
+    sprintf((char*)tmp, "%s/%s/cache/%u", cwd, (char*)output_dir, flush_cnt);
+  }
+
+  if (mkdir((char*)tmp, 0755) == -1)
+    PFATAL("Cannot create cache subdir: %s", tmp);
+
+  if (chdir((char*)tmp) == -1)
+    PFATAL("chdir to %s unexpectedly fails!", tmp);
+
+
+  /* Record the location */
+  req->flush_dir = ck_strdup(tmp);
+  res->flush_dir = ck_strdup(tmp);
+  ck_free(tmp);
+
+  save_req_res(req, res, 0);
+
+  req->flushed = 1;
+  res->flushed = 1;
+
+  /* The big memory saver */
+  if (res->payload) {
+    ck_free(res->payload);
+    res->payload = NULL;
+  }
+
+  if (chdir(cwd) == -1)
+    PFATAL("chdir to %s unexpectedly fails!", cwd);
+
+  free(cwd);
+  flush_cnt++;
 
 }
 
@@ -836,11 +953,23 @@ static void save_pivots(FILE* f, struct pivot_desc* cur) {
       default: fprintf(f, "linked=yes ");
     }
 
-
-    /* When in no_checks mode, we'll report all the detected files and
-       directories. We don't do this when crawling is disabled.. */
-    if(!cur->linked && no_checks && !no_parse)
+    /* Report items that were not linked in any way. Unless -P is used in which
+       case crawling is disabled and therefore this will cause many false
+       alerts. */
+    if (!cur->linked && !no_parse && !cur->missing)
       problem(PROB_HIDDEN_NODE, cur->req, cur->res, 0, cur, 0);
+
+    /* Record pivots where different agents result in different responses */
+    fprintf(f, "browsers=%d ", cur->browsers ? cur->browsers : browser_type);
+
+    /* Print the user agent type used */
+    switch (cur->browser) {
+      case 0:  fprintf(f, "browser_used=FAST "); break;
+      case 1:  fprintf(f, "browser_used=MSIE "); break;
+      case 2:  fprintf(f, "browser_used=FFOX "); break;
+      case 4:  fprintf(f, "browser_used=PHONE "); break;
+      default: fprintf(f, "browser_used=??? ");
+    }
 
     if (cur->res)
       fprintf(f, "dup=%u %s%scode=%u len=%u notes=%u sig=0x%x\n", cur->dupe,
@@ -850,6 +979,8 @@ static void save_pivots(FILE* f, struct pivot_desc* cur) {
              cur->issue_cnt, cur->pv_sig);
     else
       fprintf(f, "not_fetched\n");
+
+
 
   }
 

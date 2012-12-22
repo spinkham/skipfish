@@ -138,7 +138,7 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
 #ifdef LOG_STDERR
 
   u8* url = serialize_path(req, 1, 1);
-  DEBUG("--- New pivot requested: %s (%d) --\n", url, via_link);
+  DEBUG("--- New pivot requested: %s (%d,%d)\n", url, via_link, req->browser);
   ck_free(url);
 
 #endif /* LOG_STDERR */
@@ -261,7 +261,8 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
 
     for (c=0;c<ccnt;c++)
       if (!(is_c_sens(cur) ? strcmp : strcasecmp)((char*)pname,
-           (char*)cur->child[c]->name)) {
+           (char*)cur->child[c]->name) && (!req->browser ||
+            req->browser == cur->child[c]->browser)) {
         cur = cur->child[c];
         if (cur->linked < via_link) cur->linked = via_link;
         break;
@@ -307,6 +308,7 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
       n->parent  = cur;
       n->linked  = via_link;
       n->name    = ck_strdup(pname);
+      n->browser = req->browser;
 
       /* Copy the original request, then copy over path up to the
          current point. */
@@ -456,7 +458,8 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
 
     for (c=0;c<ccnt;c++)
       if (!(is_c_sens(cur) ? strcmp : strcasecmp)((char*)pname,
-            (char*)cur->child[c]->name)) {
+            (char*)cur->child[c]->name) && (!req->browser ||
+            req->browser == cur->child[c]->browser)) {
         cur = cur->child[c];
         if (cur->linked < via_link) cur->linked = via_link;
         break;
@@ -490,6 +493,7 @@ void maybe_add_pivot(struct http_request* req, struct http_response* res,
       n->type    = PIVOT_PARAM;
       n->linked  = via_link;
       n->name    = ck_strdup(pname);
+      n->browser = req->browser;
 
       /* Copy the original request, in full. Remember not to fuzz
          file inputs. */
@@ -1156,7 +1160,7 @@ void load_keywords(u8* fname, u8 read_only, u32 purge_age) {
     if (read_only)
       PFATAL("Unable to open read-only wordlist '%s'.", fname);
     else
-      PFATAL("Unable to open read-write wordlist '%s' (see dictionaries/README-FIRST).", fname);
+      PFATAL("Unable to open read-write wordlist '%s' (see doc/dictionaries.txt).", fname);
   }
 
   sprintf(fmt, "%%2s %%u %%u %%u %%%u[^\x01-\x1f]", MAX_WORD);

@@ -1,3 +1,44 @@
+Version 2.10b:
+  - Updated HTML tags and attributes that are checked for URL XSS
+    injections to also include a few HTML5 specific ones
+
+  - Updated test and description for semi-colon injection in HTML meta
+    refresh tags (this is IE6 specific)
+
+  - Relaxed HTML parsing a bit to allow spaces between HTML tag attributes
+    and their values (e.g. "foo =bar").
+
+  - Major update of LFI tests by adding more dynamic tests (double
+    encoding, dynamic amount of ../'s for web.xml). The total amount of
+    tests for this vulnerability is now 40 per injection point.
+
+  - The RFI test is now a separate test and no longer requires special
+    compile options. The default RFI URL and it's payload check are
+    still defined in src/config.h.
+
+  - Using the --flush-to-disk flag will cause requests and responses
+    to be flushed to disk which reduces the memory footprint. (especially
+    noticable in large scans)
+
+  - Fixed a bug where in some conditions (e.g. a page looks similar to
+    another) links were not scraped from responses which lead to links
+    to be missed (thanks to Anurag Chaurasia for reporting)
+
+  - Added configuration file support with the --config flag. In
+    config/example.conf you can find flags and examples.
+
+  - Several signature keyword enhancements have been made. Most
+    significant are the "header" keyword, which allows header matching
+    and the "depend" keyword which allows signature chaining.
+
+  - Fixed basic authentication which was broken per 2.08b. Cheers to
+    Michael Stevens for reporting.
+
+  - Fixed -k scheduling where 1:0:0 would count as a second in stead of
+    an hour (also visa versa). Cheers to Claudio Criscione for reporting.
+
+  - Small fix to compile time warnings
+
 Version 2.09b:
 
   - Fixed a crash that could be triggered during 404 fingerprint failures

@@ -59,6 +59,13 @@ void authenticate();
     } \
   } while (0)
 
+#define PREFIX_STRING(_orig, _str) do { \
+     u8* tmp = ck_alloc(strlen((char*)_orig) + strlen((char*)_str) + 1); \
+     sprintf((char*)tmp, "%s%s", (char*)_str, (char*)_orig); \
+     ck_free(_orig); \
+     _orig = tmp; \
+   } while (0)
+
 /* Classifies a response, with a special handling of "unavailable" and
    "gateway timeout" codes. */
 
@@ -72,6 +79,7 @@ extern u8  no_parse,            /* Disable HTML link detection */
            no_fuzz_ext,         /* Don't fuzz ext in dirs?     */
            no_500_dir,          /* Don't assume dirs on 500    */
            delete_bin,          /* Don't keep binary responses */
+           flush_pivot_data,    /* Flush pivot data to disk    */
            log_ext_urls;        /* Log external URLs?          */
 
 /* Provisional debugging callback. */

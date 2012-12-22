@@ -122,6 +122,18 @@ static u8 compile_content(struct content_struct *content) {
 
 }
 
+/* Look up a signature. */
+static struct signature* get_signature(u32 id) {
+  u32 i;
+
+  for (i=0; i<slist_cnt; i++) {
+    if (sig_list[i]->id == id)
+      return sig_list[i];
+  }
+
+  return NULL;
+}
+
 /* Parses the signature string that is given as the first parameter and returns
    a signature struct */
 
@@ -145,31 +157,41 @@ struct signature* parse_sig(u8* tline) {
       name++;
 
     /* Split on the value and, for now, return NULL when there is no
-       value. Later we should add value-less keywords, like 'nocase' */
-    val = (u8*)index((char*)name, ':');
+       value. We check for keyworks without value, like nocase.  */
 
-    if(!val) {
+    val = name;
+    while (*val && val++) {
+      if (*val == ':') {
+        *val = 0;
+        val++;
+        break;
+      }
+
+      if (*val == ';') break;
+    }
+
+
+    if(!*val) {
       ck_free(sig);
       ck_free(tline);
       return 0;
     }
-    *val = 0;
 
     /* Check if ! is present and set 'not' */
-    if (++val && *val == '!') {
+    if (*val == '!') {
      no = 1;
      val++;
     }
 
     /* Move to value and check if quoted */
-    if (val && (*val == '\'' || *val == '"')) {
+    if (*val && (*val == '\'' || *val == '"')) {
       in_quot = *val;
       val++;
     }
 
     /* Find the end of the value string */
     line = val;
-    while (++line) {
+    while (*line && (in_quot || *line != ';') && line++) {
       if(*line == '\\') {
         line++;
         continue;
@@ -179,15 +201,11 @@ struct signature* parse_sig(u8* tline) {
       if (in_quot && *line == in_quot) {
         in_quot = 0;
         *line = 0;
+        line++;
         continue;
       }
-
-      /* End of the value? */
-      if (!in_quot && *line == ';') {
-        *line = 0;
-        break;
-      }
     }
+   *line = 0;
 
     switch (lookup(name)) {
       case SIG_ID:
@@ -223,6 +241,14 @@ struct signature* parse_sig(u8* tline) {
       case SIG_MEMO:
         sig->memo = unescape_str(val);
         break;
+      case SIG_PCRE_MATCH:
+        if (!lcontent) {
+          WARN("Found 'regex_match' before 'content', skipping..");
+          break;
+        }
+
+        lcontent->cap_match_str = unescape_str(val);
+        break;
       case SIG_TYPE:
         if (!lcontent) {
           WARN("Found 'type' before 'content', skipping..");
@@ -247,6 +273,19 @@ struct signature* parse_sig(u8* tline) {
         }
         lcontent->offset = atoi((char*)val);
         break;
+      case SIG_REPORT:
+        /* TODO(heinenn): support "never" */
+        if (!strcmp((char*)val, "once")) {
+            sig->report = REPORT_ONCE;
+        } else {
+            sig->report = REPORT_ALWAYS;
+        }
+        break;
+      case SIG_DEPEND:
+        /* Chain to another signature */
+        sig->depend = get_signature(atoi((char*)val));
+        break;
+
       case SIG_SEV:
         sig->severity = atoi((char*)val);
         break;
@@ -265,11 +304,26 @@ struct signature* parse_sig(u8* tline) {
           WARN("Found 'case' before 'content', skipping..");
           break;
         }
-        if (!strcmp((char*)val, "no"))
-          lcontent->nocase = 1;
+        lcontent->nocase = 1;
+        break;
+      case SIG_PROTO:
+        if (!strcmp((char*)val, "https")) {
+          sig->proto = PROTO_HTTPS;
+        } else if (!strcmp((char*)val, "http")) {
+          sig->proto = PROTO_HTTP;
+        } else {
+          WARN("Unknown proto specified: %s (skipping)", val);
+        }
         break;
       case SIG_MIME:
         sig->mime = unescape_str(val);
+        break;
+      case SIG_HEADER:
+        if (sig->header) {
+          FATAL("Found multiple 'header' keywords, skipping..");
+          break;
+        }
+        sig->header = unescape_str(val);
         break;
       case SIG_CODE:
         sig->rcode = atoi((char*)val);
@@ -314,7 +368,7 @@ struct signature* parse_sig(u8* tline) {
 
 void load_signatures(u8* fname) {
   FILE* in;
-  u8 tmp[MAX_SIG_LEN];
+  u8 tmp[MAX_SIG_LEN + 1];
   u8 include[MAX_SIG_FNAME + 1];
   u32 in_cnt = 0;
   u8 fmt[20];
@@ -331,9 +385,22 @@ void load_signatures(u8* fname) {
   if (!sig_list)
     sig_list = ck_alloc(sizeof(struct signature*) * MAX_SIG_CNT);
 
-  while (fgets((char*)tmp, MAX_SIG_LEN, in)) {
-    if (tmp[0] == '#')
+  u32 sig_off = 0;
+  s32 tmp_off = 0;
+  while (fgets((char*)tmp + sig_off, MAX_SIG_LEN - sig_off, in)) {
+
+    if (tmp[0] == '#' || tmp[0] == '\n' || tmp[0] == '\r')
       continue;
+
+    /* We concat signature lines that end with a trailing \ */
+    tmp_off = strlen((char*)tmp) - 1;
+    while (tmp_off && isspace(tmp[tmp_off]))
+      tmp_off--;
+
+    if (tmp[tmp_off] == '\\') {
+      sig_off = tmp_off;
+      continue;
+    }
 
     /* When the include directive is present, we'll follow it */
     if (!strncmp((char*)tmp, "include ", 8)) {
@@ -345,14 +412,15 @@ void load_signatures(u8* fname) {
         FATAL("Too many signature includes (max: %d)\n", MAX_SIG_INCS);
 
       sprintf((char*)fmt, "%%%u[^\x01-\x1f]", MAX_SIG_FNAME);
-      sscanf((char*)tmp + 8,(char*)fmt, (char*)&include);
+      sscanf((char*)tmp + 8,(char*)fmt, (char*)include);
 
       DEBUG("- Including signature file: %s\n", include);
       load_signatures(include);
-
+      continue;
     }
 
     sig = parse_sig(tmp);
+    sig_off = 0;
 
     if(sig == NULL)
       continue;
@@ -368,16 +436,39 @@ void load_signatures(u8* fname) {
   fclose(in);
 }
 
+/* Helper function to check if a certain signature matched. This is,
+   for example, useful to chain signatures. */
+
+static u8 matched_sig(struct pivot_desc *pv, u32 sid) {
+  u32 i;
+
+  if (!pv->issue_cnt) return 0;
+
+  /* Will optimise this later by changing the way signature match
+     information is stored per pivot */
+  for (i=0; i<pv->issue_cnt; i++) {
+    if (pv->issue[i].sid == sid)
+      return 1;
+  }
+
+  return 0;
+}
+
 u8 match_signatures(struct http_request *req, struct http_response *res) {
 
   u8 pcre_ret, matches = 0;
   u8 *payload, *match = NULL;
   u32 ovector[PCRE_VECTOR];
-  u32 pay_len, j = 0, i = 0;
+  struct pivot_desc *tpv;
+  u32 ccnt, pay_len, j = 0, i = 0;
 
   struct content_struct *content = NULL;
 
   for ( j = 0; j < slist_cnt; j++ ) {
+
+    /* Check the signature is protocol specific (e.g. SSL-only) */
+    if (sig_list[j]->proto && (sig_list[j]->proto != req->proto))
+      continue;
 
     /* Check if the signature is only intended for one of the active tests. */
     if (sig_list[j]->check && (req->pivot->check_id > 0 &&
@@ -388,6 +479,21 @@ u8 match_signatures(struct http_request *req, struct http_response *res) {
     /* Compare response code */
     if (sig_list[j]->rcode && sig_list[j]->rcode != res->code)
       continue;
+
+    /* If dependent on another signature, first check if that signature
+       matches. If it than we're done with this sig */
+    if (sig_list[j]->depend) {
+      tpv = req->pivot;
+
+      /* If report == 1 then we need to look at the host pivot */
+      if (sig_list[j]->depend->report == REPORT_ONCE)
+        tpv = host_pivot(req->pivot);
+
+      /* Do the check */
+      if(!matched_sig(tpv, sig_list[j]->depend->id))
+         continue;
+    }
+
     /* Compare the mime types */
     if (sig_list[j]->mime && res->header_mime) {
       /* Skip if the mime doesn't match */
@@ -410,8 +516,25 @@ u8 match_signatures(struct http_request *req, struct http_response *res) {
     if (res->doc_type == 1 || !sig_list[j]->content_cnt)
       continue;
 
-    payload = res->payload;
-    pay_len = res->pay_len;
+    /* If this is a header signature, than this is our payload for
+       matching.  Else, we'll take the response body */
+
+    if (!sig_list[j]->header) {
+      payload = res->payload;
+      pay_len = res->pay_len;
+
+    } else {
+
+      /* Header is the payload */
+      payload = GET_HDR(sig_list[j]->header, &res->hdr);
+
+      /* A header might very well not be present which means we can
+         continue with the next signature */
+      if (!payload) continue;
+      pay_len = strlen((char*)payload);
+
+    }
+
     matches = 0;
 
     for (i=0; pay_len > 0 && i<sig_list[j]->content_cnt; i++) {
@@ -467,6 +590,35 @@ u8 match_signatures(struct http_request *req, struct http_response *res) {
             /* We care about the first match and update the match pointer
               to the first byte that follows the matching string */
 
+            /* Check if a string was captured */
+            pcre_fullinfo(content->pcre_sig, NULL, PCRE_INFO_CAPTURECOUNT, &ccnt);
+
+            if (ccnt > 0 && content->cap_match_str) {
+
+                /* In pcre we trust.. We only allow one string to be
+                   captured so while we could loop over ccnt: we just grab
+                   the first string. */
+
+                u32 cap_size = ovector[3] - ovector[2];
+
+                if (cap_size > MAX_PCRE_CSTR_SIZE)
+                    cap_size = MAX_PCRE_CSTR_SIZE;
+
+                u8 *pcre_cap_str = ck_alloc(cap_size + 1);
+
+                if (pcre_copy_substring((char*)payload, (int*)ovector, 2, 1,
+                                        (char*)pcre_cap_str, cap_size)) {
+                    /* No match? break the loop */
+                    if (inl_strcasestr(pcre_cap_str, content->cap_match_str)) {
+                        ck_free(pcre_cap_str);
+                        break;
+                    }
+                }
+                ck_free(pcre_cap_str);
+
+            }
+
+            /* Move to the first byte after the match */
             payload = payload + ovector[1];
             pay_len -= (ovector[1] - ovector[0]);
             /* pay_len is checked in the next match */
@@ -497,8 +649,9 @@ void signature_problem(struct signature *sig,
 #else
 
   /* Register the problem, together with the sid */
-  register_problem((sig->prob ? sig->prob : sig_serv[sig->severity]), sig->id,
-                    req, res, (sig->memo ? sig->memo : (u8*)""), req->pivot, 0);
+  register_problem((sig->prob ? sig->prob : sig_serv[sig->severity]),
+                    sig->id, req, res, (sig->memo ? sig->memo : (u8*)""),
+                    sig->report ? host_pivot(req->pivot) : req->pivot, 0);
 
 #endif
 }
@@ -508,6 +661,7 @@ void destroy_signature(struct signature *sig) {
 
   if (sig->memo) ck_free(sig->memo);
   if (sig->mime) ck_free(sig->mime);
+  if (sig->header) ck_free(sig->header);
 
   for (i=0; i<sig->content_cnt; i++) {
     ck_free(sig->content[i]->match_str);
@@ -548,6 +702,7 @@ void dump_sig(struct signature *sig) {
     DEBUG("  %d. offset        = %d\n", i, sig->content[i]->offset);
     DEBUG("  %d. depth         = %d\n", i, sig->content[i]->depth);
     DEBUG("  %d. position      = %d\n", i, sig->content[i]->distance);
+    DEBUG("  %d. nocase        = %d\n", i, sig->content[i]->nocase);
     DEBUG("  %d. no            = %d\n", i, sig->content[i]->no);
 
   }
@@ -558,4 +713,18 @@ void dump_sig(struct signature *sig) {
     DEBUG("  mime     = %s\n", sig->mime);
   if (sig->rcode)
     DEBUG("  code     = %d\n", sig->rcode);
+
+  DEBUG("  depend    = %d\n", sig->depend ? sig->depend->id : 0);
+  DEBUG("  header    = %s\n", sig->header ? (char*)sig->header : (char*)"");
+
+  switch (sig->proto) {
+    case '0':
+      DEBUG("  proto    = HTTP/HTTPS\n");
+      break;
+    case PROTO_HTTP:
+      DEBUG("  proto    = HTTP\n");
+      break;
+    case PROTO_HTTPS:
+      DEBUG("  proto    = HTTPS\n");
+  }
 }

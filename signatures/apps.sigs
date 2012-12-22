@@ -5,14 +5,27 @@
 # default.
 
 # A phpinfo() page
-id:11001; sev:3; content:"<title>phpinfo()</title><meta name="; depth:2048; memo:"phpinfo() page";
+id:11001; sev:3; content:"<title>phpinfo()</title><meta name="; depth:2048; \
+                 memo:"phpinfo() page";
 
 # A phpmyadmin page
-id:11002; sev:3; content:'<title>phpMyAdmin </title>'; depth:1024; content:'<a href="http://www.phpmyadmin.net" target="_blank" class="logo">'; depth:2048; memo:"phpMyAdmin";
+id:11002; sev:3; content:'<title>phpMyAdmin </title>'; depth:1024; \
+                 content:'<a href="http://www.phpmyadmin.net" target="_blank" class="logo">'; depth:2048; \
+                 memo:"phpMyAdmin detected";
 
-id:11003; sev:3; content:"<title>Parallels Plesk Panel"; depth:1024; content:'action="/login_up.php3" method="post"'; memo:"Plesk administrative interface";
+# Plesk admin interface
+id:11003; sev:3; content:"<title>Parallels Plesk Panel"; depth:1024; \
+                 content:'action="/login_up.php3" method="post"';    \
+                 memo:"Plesk administrative interface";
 
 # Reference: http://httpd.apache.org/docs/2.2/mod/mod_status.html
-id:11004; sev:3; mime:"text/html"; content:"<title>Apache Status</title>"; depth:100; content:"<h1>Apache Server Status for"; depth:25; memo:"Apache mod_status page";
+id:11004; sev:3; mime:"text/html"; \
+                 content:"<title>Apache Status</title>"; depth:100; \
+                 content:"<h1>Apache Server Status for"; depth:25;  \
+                 memo:"Apache mod_status page detected";
 
-id:11005; sev:3; mime:"text/html"; content:"<title>Server Information</title>"; depth:200; content:"Apache Server Information</h1>"; depth:50; memo:"Apache mod_status page";
+# Reference: http://httpd.apache.org/docs/2.2/mod/mod_info.html
+id:11005; sev:3; mime:"text/html"; \
+                 content:"<title>Server Information</title>"; depth:200; \
+                 content:"Apache Server Information</h1>"; depth:50;     \
+                 memo:"Apache mod_status page detected";

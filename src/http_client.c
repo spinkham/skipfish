@@ -144,7 +144,8 @@ u8* get_value(u8 type, u8* name, u32 offset,
 void set_value(u8 type, u8* name, u8* val,
                s32 offset, struct param_array* par) {
 
-  u32 i, coff = 0, matched = -1;
+  u32 i, coff = 0;
+  s32 matched = -1;
 
   /* If offset specified, try to find an entry to replace. */
 
@@ -915,6 +916,7 @@ u8* build_request_data(struct http_request* req) {
   u8 *ret_buf, *ck_buf, *pay_buf, *path;
   u32 ret_pos, ck_pos, pay_pos, i;
   u8  req_type = PARAM_NONE;
+  u8 browser = browser_type;
 
   if (req->proto == PROTO_NONE)
     FATAL("uninitialized http_request");
@@ -962,9 +964,17 @@ u8* build_request_data(struct http_request* req) {
 
   ASD("\r\n");
 
-  /* Insert generic browser headers first. */
+  /* Insert generic browser headers first. If the request is for a specific
+     browser, we use that. Else we use the pivot browser or, when that
+     is not set, fall back on the default browser (e.g. set with -b). */
 
-  if (browser_type == BROWSER_FAST) {
+  if (req->browser) {
+    browser = req->browser;
+  } else if (req->pivot->browser) {
+    browser = req->browser;
+  }
+
+  if (browser == BROWSER_FAST) {
 
     ASD("Accept-Encoding: gzip\r\n");
     ASD("Connection: keep-alive\r\n");
@@ -975,7 +985,7 @@ u8* build_request_data(struct http_request* req) {
     /* Some servers will reject to gzip responses unless "Mozilla/..."
        is seen in User-Agent. Bleh. */
 
-  } else if (browser_type == BROWSER_FFOX) {
+  } else if (browser == BROWSER_FFOX) {
 
     if (!GET_HDR((u8*)"User-Agent", &req->par))
       ASD("User-Agent: Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; "
@@ -991,7 +1001,7 @@ u8* build_request_data(struct http_request* req) {
     ASD("Keep-Alive: 300\r\n");
     ASD("Connection: keep-alive\r\n");
 
-  } else if (browser_type == BROWSER_MSIE) {
+  } else if (browser == BROWSER_MSIE) {
 
     ASD("Accept: */*\r\n");
 
@@ -1722,6 +1732,10 @@ void destroy_request(struct http_request* req) {
   ck_free(req->method);
   ck_free(req->host);
   ck_free(req->orig_url);
+
+  if (req->flushed && req->flush_dir)
+    ck_free(req->flush_dir);
+
   ck_free(req);
 
 }
@@ -1746,7 +1760,14 @@ void destroy_response(struct http_response* res) {
   ck_free(res->header_mime);
 
   ck_free(res->msg);
-  ck_free(res->payload);
+
+  /* Payload might have been flushed */
+  if (res->payload)
+    ck_free(res->payload);
+
+  if (res->flushed && res->flush_dir)
+    ck_free(res->flush_dir);
+
   ck_free(res);
 
 }
@@ -1937,7 +1958,7 @@ static u8 match_cert_name(char* req_host, char* host) {
 
 static void check_ssl(struct conn_entry* c) {
   X509 *p;
-  SSL_CIPHER *cp;
+  const SSL_CIPHER *cp;
 
   /* Test if a weak cipher has been negotiated  */
   cp = SSL_get_current_cipher(c->srv_ssl);
@@ -2565,8 +2586,14 @@ struct http_response* res_copy(struct http_response* res) {
   ret->pay_len = res->pay_len;
 
   if (res->pay_len) {
-    ret->payload = ck_alloc(res->pay_len);
-    memcpy(ret->payload, res->payload, res->pay_len);
+
+    if (res->flushed && res->flush_dir) {
+      ret->flushed = 1;
+      ret->flush_dir = ck_strdup(res->flush_dir);
+    } else {
+      ret->payload = ck_alloc(res->pay_len);
+      memcpy(ret->payload, res->payload, res->pay_len);
+    }
   }
 
   memcpy(&ret->sig, &res->sig, sizeof(struct http_sig));

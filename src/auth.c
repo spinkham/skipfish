@@ -74,6 +74,33 @@ void authenticate() {
 
 }
 
+/* Helper function to find form fields to put the credentials in */
+
+static u8 find_and_set_field(struct param_array *par, const char **test_fields,
+                             u32 par_type, u8* par_value) {
+
+  u32 i, k;
+
+  /* Try to find the field */
+  for (i=0; i<par->c; i++) {
+    if (!par->n[i] || par->t[i] != par_type) continue;
+
+    /* Match it with the strings */
+    for (k=0; test_fields[k]; k++) {
+      if (inl_strcasestr(par->n[i], (u8*)test_fields[k])) {
+        DEBUGC(L1, "*-- Authentication - found login field: %s\n", par->n[i]);
+        if (par->v[i]) ck_free(par->v[i]);
+        par->v[i] = ck_strdup(par_value);
+        return 1;
+      }
+    }
+  }
+
+  /* None found..*/
+  return 0;
+}
+
+
 /* Main function to submit the authentication, login form. This function
    will try find the right form and , unless form fields are specified on
    command-line, try to find the right fields in order to store the username
@@ -82,26 +109,29 @@ void authenticate() {
 u8 submit_auth_form(struct http_request* req,
                     struct http_response* res) {
 
-  u8* form;
+  u8 *form, *form_ptr;
   u8 *vurl = NULL;
   u8 is_post = 1;
   u8 par_type = PARAM_POST;
-  u32 i = 0, k = 0;
   struct http_request* n = NULL;
 
   DEBUG_CALLBACK(req, res);
 
   /* Loop over the forms till we get our password form */
+  form_ptr = res->payload;
 
   do {
 
-    form = inl_strcasestr(res->payload, (u8*)"<form");
+    form = inl_strcasestr(form_ptr, (u8*)"<form");
     if (!form) break;
+
+    /* Update the pointer for the next form */
+    form_ptr += 5;
 
     if (auth_form_target)
       vurl = ck_strdup(auth_form_target);
 
-    n = make_form_req(req, NULL, form, vurl);
+    n = make_form_req(req, NULL, res, form, vurl);
     if (!n)
       FATAL("No auth form found\n");
 
@@ -118,45 +148,29 @@ u8 submit_auth_form(struct http_request* req,
        to find one by using the strings from the "user_fields" array
        (defined in auth.h).
      */
-    if (auth_user_field)
+    if (auth_user_field) {
       if(!get_value(par_type, auth_user_field, 0, &n->par))
         continue;
 
-    if (auth_pass_field)
+      set_value(par_type, auth_user_field, ck_strdup(auth_user), 0, &n->par);
+      DEBUGC(L1, "*-- Authentication - auth_user field set (%s)\n",
+             auth_user_field);
+    } else if (!find_and_set_field(&n->par, user_fields, par_type, auth_user)) {
+      continue;
+    }
+
+    if (auth_pass_field) {
       if(!get_value(par_type, auth_pass_field, 0, &n->par))
         continue;
 
-    /* Try to find a user name-like field */
-    for (i=0; i<n->par.c; i++) {
-      if (!n->par.n[i] || n->par.t[i] != par_type) continue;
-
-      /* Find and set the user field */
-      for (k=0; !auth_user_field && user_fields[k]; k++) {
-        if (inl_strcasestr(n->par.n[i], (u8*)user_fields[k])) {
-          DEBUGC(L1, "*-- Authentication - using user field: %s\n", n->par.n[i]);
-          if (n->par.v[i]) ck_free(n->par.v[i]);
-          n->par.v[i] = ck_strdup(auth_user);
-          auth_user_field = n->par.n[i];
-          break;
-        }
-      }
-      /* Find and set the password field */
-      for (k=0; !auth_pass_field && pass_fields[k]; k++) {
-        if (inl_strcasestr(n->par.n[i], (u8*)pass_fields[k])) {
-          DEBUGC(L1, "*-- Authentication - using pass field: %s\n", n->par.n[i]);
-          if (n->par.v[i]) ck_free(n->par.v[i]);
-          n->par.v[i] = ck_strdup(auth_pass);
-          auth_pass_field = n->par.n[i];
-          break;
-        }
-      }
+      set_value(par_type, auth_pass_field, ck_strdup(auth_pass), 0, &n->par);
+      DEBUGC(L1, "*-- Authentication - auth_pass field set (%s)\n",
+             auth_pass_field);
+    } else if (!find_and_set_field(&n->par, pass_fields, par_type, auth_pass)) {
+      continue;
     }
 
-    /* If one of both fields is not set, there is no point in submitting
-       so we'll look for another form in the page */
-    if (!auth_pass_field || !auth_user_field)
-      continue;
-
+    /* If we get here: credentials are set */
     n->callback = auth_form_callback;
     DEBUGC(L1, "*-- Submitting authentication form\n");
 #ifdef LOG_STDERR
@@ -165,6 +179,7 @@ u8 submit_auth_form(struct http_request* req,
     async_request(n);
     auth_state = ASTATE_SEND;
     break;
+
   } while (form);
 
   if (auth_state != ASTATE_SEND)

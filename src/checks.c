@@ -53,8 +53,11 @@ static u8 inject_diff_shell_check(struct http_request*, struct http_response*);
 static u8 inject_dir_listing_tests(struct pivot_desc* pivot);
 static u8 inject_dir_listing_check(struct http_request*, struct http_response*);
 
-static u8 inject_inclusion_tests(struct pivot_desc* pivot);
-static u8 inject_inclusion_check(struct http_request*, struct http_response*);
+static u8 inject_lfi_tests(struct pivot_desc* pivot);
+static u8 inject_lfi_check(struct http_request*, struct http_response*);
+
+static u8 inject_rfi_tests(struct pivot_desc* pivot);
+static u8 inject_rfi_check(struct http_request*, struct http_response*);
 
 static u8 inject_split_tests(struct pivot_desc* pivot);
 static u8 inject_split_check(struct http_request*, struct http_response*);
@@ -79,6 +82,9 @@ static u8 inject_behavior_check(struct http_request*, struct http_response*);
 
 static u8 param_behavior_tests(struct pivot_desc* pivot);
 static u8 param_behavior_check(struct http_request*, struct http_response*);
+
+static u8 agent_behavior_tests(struct pivot_desc* pivot);
+static u8 agent_behavior_check(struct http_request*, struct http_response*);
 
 static u8 param_ognl_tests(struct pivot_desc* pivot);
 static u8 param_ognl_check(struct http_request*, struct http_response*);
@@ -111,7 +117,7 @@ static u8 xssi_check(struct http_request*, struct http_response*);
 
 */
 
-u32 cb_handle_cnt = 19;  /* Total of checks                      */
+u32 cb_handle_cnt = 21;  /* Total of checks                      */
 u32 cb_handle_off = 4;   /* Checks after the offset are optional */
 
 static struct cb_handle cb_handles[] = {
@@ -138,6 +144,10 @@ static struct cb_handle cb_handles[] = {
     CHK_IPS, (u8*)"IPS check",
     dir_ips_tests, dir_ips_check, 0 },
 
+  { 3, 1, 0, 0, 0, PIVOT_DIR|PIVOT_FILE,
+    CHK_AGENT, (u8*)"User agent behavior",
+    agent_behavior_tests, agent_behavior_check, 0 },
+
   { 2, 1, 0, 0, 0, PIVOT_DIR|PIVOT_SERV,
     CHK_PUT, (u8*)"PUT upload",
     put_upload_tests, put_upload_check, 0 },
@@ -146,15 +156,13 @@ static struct cb_handle cb_handles[] = {
     CHK_DIR_LIST, (u8*)"dir traversal",
     inject_dir_listing_tests, inject_dir_listing_check, 0 },
 
-#ifdef RFI_SUPPORT
-  { 12, 1, 1, 0, 1, 0,
-    CHK_FI, (u8*)"file inclusion",
-    inject_inclusion_tests, inject_inclusion_check, 0 },
-#else
-  { 11, 1, 1, 0, 1, 0,
-    CHK_FI, (u8*)"file inclusion",
-    inject_inclusion_tests, inject_inclusion_check, 0 },
-#endif
+  { 48, 1, 1, 0, 1, 0,
+    CHK_LFI, (u8*)"local file inclusion",
+    inject_lfi_tests, inject_lfi_check, 0 },
+
+  { 1, 0, 1, 0, 1, 0,
+    CHK_RFI, (u8*)"remote file inclusion",
+    inject_rfi_tests, inject_rfi_check, 0 },
 
   { 4, 0, 1, 0, 1, 0,
     CHK_XSS, (u8*)"XSS injection",
@@ -164,7 +172,7 @@ static struct cb_handle cb_handles[] = {
     CHK_XSSI, (u8*)"XSSI protection",
     xssi_tests, xssi_check, 0 },
 
-  { 0, 0, 1, 0, 1, 0,
+  { 1, 0, 1, 0, 1, 0,
     CHK_PROLOG, (u8*)"prologue injection",
     inject_prologue_tests, inject_prologue_check, 0 },
 
@@ -326,6 +334,7 @@ u8 inject_state_manager(struct http_request* req, struct http_response* res) {
   if (cb_handles[check].res_keep) {
     for (i=0; i<req->pivot->misc_cnt; i++) {
       if (!MREQ(i) || !MRES(i)) {
+        DEBUG("-- Misc request #%d failed\n", i);
         problem(PROB_FETCH_FAIL, req, res, (u8*)"During injection testing", req->pivot, 0);
 
         /* Today, we'll give up on this test. In the next release: reschedule */
@@ -1166,10 +1175,11 @@ static u8 inject_dir_listing_check(struct http_request* req,
 }
 
 
-static u8 inject_inclusion_tests(struct pivot_desc* pivot) {
+static u8 inject_lfi_tests(struct pivot_desc* pivot) {
 
   struct http_request* n;
-  u32 i;
+  u32 i, v;
+  u32 count = 0;
 
   /* Perhaps do this in state manager ?*/
   if (pivot->state == PSTATE_CHILD_INJECT)
@@ -1179,131 +1189,239 @@ static u8 inject_inclusion_tests(struct pivot_desc* pivot) {
      the checks are almost identical */
 
   i = 0;
-  while (disclosure_tests[i]) {
+  while (i <= MAX_LFI_INDEX) {
+
+    v = 0;
+    while (lfi_tests[i].vectors[v]) {
+
+      /* ONE: no encoding */
+      n = req_copy(pivot->req, pivot, 1);
+
+      n->fuzz_par_enc = (u8*)ENC_NULL;
+
+      ck_free(TPAR(n));
+      TPAR(n) = ck_strdup((u8*)lfi_tests[i].vectors[v]);
+
+      n->callback = inject_state_manager;
+      n->check_subid = i;
+      n->user_val = count++;
+      async_request(n);
+
+      /* TWO: path encoding used */
+      n = req_copy(pivot->req, pivot, 1);
+
+      n->fuzz_par_enc = (u8*)ENC_PATH;
+
+      ck_free(TPAR(n));
+      TPAR(n) = ck_strdup((u8*)lfi_tests[i].vectors[v]);
+
+      n->callback = inject_state_manager;
+      n->check_subid = i;
+      n->user_val = count++;
+      async_request(n);
+
+      /* THREE: double path encoding */
+
+      n = req_copy(pivot->req, pivot, 1);
+
+      n->fuzz_par_enc = (u8*)ENC_PATH;
+
+      ck_free(TPAR(n));
+      TPAR(n) = url_encode_token((u8*)lfi_tests[i].vectors[v],
+                                 strlen(lfi_tests[i].vectors[v]),
+                                 (u8*)ENC_PATH);
+
+      n->callback = inject_state_manager;
+      n->check_subid = i;
+      n->user_val = count++;
+      async_request(n);
+
+
+      /* FOUR: path encoding, with NULL byte and extension */
+      n = req_copy(pivot->req, pivot, 1);
+
+      ck_free(TPAR(n));
+      u8 *tmp = url_encode_token((u8*)lfi_tests[i].vectors[v],
+                                 strlen(lfi_tests[i].vectors[v]),
+                                 (u8*)ENC_PATH);
+
+      TPAR(n) = ck_alloc(strlen((char*)tmp) + 10);
+      sprintf((char*)TPAR(n), "%s%%00%%2ejs", (char*)tmp);
+      ck_free(tmp);
+
+      n->fuzz_par_enc = (u8*)ENC_NULL;
+      n->callback = inject_state_manager;
+      n->check_subid = i;
+      n->user_val = count++;
+      async_request(n);
+
+      v++;
+    }
+    i++;
+  }
+
+
+  u8 *web1 = ck_strdup((u8*)"/WEB-INF/web.xml");
+  u8 *web2 = ck_strdup((u8*)"/WEB-INF%2fweb%2exml");
+  u8 *web3 = ck_strdup((u8*)"/WEB-INF%2fweb%2exml%00.js");
+
+  for (v=0; v<8; v++) {
+
+    PREFIX_STRING(web1, "/..");
+    PREFIX_STRING(web2, "%2f%2e%2e");
+    PREFIX_STRING(web3, "%2f%2e%2e");
+
+    DEBUG("WEB: %s\n", web1);
+
+    n = req_copy(pivot->req, pivot, 1);
+
+    n->fuzz_par_enc = (u8*)ENC_NULL;
+
+    ck_free(TPAR(n));
+    TPAR(n) = ck_strdup(web1);
+
+    n->callback = inject_state_manager;
+    n->check_subid = i;
+    n->user_val = count++;
+    async_request(n);
+
     n = req_copy(pivot->req, pivot, 1);
 
     /* No % encoding for these requests */
     n->fuzz_par_enc = (u8*)ENC_NULL;
 
     ck_free(TPAR(n));
-    TPAR(n) = ck_strdup((u8*)disclosure_tests[i]);
+    TPAR(n) = ck_strdup(web2);
 
     n->callback = inject_state_manager;
-    n->user_val = i;
+    n->check_subid = i;
+    n->user_val = count++;
     async_request(n);
-    i++;
+
+    n = req_copy(pivot->req, pivot, 1);
+
+    /* No % encoding for these requests */
+    n->fuzz_par_enc = (u8*)ENC_NULL;
+
+    ck_free(TPAR(n));
+    TPAR(n) = ck_strdup(web3);
+
+    n->callback = inject_state_manager;
+    n->check_subid = i;
+    n->user_val = count++;
+    async_request(n);
   }
 
-#ifdef RFI_SUPPORT
-  /* Optionally try RFI */
+  ck_free(web1);
+  ck_free(web2);
+  ck_free(web3);
+
+  pivot->pending = count;
+
+  return 0;
+}
+
+
+static u8 inject_lfi_check(struct http_request* req,
+                           struct http_response* res) {
+
+  DEBUG_MISC_CALLBACK(req, res);
+
+  u8 found = 0;
+  u32 p = 0;
+
+
+  /*
+     Perform directory traveral and file inclusion tests.
+
+     In every request, the check_subid points to the relevant traversal
+     test string. We look up the string and compare it with the response.
+
+     Exception to this are the web.xml requests for which the injection
+     strings are dynamically generated. We don't know where the web.xml
+     is located on the file system (unlike /etc/passwd), we cannot use
+     an arbitrary amount of ../'s.  Instead, we need to use the exact
+     amount in order to be able to disclose the file.
+
+ */
+
+  for (p=0; p < req->pivot->pending; p++) {
+
+
+    if (MREQ(p)->check_subid <= MAX_LFI_INDEX) {
+
+      /* Test the parent and current response */
+      if (!inl_findstr(RPRES(req)->payload, 
+          (u8*)lfi_tests[MREQ(p)->check_subid].test_string, 1024) &&
+          inl_findstr(MRES(p)->payload,
+                      (u8*)lfi_tests[MREQ(p)->check_subid].test_string, 1024)) {
+
+        problem(PROB_FI_LOCAL, MREQ(p), MRES(p),
+                (u8*)lfi_tests[MREQ(p)->check_subid].description, req->pivot, 0);
+        found = 1;
+      }
+    } else if (MREQ(p)->check_subid == MAX_LFI_INDEX + 1) {
+
+      /* Check the web.xml disclosure */
+      if (!inl_findstr(RPRES(req)->payload, (u8*)"<web-app", 1024) &&
+           inl_findstr(MRES(p)->payload, (u8*)"<web-app", 1024)) {
+
+        if (inl_findstr(MRES(p)->payload, (u8*)"<servlet-mapping>", 2048) ||
+            inl_findstr(MRES(p)->payload, (u8*)"<security-constraint>", 2048) ||
+            inl_findstr(MRES(p)->payload, (u8*)"<welcome-file>", 2048)) {
+          problem(PROB_FI_LOCAL, MREQ(p), MRES(p),
+                (u8*)"response resembles web.xml.", req->pivot, 0);
+          found = 1;
+        }
+
+      }
+    }
+
+  }
+
+  /* If we disclosed something: suppress the more generic traversal
+     warnings by removing the issue. */
+
+  if (found)
+    remove_issue(req->pivot, PROB_DIR_TRAVERSAL);
+
+  return 0;
+}
+
+static u8 inject_rfi_tests(struct pivot_desc* pivot) {
+
+  struct http_request* n;
+
+  /* Perhaps do this in state manager ?*/
+  if (pivot->state == PSTATE_CHILD_INJECT)
+    return 1;
+
   n = req_copy(pivot->req, pivot, 1);
 
   ck_free(TPAR(n));
   TPAR(n) = ck_strdup((u8*)RFI_HOST);
 
   n->callback = inject_state_manager;
-  n->user_val = i;
   async_request(n);
-#endif
 
   return 0;
+
 }
 
+static u8 inject_rfi_check(struct http_request* req,
+                           struct http_response* res) {
 
-static u8 inject_inclusion_check(struct http_request* req,
-                                   struct http_response* res) {
 
-  DEBUG_MISC_CALLBACK(req, res);
+  DEBUG_CALLBACK(req, res);
 
-  u32 not_found = 0;
-
-  /*
-     Perform directory traveral and file inclusion tests.
-
-       misc[1] = ../../../../../../../../etc/hosts
-       misc[2] = ../../../../../../../../etc/hosts\0
-       misc[3] = ../../../../../../../../etc/passwd
-       misc[4] = ../../../../../../../../etc/passwd\0
-       misc[5] = ..\..\..\..\..\..\..\..\boot.ini
-       misc[6] = ..\..\..\..\..\..\..\..\boot.ini\0
-       misc[7] = ../../../../../../../../WEB-INF/web.xml
-       misc[8] = ../../../../../../../../WEB-INF/web.xml\0
-       misc[9] = file:///etc/hosts
-       misc[10] = file:///etc/passwd
-       misc[11] = file:///boot.ini
-       misc[12] = RFI (optional)
-
- */
-
-  /* Check on the /etc/hosts file disclosure */
-  if (!inl_findstr(RPRES(req)->payload, (u8*)"127.0.0.1", 1024)) {
-    if (inl_findstr(MRES(0)->payload, (u8*)"127.0.0.1", 1024)) {
-      problem(PROB_FI_LOCAL, MREQ(0), MRES(0),
-              (u8*)"response resembles /etc/hosts (traversal)", req->pivot, 0);
-    } else if (inl_findstr(MRES(1)->payload, (u8*)"127.0.0.1", 1024)) {
-          problem(PROB_FI_LOCAL, MREQ(1), MRES(1),
-                  (u8*)"response resembles /etc/hosts (traversal with NULL byte)", req->pivot, 0);
-    } else if (inl_findstr(MRES(4)->payload, (u8*)"127.0.0.1", 1024)) {
-          problem(PROB_FI_LOCAL, MREQ(4), MRES(4),
-                  (u8*)"response resembles /etc/hosts (via file://)", req->pivot, 0);
-    } else not_found++;
-  }
-
-  /* Check on the /etc/passwd file disclosure */
-  if (!inl_findstr(RPRES(req)->payload, (u8*)"root:x:0:0:root", 1024)) {
-    if (inl_findstr(MRES(2)->payload, (u8*)"root:x:0:0:root", 1024)) {
-          problem(PROB_FI_LOCAL, MREQ(2), MRES(2),
-                  (u8*)"response resembles /etc/passwd (via traversal)", req->pivot, 0);
-    } else if (inl_findstr(MRES(3)->payload, (u8*)"root:x:0:0:root", 1024)) {
-          problem(PROB_FI_LOCAL, MREQ(3), MRES(3),
-                  (u8*)"response resembles /etc/passwd (via traversal)", req->pivot, 0);
-    } else if (inl_findstr(MRES(9)->payload, (u8*)"root:x:0:0:root", 1024)) {
-          problem(PROB_FI_LOCAL, MREQ(9), MRES(9),
-                  (u8*)"response resembles /etc/passwd (via file://)", req->pivot, 0);
-    } else not_found++;
-  }
-
-  /* Windows boot.ini disclosure */
-  if (!inl_findstr(RPRES(req)->payload, (u8*)"[boot loader]", 1024)) {
-    if (inl_findstr(MRES(4)->payload, (u8*)"[boot loader]", 1024)) {
-        problem(PROB_FI_LOCAL, MREQ(4), MRES(4),
-                (u8*)"response resembles c:\\boot.ini (via traversal)", req->pivot, 0);
-    } else if (inl_findstr(MRES(5)->payload, (u8*)"[boot loader]", 1024)) {
-        problem(PROB_FI_LOCAL, MREQ(5), MRES(5),
-                (u8*)"response resembles c:\\boot.ini (via traversal)", req->pivot, 0);
-    } else if (inl_findstr(MRES(10)->payload, (u8*)"[boot loader]", 1024)) {
-        problem(PROB_FI_LOCAL, MREQ(10), MRES(10),
-                (u8*)"response resembles c:\\boot.ini (via file://)", req->pivot, 0);
-    } else not_found++;
-  }
-
-  /* Check the web.xml disclosure */
-  if (!inl_findstr(RPRES(req)->payload, (u8*)"<servlet-mapping>", 1024)) {
-    if (inl_findstr(MRES(6)->payload, (u8*)"<servlet-mapping>", 1024)) {
-      problem(PROB_FI_LOCAL, MREQ(6), MRES(10),
-              (u8*)"response resembles ./WEB-INF/web.xml (via traversal)", req->pivot, 0);
-    } else if (inl_findstr(MRES(7)->payload, (u8*)"<servlet-mapping>", 1024)){ 
-      problem(PROB_FI_LOCAL, MREQ(7), MRES(7),
-              (u8*)"response resembles ./WEB-INF/web.xml (via traversal)", req->pivot, 0);
-    } else not_found++;
-  }
-
-  /* If we disclosed a file, than we can remove any present traversal
-     warnings, which in that case are just duplicate/noise */
-  if (not_found != 4)
-    remove_issue(req->pivot, PROB_DIR_TRAVERSAL);
-
-#ifdef RFI_SUPPORT
   if (!inl_findstr(RPRES(req)->payload, (u8*)RFI_STRING, 1024) && 
-      inl_findstr(MRES(11)->payload, (u8*)RFI_STRING, 1024)) {
-    problem(PROB_FI_REMOTE, MREQ(11), MRES(11),
+      inl_findstr(res->payload, (u8*)RFI_STRING, 1024)) {
+    problem(PROB_FI_REMOTE, req, res,
       (u8*)"remote file inclusion", req->pivot, 0);
   }
-#endif
 
   return 0;
 }
-
 
 
 
@@ -1826,7 +1944,7 @@ static u8 param_behavior_tests(struct pivot_desc* pivot) {
 
   if (pivot->fuzz_par < 0 || !url_allowed(pivot->req) || !param_allowed(pivot->name)) {
     pivot->state = PSTATE_DONE;
-    if (delete_bin) maybe_delete_payload(pivot);
+    maybe_delete_payload(pivot);
     return 0;
   }
 
@@ -1915,6 +2033,49 @@ static u8 param_behavior_check(struct http_request* req,
 
   return 0;
 }
+
+/* Request this same URL with different user agents. Detect if the
+   response is different so that additional injection tests can be
+   scheduled. */
+
+static u8 agent_behavior_tests(struct pivot_desc* pivot) {
+
+  struct http_request* n;
+  u32 i, j = 0;
+
+  /* Schedule browser specific requests. */
+  for (i=0; i<BROWSER_TYPE_CNT; i++) {
+    /* Skip the default browser */
+    if (browser_types[i] == pivot->browser)
+      continue;
+
+    n = req_copy(pivot->req, pivot, 1);
+    n->callback = inject_state_manager;
+    n->browser = browser_types[i];
+    n->user_val = j++;
+    async_request(n);
+  }
+
+  return 0;
+}
+
+static u8 agent_behavior_check(struct http_request* req,
+                               struct http_response* res) {
+
+  u32 i;
+  DEBUG_MISC_CALLBACK(req, res);
+
+  for (i=0; i<BROWSER_TYPE_CNT - 1; i++) {
+    if (!same_page(&RPRES(req)->sig, &MRES(i)->sig)) {
+      req->pivot->browsers |= MREQ(i)->browser;
+      maybe_add_pivot(MREQ(i),NULL, 2);
+    }
+  }
+
+  return 0;
+}
+
+
 
 
 static u8 param_ognl_tests(struct pivot_desc* pivot) {

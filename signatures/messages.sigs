@@ -18,16 +18,24 @@ id:21012; prob:40402; content:"Incorrect syntax near"; memo:"SQL syntax error";
 id:21013; prob:40402; content:"[DM_QUERY_E_SYNTAX]"; memo:"SQL syntax error";
 
 # Stacktraces and server errors
-id:22001; prob:40402; content:"<span><H1>Server Error in '"; memo:"ASP.NET Yellow Screen of Death";
 id:22002; prob:40402; content:"<font face=\"Arial\" size=2>error '"; memo:"Microsoft runtime error";
 id:22003; prob:40402; content:"[an error occurred while processing"; memo:"SHTML error";
 id:22004; prob:40402; content:"Traceback (most recent call last):"; memo:"Python error";
 id:22005; prob:40402; content:"<title>JRun Servlet Error</title>"; memo:"JRun servlet error";
 
 # Java exceptions
-id:22006; prob:40402; content:"Stacktrace:"; content:"javax.servlet."; content:"<b>note</b> <u>The full stack trace"; memo:"Java server stacktrace";
-id:22007; prob:40402; content:"at java.lang.Thread.run"; content:".java:"; memo:"Java runtime stacktrace";
-id:22020; prob:40402; content:"<b>type</b> Exception report</p><p>"; content:"<p><b>description</b> <u>The server "; depth:512; memo:"Java server exception";
+id:22006; prob:40402; content:"Stacktrace:";    \
+                      content:"javax.servlet."; \
+                      content:"<b>note</b> <u>The full stack trace"; \
+                      memo:"Java server stacktrace";
+
+id:22007; prob:40402; content:"at java.lang.Thread.run"; \
+                      content:".java:"; \
+                      memo:"Java runtime stacktrace";
+
+id:22020; prob:40402; content:"<b>type</b> Exception report</p><p>"; \
+                      content:"<p><b>description</b> <u>The server "; depth:512; \
+                      memo:"Java server exception";
 
 # PHP HTML and text errors. The text and HTML sigs can perhaps be merged,
 id:22008; prob:40402; content:"<b>Fatal error</b>: "; content:"</b> on line <b>"; depth:512;  memo:"PHP error (HTML)";

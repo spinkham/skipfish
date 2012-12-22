@@ -25,11 +25,16 @@
 #include "types.h"
 
 extern u8 suppress_dupes;
+extern u8 *output_dir;
 
 /* Writes report to index.html in the current directory. Will create
    subdirectories, helper files, etc. */
 
 void write_report(u8* out_dir, u64 scan_time, u32 seed);
+
+/* Flushes payload to disk and stores the location in the pivot */
+
+void flush_payload(struct http_request* req, struct http_response* res);
 
 /* Destroys all signatures created for pivot and issue clustering purposes. */
 

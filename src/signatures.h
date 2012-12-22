@@ -28,12 +28,14 @@
 
 #define MAX_CONTENT 10
 #define PCRE_VECTOR 30
+#define MAX_PCRE_CSTR_SIZE 256
 
 struct content_struct {
-  u8* match_str;                   /* The content string to find     */
-  u32 match_str_len;               /* Length of the content string   */
-  pcre* pcre_sig;                  /* Regex: compiled                */
-  pcre_extra* pcre_extra_sig;      /* Regex: extra                   */
+  u8* match_str;                   /* The content string to find      */
+  u32 match_str_len;               /* Length of the content string    */
+  pcre* pcre_sig;                  /* Regex: compiled                 */
+  pcre_extra* pcre_extra_sig;      /* Regex: extra                    */
+  u8 *cap_match_str;               /* To compare with pcre cap string */
 
   u8 no;                           /* 1 = string should not be there */
   u8 nocase;                       /* 1 = case insensitive matching  */
@@ -49,9 +51,13 @@ struct signature {
   u8 severity;                     /* Severity                       */
   u32 prob;                        /* Problem ID from analysis.h     */
   u8* mime;                        /* Match with this mime type      */
+  u8* header;                      /* Match with this mime type      */
   u32 rcode;                       /* Match with HTTP resp code      */
   u32 content_cnt;                 /* Amount of contenrt structs     */
   u32 check;                       /* The check ID                   */
+  u8 report;                       /* 0 = always, 1 = once           */
+  u8 proto;                        /* 0, PROTO_HTTP or PROTO_HTTPS   */
+  struct signature *depend;        /* Chain/depend on this sig       */
   struct content_struct* content[MAX_CONTENT];
 };
 
@@ -102,21 +108,26 @@ u32 sig_serv[] = {
 
 void destroy_signature(struct signature *sig);
 
-#define SIG_ID      1
-#define SIG_CONTENT 2
-#define SIG_MEMO    3
-#define SIG_TYPE    4
-#define SIG_SEV     5
-#define SIG_CONST   6
-#define SIG_PROB    7
-#define SIG_TAG     8
-#define SIG_MIME    9
-#define SIG_CODE    10
-#define SIG_CASE    11
-#define SIG_DEPTH   12
-#define SIG_OFFSET  13
-#define SIG_DIST    14
-#define SIG_CHK     15
+#define SIG_ID          1
+#define SIG_CONTENT     2
+#define SIG_MEMO        3
+#define SIG_TYPE        4
+#define SIG_SEV         5
+#define SIG_CONST       6
+#define SIG_PROB        7
+#define SIG_TAG         8
+#define SIG_MIME        9
+#define SIG_CODE        10
+#define SIG_CASE        11
+#define SIG_DEPTH       12
+#define SIG_OFFSET      13
+#define SIG_DIST        14
+#define SIG_CHK         15
+#define SIG_PROTO       16
+#define SIG_HEADER      17
+#define SIG_REPORT      18
+#define SIG_DEPEND      29
+#define SIG_PCRE_MATCH  30
 
 /* The structs below are to for helping the signature parser */
 
@@ -136,13 +147,25 @@ struct sig_key lookuptable[] = {
   { SIG_TAG,     "tag" },
   { SIG_MIME,    "mime" },
   { SIG_CODE,    "code" },
-  { SIG_CASE,    "case" },
+  { SIG_CASE,    "nocase" },
   { SIG_DEPTH,   "depth" },
   { SIG_OFFSET,  "offset" },
+  { SIG_PCRE_MATCH, "regex_match" },
   { SIG_DIST,    "distance" },
   { SIG_CHK,     "check" },
+  { SIG_PROTO,   "proto"   },
+  { SIG_HEADER,  "header" },
+  { SIG_REPORT,  "report" },
+  { SIG_DEPEND,  "depend" },
   { 0, 0}
 };
+
+/* Specified whether and when a match should be reported */
+
+#define REPORT_ALWAYS 0
+#define REPORT_ONCE   1
+#define REPORT_NEVER  2
+
 
 #endif /* !_VIA_SIGNATURE_C */
 #endif /* !_SIGNATURE_H */

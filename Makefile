@@ -2,7 +2,8 @@
 # skipfish - Makefile
 # -------------------
 #
-# Author: Michal Zalewski <lcamtuf@google.com>
+# Author: Michal Zalewski <lcamtuf@google.com>,
+#         Niels Heinen <heinenn@google.com>
 #
 # Copyright 2009, 2010, 2011 by Google Inc. All Rights Reserved.
 #
@@ -20,21 +21,22 @@
 #
 
 PROGNAME   = skipfish
-VERSION    = 2.09b
+VERSION    = 2.10b
 
 SRCDIR     = src
 SFILES     = http_client.c database.c crawler.c analysis.c report.c \
-             checks.c signatures.c auth.c
+             checks.c signatures.c auth.c options.c
 IFILES     = alloc-inl.h string-inl.h debug.h types.h http_client.h \
              database.h crawler.h analysis.h config.h report.h \
-             checks.h signatures.h auth.h
+             checks.h signatures.h auth.h options.h
 
 OBJFILES   = $(patsubst %,$(SRCDIR)/%,$(SFILES))
 INCFILES   = $(patsubst %,$(SRCDIR)/%,$(IFILES))
 
 CFLAGS_GEN = -Wall -funsigned-char -g -ggdb -I/usr/local/include/ \
              -I/opt/local/include/ $(CFLAGS) -DVERSION=\"$(VERSION)\"
-CFLAGS_DBG = -DLOG_STDERR=1 -DDEBUG_ALLOCATOR=1 $(CFLAGS_GEN)
+CFLAGS_DBG = -DLOG_STDERR=1 -DDEBUG_ALLOCATOR=1 \
+             $(CFLAGS_GEN)
 CFLAGS_OPT =  -O3 -Wno-format $(CFLAGS_GEN)
 
 LDFLAGS   += -L/usr/local/lib/ -L/opt/local/lib
@@ -55,6 +57,12 @@ $(PROGNAME): $(SRCDIR)/$(PROGNAME).c $(OBJFILES) $(INCFILES)
 debug: $(SRCDIR)/$(PROGNAME).c $(OBJFILES) $(INCFILES)
 	$(CC) $(LDFLAGS) $(SRCDIR)/$(PROGNAME).c -o $(PROGNAME) \
         $(CFLAGS_DBG) $(OBJFILES) $(LIBS)
+	@echo
+	@echo "The debug build prints runtime information to stderr. You"
+	@echo "probably want to redirect this output to a file. like:"
+	@echo
+	@echo " $ ./skipfish [.option.] 2> debug.log"
+	@echo
 
 clean:
 	rm -f $(PROGNAME) *.exe *.o *~ a.out core core.[1-9][0-9]* *.stackdump \
@@ -66,6 +74,7 @@ same_test: $(SRCDIR)/same_test.c $(OBJFILES) $(INCFILES)
 	      $(LIBS)
 
 publish: clean
-	cd ..; rm -rf skipfish-$(VERSION); cp -pr skipfish skipfish-$(VERSION); \
-	  tar cfvz ~/www/skipfish.tgz skipfish-$(VERSION)
+	cd ..; rm -rf skipfish-$(VERSION); \
+	cp -pr skipfish-release skipfish-$(VERSION); \
+	tar cfvz ~/www/skipfish.tgz skipfish-$(VERSION); \
 	chmod 644 ~/www/skipfish.tgz

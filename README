@@ -238,7 +238,7 @@ behavior there.
 To compile it, simply unpack the archive and try make. Chances are, you will
 need to install libidn first.
 
-Next, you need to read the instructions provided in dictionaries/README-FIRST
+Next, you need to read the instructions provided in doc/dictionaries.txt
 to select the right dictionary file and configure it correctly. This step has a 
 profound impact on the quality of scan results later on, so don't skip it.
 
@@ -278,7 +278,7 @@ new or changed nodes; and blue background to all new or changed issues
 found.
 
 Some sites may require authentication for which our support is described
-in docs/authentication.txt. In most cases, you'll be wanting to use the
+in doc/authentication.txt. In most cases, you'll be wanting to use the
 form authentication method which is capable of detecting broken sessions
 in order to re-authenticate.
 
@@ -398,7 +398,7 @@ HTTP links seen, even if they have no immediate security impact. Use the -U
 option to have these logged.
 
 Dictionary management is a special topic, and - as mentioned - is covered in
-more detail in dictionaries/README-FIRST. Please read that file before
+more detail in doc/dictionaries.txt. Please read that file before
 proceeding. Some of the relevant options include -S and -W (covered earlier),
 -L to suppress auto-learning, -G to limit the keyword guess jar size, -R to
 drop old dictionary entries, and -Y to inhibit expensive $keyword.$extension
@@ -531,11 +531,7 @@ know:
 
   * Scan resume option, better runtime info.
 
-  * Option to limit document sampling or save samples directly to disk.
-
   * Standalone installation (make install) support.
-
-  * Config file support.
 
   * Scheduling and management web UI.
 

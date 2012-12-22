@@ -30,6 +30,7 @@
 #include "crawler.h"
 #include "analysis.h"
 #include "signatures.h"
+#include "report.h"
 #include "pcre.h"
 
 u8  no_parse,            /* Disable HTML link detection */
@@ -325,13 +326,19 @@ static u8* html_decode_param(u8* url, u8 also_js) {
 
 /* Macro to find and move past parameter name (saves result in
    _store, NULL if not found). Buffer needs to be NUL-terminated
-   at nearest >. */
+   at nearest >.  The macro supports the "name\s*=aaa" cases.  */
 
 #define FIND_AND_MOVE(_store, _val, _param) { \
     (_store) = inl_strcasestr((u8*)_val, (u8*)_param); \
     if (_store) { \
-      if (!isspace((_store)[-1])) (_store) = NULL; \
-      else (_store) += strlen((char*)_param); \
+      if (!isspace((_store)[-1])) { \
+        (_store) = NULL; \
+      } else { \
+        (_store) += strlen((char*)_param); \
+        while (_store && isspace((_store)[0])) (_store)++; \
+        if (_store && (_store)[0] == '=') (_store)++; \
+        else (_store) = NULL; \
+      } \
     } \
  } while (0)
 
@@ -480,9 +487,9 @@ void collect_form_data(struct http_request* req,
         u8 *tag_name, *tag_value, *tag_type, *clean_name = NULL,
            *clean_value = NULL;
 
-        FIND_AND_MOVE(tag_name, cur_str, "name=");
-        FIND_AND_MOVE(tag_value, cur_str, "value=");
-        FIND_AND_MOVE(tag_type, cur_str, "type=");
+        FIND_AND_MOVE(tag_name, cur_str, "name");
+        FIND_AND_MOVE(tag_value, cur_str, "value");
+        FIND_AND_MOVE(tag_type, cur_str, "type");
 
         if (!tag_name) goto next_tag;
 
@@ -494,6 +501,7 @@ void collect_form_data(struct http_request* req,
         if (tag_value) {
           EXTRACT_ALLOC_VAL(tag_value, tag_value);
           clean_value = html_decode_param(tag_value, 0);
+
           ck_free(tag_value);
           tag_value = 0;
         }
@@ -585,7 +593,7 @@ final_checks:
 
   if (pass_form) {
 
-    if (warn_mixed && (req->proto != PROTO_HTTPS || orig_req->proto != PROTO_HTTPS)) 
+    if (warn_mixed && (req->proto != PROTO_HTTPS || orig_req->proto != PROTO_HTTPS))
       problem(PROB_PASS_NOSSL, req, orig_res, NULL, req->pivot, 0);
     else
       problem(PROB_PASS_FORM, req, orig_res, NULL, req->pivot, 0);
@@ -643,6 +651,7 @@ static u8 is_mostly_ascii(struct http_response* res) {
 
 struct http_request* make_form_req(struct http_request *req,
                                    struct http_request *base,
+                                   struct http_response *res,
                                    u8* cur_str, u8* target) {
 
   u8 *method, *clean_url;
@@ -650,8 +659,8 @@ struct http_request* make_form_req(struct http_request *req,
   struct http_request* n;
   u8 parse_form = 1;
 
-  FIND_AND_MOVE(dirty_url, cur_str, "action=");
-  FIND_AND_MOVE(method, cur_str, "method=");
+  FIND_AND_MOVE(dirty_url, cur_str, "action");
+  FIND_AND_MOVE(method, cur_str, "method");
 
   /* See if we need to POST this form or not. */
 
@@ -676,6 +685,9 @@ struct http_request* make_form_req(struct http_request *req,
 
   clean_url = html_decode_param(dirty_url, 0);
   ck_free(dirty_url);
+
+  /* Add to the pivot's so we can test it later */
+  test_add_link(clean_url, base ? base : req, res, 4, 1);
 
   n = ck_alloc(sizeof(struct http_request));
 
@@ -769,7 +781,7 @@ void scrape_response(struct http_request* req, struct http_response* res) {
       if (ISTAG(cur_str, "meta")) {
 
         link_type = 1;
-        FIND_AND_MOVE(dirty_url, cur_str, "content=");
+        FIND_AND_MOVE(dirty_url, cur_str, "content");
 
         if (dirty_url) {
           EXTRACT_ALLOC_VAL(meta_url, dirty_url);
@@ -780,42 +792,42 @@ void scrape_response(struct http_request* req, struct http_response* res) {
       } else if (ISTAG(cur_str, "img")) {
 
         link_type = 2;
-        FIND_AND_MOVE(dirty_url, cur_str, "src=");
+        FIND_AND_MOVE(dirty_url, cur_str, "src");
 
       } else if (ISTAG(cur_str, "object") || ISTAG(cur_str, "embed") ||
                ISTAG(cur_str, "applet") || ISTAG(cur_str, "iframe") ||
                ISTAG(cur_str, "frame")) {
 
         link_type = 3;
-        FIND_AND_MOVE(dirty_url, cur_str, "src=");
-        if (!dirty_url) FIND_AND_MOVE(dirty_url, cur_str, "codebase=");
+        FIND_AND_MOVE(dirty_url, cur_str, "src");
+        if (!dirty_url) FIND_AND_MOVE(dirty_url, cur_str, "codebase");
 
       } else if (ISTAG(cur_str, "param") && inl_strcasestr(cur_str,
                  (u8*)"movie")) {
 
         link_type = 3;
-        FIND_AND_MOVE(dirty_url, cur_str, "value=");
+        FIND_AND_MOVE(dirty_url, cur_str, "value");
 
       } else if (ISTAG(cur_str, "script")) {
 
         link_type = 4;
-        FIND_AND_MOVE(dirty_url, cur_str, "src=");
+        FIND_AND_MOVE(dirty_url, cur_str, "src");
 
       } else if (ISTAG(cur_str, "link") && inl_strcasestr(cur_str,
                  (u8*)"stylesheet")) {
 
         link_type = 4;
-        FIND_AND_MOVE(dirty_url, cur_str, "href=");
+        FIND_AND_MOVE(dirty_url, cur_str, "href");
 
       } else if (ISTAG(cur_str, "base")) {
 
         set_base = 1;
-        FIND_AND_MOVE(dirty_url, cur_str, "href=");
+        FIND_AND_MOVE(dirty_url, cur_str, "href");
 
       } else if (ISTAG(cur_str, "form")) {
 
         /* Parse the form and kick off a new pivot for further testing */
-        struct http_request* n = make_form_req(req, base, cur_str, NULL);
+        struct http_request* n = make_form_req(req, base, res, cur_str, NULL);
         if (n) {
           if (url_allowed(n) && R(100) < crawl_prob && !no_forms) {
             is_post = (n->method && !strcmp((char*)n->method, "POST"));
@@ -831,8 +843,8 @@ void scrape_response(struct http_request* req, struct http_response* res) {
         /* All other tags - other <link> types, <a>, <bgsound> -
            are handled in a generic way. */
 
-        FIND_AND_MOVE(dirty_url, cur_str, "href=");
-        if (!dirty_url) FIND_AND_MOVE(dirty_url, cur_str, "src=");
+        FIND_AND_MOVE(dirty_url, cur_str, "href");
+        if (!dirty_url) FIND_AND_MOVE(dirty_url, cur_str, "src");
 
       }
 
@@ -1300,8 +1312,8 @@ static void check_js_xss(struct http_request* req, struct http_response* res,
 
       if ((!prefix(last_word, "innerHTML") ||
           !prefix(last_word, "open") ||
-          !prefix(last_word, "url") ||
-          !prefix(last_word, "href") ||
+          !case_prefix(last_word, "url") ||
+          !case_prefix(last_word, "href") ||
           !prefix(last_word, "write")) &&
           (!case_prefix(text + 1,"//skipfish.invalid/") ||
           !case_prefix(text + 1,"http://skipfish.invalid/") ||
@@ -1318,9 +1330,9 @@ static void check_js_xss(struct http_request* req, struct http_response* res,
                        !case_prefix(end_quote + 1,"fish\"\"\"")))
         problem(PROB_URL_XSS, req, res, (u8*)"injected string in JS/CSS code (quote escaping issue)", req->pivot, 0);
 
-      if(end_quote && (!prefix(last_word, "on") ||
-                       !prefix(last_word, "url") ||
-                       !prefix(last_word, "href")) &&
+      if(end_quote && (!case_prefix(last_word, "on") ||
+                       !case_prefix(last_word, "url") ||
+                       !case_prefix(last_word, "href")) &&
          (!case_prefix(end_quote + 1,"skip&apos;&apos;&apos;") ||
           !case_prefix(end_quote + 1,"skip&#x27;&#x27;&#x27;") ||
           !case_prefix(end_quote + 1,"skip&quot;&quot;&quot;") ||
@@ -1468,6 +1480,10 @@ u8 content_checks(struct http_request* req, struct http_response* res) {
   u8  high_risk = 0;
 
   DEBUG_CALLBACK(req, res);
+
+  /* Return immediately if there is no meat */
+  if (!res->payload || !res->pay_len)
+    return 0;
 
   /* CHECK 0: signature matching */
   match_signatures(req, res);
@@ -1701,9 +1717,35 @@ u8 content_checks(struct http_request* req, struct http_response* res) {
         if ((!strcasecmp((char*)param_name, "href") ||
             !strcasecmp((char*)param_name, "src") ||
             !strcasecmp((char*)param_name, "action") ||
-            (!strcasecmp((char*)param_name, "value") && 
-             strcasecmp((char*)tag_name, "input")) ||
-            !strcasecmp((char*)param_name, "codebase")) && clean_val) {
+            !strcasecmp((char*)param_name, "cite") ||
+            !strcasecmp((char*)param_name, "longdesc") ||
+            /* <object classid data codebase */
+            (!strcasecmp((char*)tag_name, "object") &&
+             (!strcasecmp((char*)param_name, "classid") ||
+              !strcasecmp((char*)param_name, "data"))) ||
+
+            /* html5 formaction */
+            ((!strcasecmp((char*)tag_name, "button") ||
+              !strcasecmp((char*)tag_name, "input")) &&
+             !strcasecmp((char*)param_name, "formaction")) ||
+
+            /* html5 <html manifest= */
+            (!strcasecmp((char*)tag_name, "html") &&
+             !strcasecmp((char*)param_name, "manifest")) ||
+
+            /* html5 <video poster= */
+            (!strcasecmp((char*)tag_name, "video") &&
+             !strcasecmp((char*)param_name, "poster")) ||
+
+            /* <head profile= */
+            (!strcasecmp((char*)tag_name, "head") &&
+             !strcasecmp((char*)param_name, "profile")) ||
+
+            /* <applet/object codebase= */
+            ((!strcasecmp((char*)tag_name, "object") ||
+             !strcasecmp((char*)tag_name, "applet")) &&
+             !strcasecmp((char*)param_name, "codebase")))
+             && clean_val) {
 
           /* Check links with the javascript scheme */
           if (!case_prefix(clean_val, "javascript:") ||
@@ -1746,15 +1788,19 @@ u8 content_checks(struct http_request* req, struct http_response* res) {
             if (*url == '\'' || *url == '"') { url++; semi_safe = 1; }
 
             if (!case_prefix(url, "http://skipfish.invalid/") ||
-                !case_prefix(url, "//skipfish.invalid/"))
+                !case_prefix(url, "//skipfish.invalid/") ||
+                !case_prefix(url, "skipfish:"))
               problem(PROB_URL_REDIR, req, res, (u8*)"injected URL in META refresh",
                       req->pivot, 0);
 
-            /* Unescaped semicolon in Refresh headers is unsafe with MSIE6. */
+            /* Unescaped semicolon in Refresh headers is unsafe with
+               MSIE6: injecting an extra URL with javascript: scheme can
+               lead to an XSS */
 
-           if (!case_prefix(url, "skipfish:") ||
-               (!semi_safe && strchr((char*)url, ';')))
-             problem(PROB_URL_XSS, req, res, (u8*)"injected URL in META refresh",
+           if ((strstr((char*)url, "/invalid/;") ||
+               inl_strcasestr(url, (u8*)"%2finvalid%2f;")) &&
+               !semi_safe)
+             problem(PROB_URL_REDIR, req, res, (u8*)"unescaped semi-colon in META refresh (IE6)",
                      req->pivot, 0);
 
           } else {
@@ -2467,24 +2513,34 @@ static void check_for_stuff(struct http_request* req,
 
 }
 
-
-/* Deletes payload of binary responses if requested. This is called when pivot
-   enters PSTATE_DONE. */
+/* This is called when pivot enters PSTATE_DONE. It deletes payload of
+   binary responses if requested and can flush pivot payloads to disk.  */
 
 void maybe_delete_payload(struct pivot_desc* pv) {
   u8  tmp[64];
   u32 i;
 
-  if (pv->res && pv->res->pay_len > 256 && !is_mostly_ascii(pv->res)) {
+  /* Return if there is nothing we should do */
+  if (!delete_bin && !flush_pivot_data)
+    return;
+
+  /* Delete binary payload when desired */
+  if (delete_bin && pv->res && pv->res->pay_len > 256 && 
+      !is_mostly_ascii(pv->res)) {
+
     ck_free(pv->res->payload);
     sprintf((char*)tmp, "[Deleted binary payload (%u bytes)]", pv->res->pay_len);
     pv->res->payload = ck_strdup(tmp);
     pv->res->pay_len = strlen((char*)tmp);
   }
 
+  /* Flush issue req/res payloads */
+  if (flush_pivot_data)
+    flush_payload(pv->req, pv->res);
+
   for (i=0;i<pv->issue_cnt;i++) {
 
-    if (pv->issue[i].res && pv->issue[i].res->pay_len > 256 && 
+    if (delete_bin && pv->issue[i].res && pv->issue[i].res->pay_len > 256 && 
         !is_mostly_ascii(pv->issue[i].res)) {
       ck_free(pv->issue[i].res->payload);
       sprintf((char*)tmp, "[Deleted binary payload (%u bytes)]", 
@@ -2493,6 +2549,9 @@ void maybe_delete_payload(struct pivot_desc* pv) {
       pv->issue[i].res->pay_len = strlen((char*)tmp);
     }
 
-  }
+    /* Flush pivot req/res payloads */
+    if (flush_pivot_data)
+      flush_payload(pv->issue[i].req, pv->issue[i].res);
 
+  }
 }

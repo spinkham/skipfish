@@ -88,6 +88,9 @@ struct pivot_desc {
 
   struct http_request* req;                     /* Prototype HTTP request    */
 
+  u8 browsers;                                  /* Discovered user-agents    */
+  u8 browser;                                   /* The used user-agent       */
+
   s32  fuzz_par;                                /* Fuzz target parameter     */
   u8** try_list;                                /* Values to try             */
   u32  try_cnt;                                 /* Number of values to try   */
@@ -139,7 +142,7 @@ struct pivot_desc {
 
   /* Injection attack logic scratchpad: */
 
-#define MISC_ENTRIES 15
+#define MISC_ENTRIES 64
 
   struct http_request*  misc_req[MISC_ENTRIES]; /* Saved requests            */
   struct http_response* misc_res[MISC_ENTRIES]; /* Saved responses           */
@@ -290,6 +293,7 @@ void remove_issue(struct pivot_desc *pv, u32 type);
 #define PROB_CACHE_LOW          30701           /* Cache nit-picking         */
 
 #define PROB_PROLOGUE           30801           /* User-supplied prologue    */
+#define PROB_XSS_VECTOR         30802           /* XSS vector, lower risk    */
 
 #define PROB_HEADER_INJECT      30901           /* Injected string in header */
 
@@ -330,7 +334,7 @@ void remove_issue(struct pivot_desc *pv, u32 type);
 #define PROB_FMT_STRING         50104           /* Format string attack      */
 #define PROB_INT_OVER           50105           /* Integer overflow attack   */
 #define PROB_FI_LOCAL           50106           /* Local file inclusion      */
-#define PROB_FI_REMOTE          50107           /* Local remote inclusion    */
+#define PROB_FI_REMOTE          50107           /* Remote file inclusion     */
 
 #define PROB_SQL_PARAM          50201           /* SQL-like parameter        */
 
@@ -471,14 +475,6 @@ void problem(u32 type, struct http_request* req, struct http_response* res,
 /* Compare the checksums for two responses: */
 
 u8 same_page(struct http_sig* sig1, struct http_sig* sig2);
-
-/* URL filtering constraints (exported from database.c): */
-
-#define APPEND_FILTER(_ptr, _cnt, _val) do { \
-   (_ptr) = ck_realloc(_ptr, ((_cnt) + 1) * sizeof(u8*)); \
-   (_ptr)[_cnt] = (u8*)(_val); \
-   (_cnt)++; \
- } while (0)
 
 extern u8 **deny_urls, **allow_urls, **allow_domains,
           **trust_domains, **skip_params;

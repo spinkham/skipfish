@@ -37,6 +37,7 @@ u32 crawl_prob = 100;    /* Crawl probability (1-100%)     */
 u8  no_fuzz_ext;         /* Don't fuzz extensions for dirs */
 u8  no_500_dir;          /* Don't crawl 500 directories    */
 u8  delete_bin;          /* Don't keep binary responses    */
+u8  flush_pivot_data;    /* Flush pivot data to disk       */
 
 /*
 
@@ -574,7 +575,7 @@ static void param_start(struct pivot_desc* pv) {
 
   if (pv->fuzz_par < 0 || !url_allowed(pv->req) || !param_allowed(pv->name)) {
     pv->state = PSTATE_DONE;
-    if (delete_bin) maybe_delete_payload(pv);
+    maybe_delete_payload(pv);
     return;
   }
 
@@ -606,7 +607,7 @@ void inject_done(struct pivot_desc* pv) {
     } else {
 
       pv->state = PSTATE_DONE;
-      if (delete_bin) maybe_delete_payload(pv);
+      maybe_delete_payload(pv);
       return;
 
     }
@@ -615,7 +616,7 @@ void inject_done(struct pivot_desc* pv) {
 
     if (pv->bogus_par || pv->res_varies) {
       pv->state = PSTATE_DONE;
-      if (delete_bin) maybe_delete_payload(pv);
+      maybe_delete_payload(pv);
     } else {
       param_numerical_start(pv);
     }
@@ -755,13 +756,13 @@ static u8 param_numerical_check(struct http_request* req,
 
   req->pivot = n;
 
-  RESP_CHECKS(req, res);
-
   secondary_ext_start(orig_pv, req, res, 1);
 
-  if (delete_bin) maybe_delete_payload(n);
+  maybe_delete_payload(n);
 
 schedule_next:
+
+  RESP_CHECKS(req, res);
 
   if (!(--(orig_pv->num_pending))) {
     orig_pv->state = PSTATE_PAR_DICT;
@@ -947,14 +948,14 @@ static u8 param_dict_check(struct http_request* req,
 
   keep = 1;
 
-  RESP_CHECKS(req, res);
-
   if (!req->user_val)
     secondary_ext_start(orig_pv, req, res, 1);
 
-  if (delete_bin) maybe_delete_payload(n);
+  maybe_delete_payload(n);
 
 schedule_next:
+
+  RESP_CHECKS(req, res);
 
   if (!req->user_val) 
     param_dict_start(orig_pv);
@@ -974,7 +975,7 @@ void param_trylist_start(struct pivot_desc* pv) {
       || !descendants_ok(pv)) {
 
     pv->state = PSTATE_DONE;
-    if (delete_bin) maybe_delete_payload(pv);
+    maybe_delete_payload(pv);
 
     return;
   } else
@@ -1021,7 +1022,7 @@ void param_trylist_start(struct pivot_desc* pv) {
 
   if (!pv->try_pending) {
     pv->state = PSTATE_DONE;
-    if (delete_bin) maybe_delete_payload(pv);
+    maybe_delete_payload(pv);
     return;
   }
 
@@ -1082,17 +1083,17 @@ static u8 param_trylist_check(struct http_request* req,
 
   req->pivot = n;
 
-  RESP_CHECKS(req, res);
-
   secondary_ext_start(orig_pv, req, res, 1);
 
-  if (delete_bin) maybe_delete_payload(n);
+  maybe_delete_payload(n);
 
 schedule_next:
 
+  RESP_CHECKS(req, res);
+
   if (!(--(orig_pv->try_pending))) {
     orig_pv->state = PSTATE_DONE;
-    if (delete_bin) maybe_delete_payload(orig_pv);
+    maybe_delete_payload(orig_pv);
   }
 
   /* Copied over to pivot. */

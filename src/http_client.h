@@ -36,6 +36,7 @@ struct param_array {
   u8*  t;                       /* Type  */
   u8** n;                       /* Name  */
   u8** v;                       /* Value */
+  u8** h;                       /* Host  */
   u32  c;                       /* Count */
 };
 
@@ -126,13 +127,21 @@ struct http_request {
   u8* trying_key;               /* Current keyword ptr          */
   u8  trying_spec;              /* Keyword specificity info     */
 
+  u32 check_id;                 /* Injection test ID            */
+  u32 check_subid;              /* Injection test subid         */
+
   /* Used by injection tests: */
 
   u8* fuzz_par_enc;             /* Fuzz target encoding         */
   u8 no_cookies;                /* Don't send cookies           */
 
+  u8 browser;                   /* Use specified user-agent  */
+
   u32 start_time;               /* Request start time           */
   u32 end_time;                 /* Request end time             */
+
+  u8  flushed;                  /* Data is flushed to disk?  */
+  u8* flush_dir;                /* Location of data on disk  */
 
 };
 
@@ -193,6 +202,9 @@ struct http_response {
   u8  json_safe;                /* 0 - no, 1 - yes              */
   u8  stuff_checked;            /* check_stuff() called?        */
   u8  scraped;                  /* scrape_response() called?    */
+
+  u8  flushed;                  /* Data is flushed to disk?  */
+  u8* flush_dir;                /* Location of data on disk  */
 
 };
 
@@ -430,7 +442,7 @@ extern u8  ignore_cookies,
 #define BROWSER_FAST    0       /* Minimimal HTTP headers       */
 #define BROWSER_MSIE    1       /* Try to mimic MSIE            */
 #define BROWSER_FFOX    2       /* Try to mimic Firefox         */
-#define BROWSER_PHONE   3       /* Try to mimic iPhone          */
+#define BROWSER_PHONE   4       /* Try to mimic iPhone          */
 
 extern u8 browser_type;
 
@@ -438,6 +450,7 @@ extern u8 browser_type;
 
 #define AUTH_NONE       0       /* No authentication            */
 #define AUTH_BASIC      1       /* 'Basic' HTTP auth            */
+#define AUTH_FORM       2       /* Form HTTP auth               */
 
 extern u8 auth_type;
 

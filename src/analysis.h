@@ -91,6 +91,7 @@ void collect_form_data(struct http_request* req,
 
 struct http_request* make_form_req(struct http_request *req,
                                    struct http_request *base,
+                                   struct http_response* res,
                                    u8* cur_str, u8* target);
 
 /* MIME detector output codes: */

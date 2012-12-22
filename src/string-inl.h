@@ -61,6 +61,13 @@
   strncasecmp((const char*)(_long), (const char*)(_short), \
               strlen((const char*)(_short)))
 
+/* Appends a string to a dynamic array by first extending it. */
+
+#define APPEND_STRING(_ptr, _cnt, _val) do { \
+   (_ptr) = ck_realloc(_ptr, ((_cnt) + 1) * sizeof(u8*)); \
+   (_ptr)[_cnt] = (u8*)(_val); \
+   (_cnt)++; \
+ } while (0)
 
 /* Modified NetBSD strcasestr() implementation (rolling strncasecmp). */
 
