@@ -33,13 +33,13 @@ IFILES     = alloc-inl.h string-inl.h debug.h types.h http_client.h \
 OBJFILES   = $(patsubst %,$(SRCDIR)/%,$(SFILES))
 INCFILES   = $(patsubst %,$(SRCDIR)/%,$(IFILES))
 
-CFLAGS_GEN = -Wall -funsigned-char -g -ggdb -I/usr/local/include/ \
+CFLAGS_GEN = -Wall -funsigned-char -g -ggdb -I/opt/homebrew/opt/openssl@1.0/include -I/opt/homebrew/Cellar/libidn/1.41/include -I/usr/local/include/ \
              -I/opt/local/include/ $(CFLAGS) -DVERSION=\"$(VERSION)\"
 CFLAGS_DBG = -DLOG_STDERR=1 -DDEBUG_ALLOCATOR=1 \
              $(CFLAGS_GEN)
 CFLAGS_OPT =  -O3 -Wno-format $(CFLAGS_GEN)
 
-LDFLAGS   += -L/usr/local/lib/ -L/opt/local/lib
+LDFLAGS   += -L/opt/homebrew/opt/openssl@1.0/lib -L/opt/homebrew/Cellar/libidn/1.41/lib -L/usr/local/lib/
 LIBS      += -lcrypto -lssl -lidn -lz -lpcre
 
 all: $(PROGNAME)
